@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -10,7 +10,20 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Users, Gift, Eye, UserPlus, Copy, Check, Lightbulb } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
+import { Users, Gift, Eye, UserPlus, Copy, Check, Lightbulb, Mail, Send } from "lucide-react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { apiRequest } from "@/lib/queryClient";
+
+const inviteEmailSchema = z.object({
+  email: z.string().email("Please enter a valid email address"),
+});
+
+type InviteEmailForm = z.infer<typeof inviteEmailSchema>;
 
 export default function Members() {
   const { toast } = useToast();
@@ -22,6 +35,34 @@ export default function Members() {
   const [copiedLink, setCopiedLink] = useState(false);
   
   const selectedFamily = families?.find((f: any) => f.id === selectedFamilyId);
+
+  const form = useForm<InviteEmailForm>({
+    resolver: zodResolver(inviteEmailSchema),
+    defaultValues: {
+      email: "",
+    },
+  });
+
+  const sendInviteMutation = useMutation({
+    mutationFn: async (data: InviteEmailForm) => {
+      if (!selectedFamilyId) throw new Error("No family selected");
+      return apiRequest("POST", `/api/families/${selectedFamilyId}/invitations`, data);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Invitation sent!",
+        description: "The invite email has been sent successfully.",
+      });
+      form.reset();
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to send invitation",
+        description: error.message || "There was a problem sending the invite email.",
+        variant: "destructive",
+      });
+    },
+  });
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -118,61 +159,109 @@ export default function Members() {
             <DialogHeader>
               <DialogTitle>Invite Family Member</DialogTitle>
               <DialogDescription>
-                Share this invite code or link with your family member to join {selectedFamily?.name || "your family group"}
+                Send an invitation email or share the invite code/link with your family member
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4">
+            <div className="space-y-6">
               {selectedFamily?.inviteCode ? (
                 <>
-                  <div>
-                    <label className="text-sm font-medium mb-2 block">Invite Code</label>
-                    <div className="flex gap-2">
-                      <Input
-                        readOnly
-                        value={selectedFamily.inviteCode}
-                        className="font-mono text-lg"
-                        data-testid="input-invite-code"
-                      />
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={handleCopyCode}
-                        data-testid="button-copy-code"
-                      >
-                        {copiedCode ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                      </Button>
+                  {/* Email Invitation Section */}
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2">
+                      <Mail className="w-5 h-5 text-primary" />
+                      <h3 className="font-semibold text-foreground">Send Invitation Email</h3>
                     </div>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      They can use this code on the "Join Family" page
-                    </p>
+                    <Form {...form}>
+                      <form onSubmit={form.handleSubmit((data) => sendInviteMutation.mutate(data))} className="space-y-4">
+                        <FormField
+                          control={form.control}
+                          name="email"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Email Address</FormLabel>
+                              <FormControl>
+                                <Input
+                                  {...field}
+                                  type="email"
+                                  placeholder="family@example.com"
+                                  data-testid="input-invite-email"
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <Button
+                          type="submit"
+                          disabled={sendInviteMutation.isPending}
+                          className="w-full"
+                          data-testid="button-send-invite-email"
+                        >
+                          {sendInviteMutation.isPending ? (
+                            <>Sending...</>
+                          ) : (
+                            <>
+                              <Send className="w-4 h-4 mr-2" />
+                              Send Invitation
+                            </>
+                          )}
+                        </Button>
+                      </form>
+                    </Form>
                   </div>
-                  <div>
-                    <label className="text-sm font-medium mb-2 block">Invite Link</label>
-                    <div className="flex gap-2">
-                      <Input
-                        readOnly
-                        value={`${window.location.origin}/families/join?code=${selectedFamily.inviteCode}`}
-                        className="text-sm"
-                        data-testid="input-invite-link"
-                      />
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={handleCopyLink}
-                        data-testid="button-copy-link"
-                      >
-                        {copiedLink ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                      </Button>
+
+                  <Separator />
+
+                  {/* Manual Share Section */}
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2">
+                      <Copy className="w-5 h-5 text-primary" />
+                      <h3 className="font-semibold text-foreground">Or Share Manually</h3>
                     </div>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Share this link and they'll be taken directly to the join page
-                    </p>
-                  </div>
-                  <div className="p-4 bg-muted rounded-md flex items-start gap-3">
-                    <Lightbulb className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
-                    <p className="text-sm text-muted-foreground">
-                      <strong>Tip:</strong> Copy the invite link and send it via email, text message, or your preferred messaging app!
-                    </p>
+                    <div>
+                      <Label className="text-sm font-medium mb-2 block">Invite Code</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          readOnly
+                          value={selectedFamily.inviteCode}
+                          className="font-mono text-lg"
+                          data-testid="input-invite-code"
+                        />
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={handleCopyCode}
+                          data-testid="button-copy-code"
+                        >
+                          {copiedCode ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                        </Button>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        They can use this code on the "Join Family" page
+                      </p>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium mb-2 block">Invite Link</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          readOnly
+                          value={`${window.location.origin}/families/join?code=${selectedFamily.inviteCode}`}
+                          className="text-sm"
+                          data-testid="input-invite-link"
+                        />
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={handleCopyLink}
+                          data-testid="button-copy-link"
+                        >
+                          {copiedLink ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                        </Button>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Share this link and they'll be taken directly to the join page
+                      </p>
+                    </div>
                   </div>
                 </>
               ) : (
@@ -205,7 +294,7 @@ export default function Members() {
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {members.map((member: any) => {
-            const isCurrentUser = member.userId === user?.id;
+            const isCurrentUser = user && member.userId === (user as any).id;
             return (
               <Card
                 key={member.userId}

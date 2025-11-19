@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { z } from "zod";
 import { randomBytes } from "crypto";
+import { sendInviteEmail } from "./emailService";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
@@ -87,6 +88,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching families:", error);
       res.status(500).json({ message: "Failed to fetch families" });
+    }
+  });
+
+  // Send family invitation email
+  app.post('/api/families/:familyId/invitations', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { familyId } = req.params;
+      const { email } = req.body;
+
+      // Validate email
+      const emailSchema = z.string().email();
+      const validationResult = emailSchema.safeParse(email);
+      if (!validationResult.success) {
+        return res.status(400).json({ message: "Valid email address is required" });
+      }
+
+      // Verify user is a member of the family
+      const member = await storage.getFamilyMember(familyId, userId);
+      if (!member) {
+        return res.status(403).json({ message: "You must be a member of this family to send invitations" });
+      }
+
+      // Get family details
+      const families = await storage.getUserFamilies(userId);
+      const family = families.find((f: any) => f.id === familyId);
+      if (!family) {
+        return res.status(404).json({ message: "Family not found" });
+      }
+
+      if (!family.inviteCode) {
+        return res.status(500).json({ message: "Family invite code is missing" });
+      }
+
+      // Get user details for the "from" name
+      const user = await storage.getUser(userId);
+      const inviterName = user ? `${user.firstName} ${user.lastName}` : 'A family member';
+
+      // Generate invite link
+      const baseUrl = process.env.REPL_SLUG 
+        ? `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`
+        : req.protocol + '://' + req.get('host');
+      const inviteLink = `${baseUrl}/families/join?code=${family.inviteCode}`;
+
+      // Send the email
+      const result = await sendInviteEmail({
+        to: email,
+        familyName: family.name,
+        inviterName,
+        inviteCode: family.inviteCode,
+        inviteLink,
+      });
+
+      if (!result.success) {
+        return res.status(500).json({ message: result.error || "Failed to send invitation email" });
+      }
+
+      res.json({ message: "Invitation sent successfully" });
+    } catch (error) {
+      console.error("Error sending invitation:", error);
+      res.status(500).json({ message: "Failed to send invitation" });
     }
   });
 
