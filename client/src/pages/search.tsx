@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -17,6 +17,12 @@ export default function Search() {
   const { selectedFamilyId } = useFamily();
   const [searchQuery, setSearchQuery] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
+  
+  // Use a ref to always get the current selectedFamilyId (prevents stale closure bugs)
+  const selectedFamilyIdRef = useRef(selectedFamilyId);
+  useEffect(() => {
+    selectedFamilyIdRef.current = selectedFamilyId;
+  }, [selectedFamilyId]);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -58,12 +64,13 @@ export default function Search() {
         priority: "medium",
         quantity: 1,
         category: null,
-        familyId: selectedFamilyId,
+        familyId: selectedFamilyIdRef.current,
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/wishlist", selectedFamilyId] });
-      queryClient.invalidateQueries({ queryKey: ["/api/stats", selectedFamilyId] });
+      const currentFamilyId = selectedFamilyIdRef.current;
+      queryClient.invalidateQueries({ queryKey: ["/api/wishlist", currentFamilyId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats", currentFamilyId] });
       toast({
         title: "Success",
         description: "Item added to your wishlist!",

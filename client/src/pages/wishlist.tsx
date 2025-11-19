@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -41,7 +41,7 @@ export default function Wishlist() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-
+  
   const form = useForm<AddItemFormData>({
     resolver: zodResolver(addItemSchema),
     defaultValues: {
@@ -55,6 +55,16 @@ export default function Wishlist() {
       category: undefined,
     },
   });
+  
+  // Use a ref to always get the current selectedFamilyId (prevents stale closure bugs)
+  const selectedFamilyIdRef = useRef(selectedFamilyId);
+  useEffect(() => {
+    selectedFamilyIdRef.current = selectedFamilyId;
+    // Clear editing state when family changes to prevent editing items from wrong family
+    setEditingItem(null);
+    setIsAddDialogOpen(false);
+    form.reset();
+  }, [selectedFamilyId, form]);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -91,12 +101,13 @@ export default function Wishlist() {
       return await apiRequest("POST", "/api/wishlist", {
         ...data,
         price: data.price ? parseFloat(data.price) : null,
-        familyId: selectedFamilyId,
+        familyId: selectedFamilyIdRef.current,
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/wishlist", selectedFamilyId] });
-      queryClient.invalidateQueries({ queryKey: ["/api/stats", selectedFamilyId] });
+      const currentFamilyId = selectedFamilyIdRef.current;
+      queryClient.invalidateQueries({ queryKey: ["/api/wishlist", currentFamilyId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats", currentFamilyId] });
       toast({
         title: "Success",
         description: "Item added to your wishlist!",
@@ -132,7 +143,8 @@ export default function Wishlist() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/wishlist", selectedFamilyId] });
+      const currentFamilyId = selectedFamilyIdRef.current;
+      queryClient.invalidateQueries({ queryKey: ["/api/wishlist", currentFamilyId] });
       toast({
         title: "Success",
         description: "Item updated successfully!",
@@ -165,8 +177,9 @@ export default function Wishlist() {
       return await apiRequest("DELETE", `/api/wishlist/${id}`, {});
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/wishlist", selectedFamilyId] });
-      queryClient.invalidateQueries({ queryKey: ["/api/stats", selectedFamilyId] });
+      const currentFamilyId = selectedFamilyIdRef.current;
+      queryClient.invalidateQueries({ queryKey: ["/api/wishlist", currentFamilyId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats", currentFamilyId] });
       toast({
         title: "Success",
         description: "Item removed from wishlist",

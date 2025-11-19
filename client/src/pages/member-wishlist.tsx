@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useRoute, useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
@@ -26,6 +26,12 @@ export default function MemberWishlist() {
   const [purchaseNotes, setPurchaseNotes] = useState<Record<string, string>>({});
   const [openNoteDialog, setOpenNoteDialog] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  
+  // Use a ref to always get the current selectedFamilyId (prevents stale closure bugs)
+  const selectedFamilyIdRef = useRef(selectedFamilyId);
+  useEffect(() => {
+    selectedFamilyIdRef.current = selectedFamilyId;
+  }, [selectedFamilyId]);
 
   const userId = params?.userId;
 
@@ -80,8 +86,9 @@ export default function MemberWishlist() {
       return await apiRequest("POST", `/api/wishlist/${itemId}/purchase`, { notes });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/members", userId, "wishlist", selectedFamilyId] });
-      queryClient.invalidateQueries({ queryKey: ["/api/stats", selectedFamilyId] });
+      const currentFamilyId = selectedFamilyIdRef.current;
+      queryClient.invalidateQueries({ queryKey: ["/api/members", userId, "wishlist", currentFamilyId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats", currentFamilyId] });
       toast({
         title: "Success",
         description: "Item marked as purchased!",
@@ -114,8 +121,9 @@ export default function MemberWishlist() {
       return await apiRequest("DELETE", `/api/wishlist/${itemId}/purchase`, {});
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/members", userId, "wishlist", selectedFamilyId] });
-      queryClient.invalidateQueries({ queryKey: ["/api/stats", selectedFamilyId] });
+      const currentFamilyId = selectedFamilyIdRef.current;
+      queryClient.invalidateQueries({ queryKey: ["/api/members", userId, "wishlist", currentFamilyId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats", currentFamilyId] });
       toast({
         title: "Success",
         description: "Purchase marking removed",
