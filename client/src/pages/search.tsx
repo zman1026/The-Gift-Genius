@@ -40,6 +40,15 @@ export default function Search() {
 
   const { data: results, isLoading, refetch } = useQuery({
     queryKey: ["/api/search", searchTerm],
+    queryFn: async () => {
+      const response = await fetch(`/api/search?q=${encodeURIComponent(searchTerm)}`, {
+        credentials: "include",
+      });
+      if (!response.ok) {
+        throw new Error("Failed to search products");
+      }
+      return response.json();
+    },
     enabled: searchTerm.length > 0,
     retry: false,
   });
