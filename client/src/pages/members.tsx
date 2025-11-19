@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
@@ -8,13 +8,20 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Users, Gift, Eye } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Users, Gift, Eye, UserPlus, Copy, Check, Lightbulb } from "lucide-react";
 
 export default function Members() {
   const { toast } = useToast();
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
-  const { selectedFamilyId } = useFamily();
+  const { selectedFamilyId, families } = useFamily();
   const [, setLocation] = useLocation();
+  const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
+  const [copiedCode, setCopiedCode] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
+  
+  const selectedFamily = families?.find((f: any) => f.id === selectedFamilyId);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -65,16 +72,119 @@ export default function Members() {
   }
 
   const hasMembers = members && members.length > 0;
+  
+  const handleCopyCode = async () => {
+    if (selectedFamily?.inviteCode) {
+      await navigator.clipboard.writeText(selectedFamily.inviteCode);
+      setCopiedCode(true);
+      setTimeout(() => setCopiedCode(false), 2000);
+      toast({
+        title: "Copied!",
+        description: "Invite code copied to clipboard",
+      });
+    }
+  };
+  
+  const handleCopyLink = async () => {
+    const inviteUrl = `${window.location.origin}/families/join?code=${selectedFamily?.inviteCode}`;
+    await navigator.clipboard.writeText(inviteUrl);
+    setCopiedLink(true);
+    setTimeout(() => setCopiedLink(false), 2000);
+    toast({
+      title: "Copied!",
+      description: "Invite link copied to clipboard",
+    });
+  };
 
   return (
     <div className="p-6 md:p-8 lg:p-12 space-y-6">
-      <div>
-        <h1 className="font-serif text-3xl md:text-4xl font-semibold text-foreground">
-          Family Members
-        </h1>
-        <p className="text-muted-foreground mt-1">
-          View wishlists from all your family members
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="font-serif text-3xl md:text-4xl font-semibold text-foreground">
+            Family Members
+          </h1>
+          <p className="text-muted-foreground mt-1">
+            View wishlists from all your family members
+          </p>
+        </div>
+        <Dialog open={isInviteDialogOpen} onOpenChange={setIsInviteDialogOpen}>
+          <DialogTrigger asChild>
+            <Button data-testid="button-invite-member">
+              <UserPlus className="w-4 h-4 mr-2" />
+              Invite Member
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Invite Family Member</DialogTitle>
+              <DialogDescription>
+                Share this invite code or link with your family member to join {selectedFamily?.name || "your family group"}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              {selectedFamily?.inviteCode ? (
+                <>
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Invite Code</label>
+                    <div className="flex gap-2">
+                      <Input
+                        readOnly
+                        value={selectedFamily.inviteCode}
+                        className="font-mono text-lg"
+                        data-testid="input-invite-code"
+                      />
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={handleCopyCode}
+                        data-testid="button-copy-code"
+                      >
+                        {copiedCode ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      They can use this code on the "Join Family" page
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Invite Link</label>
+                    <div className="flex gap-2">
+                      <Input
+                        readOnly
+                        value={`${window.location.origin}/families/join?code=${selectedFamily.inviteCode}`}
+                        className="text-sm"
+                        data-testid="input-invite-link"
+                      />
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={handleCopyLink}
+                        data-testid="button-copy-link"
+                      >
+                        {copiedLink ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Share this link and they'll be taken directly to the join page
+                    </p>
+                  </div>
+                  <div className="p-4 bg-muted rounded-md flex items-start gap-3">
+                    <Lightbulb className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
+                    <p className="text-sm text-muted-foreground">
+                      <strong>Tip:</strong> Copy the invite link and send it via email, text message, or your preferred messaging app!
+                    </p>
+                  </div>
+                </>
+              ) : (
+                <div className="p-4 bg-muted rounded-md text-center">
+                  <p className="text-sm text-muted-foreground">
+                    No family selected or invite code unavailable.
+                  </p>
+                </div>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
 
       {!hasMembers ? (

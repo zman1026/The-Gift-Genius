@@ -14,10 +14,11 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Gift, Plus, Trash2, Edit, ExternalLink, AlertCircle, Circle, ArrowUp } from "lucide-react";
+import { Gift, Plus, Trash2, Edit, ExternalLink, AlertCircle, Circle, ArrowUp, Search } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { Link } from "wouter";
 
 const addItemSchema = z.object({
   name: z.string().min(1, "Item name is required").max(255),
@@ -266,13 +267,20 @@ export default function Wishlist() {
             Add items you'd love to receive this Christmas
           </p>
         </div>
-        <Dialog open={isAddDialogOpen || !!editingItem} onOpenChange={(open) => !open && handleCloseDialog()}>
-          <DialogTrigger asChild>
-            <Button onClick={() => setIsAddDialogOpen(true)} data-testid="button-add-item">
-              <Plus className="w-4 h-4 mr-2" />
-              Add Item
+        <div className="flex gap-3">
+          <Link href="/search">
+            <Button variant="outline" data-testid="button-search-products">
+              <Search className="w-4 h-4 mr-2" />
+              Search Products
             </Button>
-          </DialogTrigger>
+          </Link>
+          <Dialog open={isAddDialogOpen || !!editingItem} onOpenChange={(open) => !open && handleCloseDialog()}>
+            <DialogTrigger asChild>
+              <Button onClick={() => setIsAddDialogOpen(true)} data-testid="button-add-manually">
+                <Plus className="w-4 h-4 mr-2" />
+                Add Manually
+              </Button>
+            </DialogTrigger>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{editingItem ? "Edit Item" : "Add New Item"}</DialogTitle>
@@ -426,6 +434,7 @@ export default function Wishlist() {
             </Form>
           </DialogContent>
         </Dialog>
+      </div>
       </div>
 
       {hasItems && (

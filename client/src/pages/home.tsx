@@ -7,7 +7,7 @@ import { useFamily } from "@/contexts/FamilyContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Gift, Users, Plus, UserPlus } from "lucide-react";
+import { Gift, Users, Plus, UserPlus, Search, Zap } from "lucide-react";
 import { useLocation } from "wouter";
 
 export default function Home() {
@@ -77,6 +77,53 @@ export default function Home() {
           Manage your wishlists and coordinate gifts with your family.
         </p>
       </div>
+
+      {/* Quick Actions */}
+      {hasFamilies && selectedFamilyId && (
+        <div>
+          <div className="flex items-center gap-2 mb-4">
+            <Zap className="w-5 h-5 text-primary" />
+            <h2 className="font-serif text-xl font-semibold text-foreground">
+              Quick Actions
+            </h2>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Card className="hover-elevate cursor-pointer" onClick={() => setLocation('/wishlist')} data-testid="card-action-add-item">
+              <CardContent className="p-6 flex items-center gap-4">
+                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Plus className="w-6 h-6 text-primary" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-foreground mb-1">Add Item to Wishlist</h3>
+                  <p className="text-xs text-muted-foreground">Manually add or search products</p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="hover-elevate cursor-pointer" onClick={() => setLocation('/search')} data-testid="card-action-search-products">
+              <CardContent className="p-6 flex items-center gap-4">
+                <div className="w-12 h-12 rounded-full bg-accent/10 flex items-center justify-center">
+                  <Search className="w-6 h-6 text-accent" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-foreground mb-1">Search Products</h3>
+                  <p className="text-xs text-muted-foreground">Find items from Google Shopping</p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="hover-elevate cursor-pointer" onClick={() => setLocation('/members')} data-testid="card-action-invite-member">
+              <CardContent className="p-6 flex items-center gap-4">
+                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                  <UserPlus className="w-6 h-6 text-primary" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-foreground mb-1">Invite Family Member</h3>
+                  <p className="text-xs text-muted-foreground">Share invite code or link</p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
