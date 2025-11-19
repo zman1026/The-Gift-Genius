@@ -89,6 +89,12 @@ Preferred communication style: Simple, everyday language.
 - Environment variable: `DATABASE_URL`
 - Connection pooling via `@neondatabase/serverless`
 
+**Email Service:**
+- **Resend** - Transactional email API for sending family invitations
+- Environment variable: `RESEND_API_KEY`
+- Email module: `server/emailService.ts`
+- **Development Limitation**: In testing mode without a verified domain, Resend only allows sending emails to the account owner's verified email address. To send to any email address in production, verify a domain at resend.com/domains
+
 **Development Tools:**
 - **Vite plugins**: Runtime error overlay, cartographer (Replit), dev banner (Replit)
 - **Drizzle Kit** for database migrations and schema push
