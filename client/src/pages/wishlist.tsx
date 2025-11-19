@@ -11,7 +11,9 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Gift, Plus, Trash2, Edit, ExternalLink } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { Gift, Plus, Trash2, Edit, ExternalLink, AlertCircle, Circle, ArrowUp } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -22,6 +24,9 @@ const addItemSchema = z.object({
   price: z.string().optional(),
   url: z.string().url("Must be a valid URL").optional().or(z.literal("")),
   imageUrl: z.string().url("Must be a valid URL").optional().or(z.literal("")),
+  priority: z.enum(["high", "medium", "low"]).optional(),
+  quantity: z.coerce.number().int().positive().optional(),
+  category: z.string().optional(),
 });
 
 type AddItemFormData = z.infer<typeof addItemSchema>;
@@ -40,6 +45,9 @@ export default function Wishlist() {
       price: "",
       url: "",
       imageUrl: "",
+      priority: "medium",
+      quantity: 1,
+      category: undefined,
     },
   });
 
@@ -183,6 +191,9 @@ export default function Wishlist() {
       price: item.price || "",
       url: item.url || "",
       imageUrl: item.imageUrl || "",
+      priority: item.priority || "medium",
+      quantity: item.quantity || 1,
+      category: item.category || undefined,
     });
   };
 
@@ -304,6 +315,68 @@ export default function Wishlist() {
                     </FormItem>
                   )}
                 />
+                <div className="grid grid-cols-3 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="priority"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Priority</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-priority">
+                              <SelectValue placeholder="Select priority" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="high">High</SelectItem>
+                            <SelectItem value="medium">Medium</SelectItem>
+                            <SelectItem value="low">Low</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="quantity"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Quantity</FormLabel>
+                        <FormControl>
+                          <Input type="number" min="1" placeholder="1" {...field} data-testid="input-item-quantity" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="category"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Category</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-category">
+                              <SelectValue placeholder="Select category" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="toys">Toys</SelectItem>
+                            <SelectItem value="clothes">Clothes</SelectItem>
+                            <SelectItem value="electronics">Electronics</SelectItem>
+                            <SelectItem value="books">Books</SelectItem>
+                            <SelectItem value="home">Home</SelectItem>
+                            <SelectItem value="other">Other</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
                 <div className="flex gap-3 pt-2">
                   <Button type="submit" disabled={addItemMutation.isPending || updateItemMutation.isPending} data-testid="button-submit-item">
                     {addItemMutation.isPending || updateItemMutation.isPending ? "Saving..." : editingItem ? "Update Item" : "Add to Wishlist"}
@@ -353,10 +426,36 @@ export default function Wishlist() {
               </div>
               <CardContent className="p-4 space-y-3">
                 <div>
-                  <h3 className="font-semibold text-foreground line-clamp-2 mb-1">{item.name}</h3>
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <h3 className="font-semibold text-foreground line-clamp-2 flex-1">{item.name}</h3>
+                    {item.priority && (
+                      <Badge 
+                        variant={item.priority === "high" ? "destructive" : item.priority === "medium" ? "default" : "secondary"} 
+                        className="shrink-0"
+                        data-testid={`badge-priority-${item.id}`}
+                      >
+                        {item.priority === "high" && <ArrowUp className="w-3 h-3 mr-1" />}
+                        {item.priority === "medium" && <Circle className="w-3 h-3 mr-1" />}
+                        {item.priority === "low" && <AlertCircle className="w-3 h-3 mr-1" />}
+                        {item.priority}
+                      </Badge>
+                    )}
+                  </div>
                   {item.price && (
                     <p className="text-lg font-bold text-primary">${parseFloat(item.price).toFixed(2)}</p>
                   )}
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {item.category && (
+                      <Badge variant="outline" data-testid={`badge-category-${item.id}`}>
+                        {item.category}
+                      </Badge>
+                    )}
+                    {item.quantity && item.quantity !== 1 && (
+                      <Badge variant="outline" data-testid={`badge-quantity-${item.id}`}>
+                        Qty: {item.quantity}
+                      </Badge>
+                    )}
+                  </div>
                   {item.description && (
                     <p className="text-sm text-muted-foreground line-clamp-3 mt-2">{item.description}</p>
                   )}

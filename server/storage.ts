@@ -195,6 +195,9 @@ export class DatabaseStorage implements IStorage {
         imageUrl: wishlistItems.imageUrl,
         source: wishlistItems.source,
         productId: wishlistItems.productId,
+        priority: wishlistItems.priority,
+        quantity: wishlistItems.quantity,
+        category: wishlistItems.category,
         createdAt: wishlistItems.createdAt,
         purchase: sql<any>`
           CASE 

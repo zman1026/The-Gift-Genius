@@ -9,6 +9,7 @@ import {
   varchar,
   decimal,
   boolean,
+  integer,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -108,6 +109,9 @@ export const wishlistItems = pgTable("wishlist_items", {
   imageUrl: text("image_url"),
   source: varchar("source", { length: 100 }), // e.g., "manual" or "google_shopping"
   productId: varchar("product_id", { length: 255 }), // Google Shopping product ID if applicable
+  priority: varchar("priority", { length: 20 }).default("medium"), // high, medium, low
+  quantity: integer("quantity").default(1), // quantity desired
+  category: varchar("category", { length: 50 }), // toys, clothes, electronics, books, home, other
   createdAt: timestamp("created_at").defaultNow(),
 });
 

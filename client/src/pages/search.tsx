@@ -53,6 +53,9 @@ export default function Search() {
         productId: product.product_id,
         source: "google_shopping",
         description: product.snippet || "",
+        priority: "medium",
+        quantity: 1,
+        category: null,
       });
     },
     onSuccess: () => {
