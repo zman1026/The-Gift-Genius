@@ -11,8 +11,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Gift, ArrowLeft, CheckCircle2, ExternalLink, MessageSquare } from "lucide-react";
+import { Gift, ArrowLeft, CheckCircle2, ExternalLink, MessageSquare, AlertCircle, Circle, ArrowUp } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+
+const CATEGORIES = ["toys", "clothes", "electronics", "books", "home", "other"] as const;
 
 export default function MemberWishlist() {
   const { toast } = useToast();
@@ -21,6 +23,7 @@ export default function MemberWishlist() {
   const [, setLocation] = useLocation();
   const [purchaseNotes, setPurchaseNotes] = useState<Record<string, string>>({});
   const [openNoteDialog, setOpenNoteDialog] = useState<string | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
   const userId = params?.userId;
 
@@ -142,6 +145,13 @@ export default function MemberWishlist() {
   const memberName = memberData?.firstName || memberData?.lastName
     ? `${memberData.firstName || ""} ${memberData.lastName || ""}`.trim()
     : memberData?.email || "Family Member";
+  
+  const filteredItems = items ? items.filter((item: any) => {
+    if (!selectedCategory) return true;
+    return item.category === selectedCategory;
+  }) : [];
+  
+  const hasFilteredItems = filteredItems && filteredItems.length > 0;
 
   return (
     <div className="p-6 md:p-8 lg:p-12 space-y-6">
@@ -173,6 +183,30 @@ export default function MemberWishlist() {
         </div>
       </div>
 
+      {hasItems && (
+        <div className="flex flex-wrap gap-2">
+          <Badge
+            variant={selectedCategory === null ? "default" : "outline"}
+            className="cursor-pointer hover-elevate active-elevate-2"
+            onClick={() => setSelectedCategory(null)}
+            data-testid="filter-all"
+          >
+            All Items
+          </Badge>
+          {CATEGORIES.map((category) => (
+            <Badge
+              key={category}
+              variant={selectedCategory === category ? "default" : "outline"}
+              className="cursor-pointer hover-elevate active-elevate-2 capitalize"
+              onClick={() => setSelectedCategory(category)}
+              data-testid={`filter-${category}`}
+            >
+              {category}
+            </Badge>
+          ))}
+        </div>
+      )}
+
       {!hasItems ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-16 text-center">
@@ -185,9 +219,24 @@ export default function MemberWishlist() {
             </p>
           </CardContent>
         </Card>
+      ) : !hasFilteredItems ? (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center mb-4">
+              <Gift className="w-10 h-10 text-muted-foreground" />
+            </div>
+            <h3 className="font-semibold text-xl mb-2 text-foreground">No items in this category</h3>
+            <p className="text-muted-foreground max-w-md">
+              {memberName} doesn't have any items in this category.
+            </p>
+            <Button onClick={() => setSelectedCategory(null)} variant="outline" data-testid="button-clear-filter">
+              Show All Items
+            </Button>
+          </CardContent>
+        </Card>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {items.map((item: any) => {
+          {filteredItems.map((item: any) => {
             const isPurchased = !!item.purchase;
             const isPurchasedByMe = item.purchase?.purchasedById === memberData?.userId;
 
@@ -220,10 +269,36 @@ export default function MemberWishlist() {
                 </div>
                 <CardContent className="p-4 space-y-3">
                   <div>
-                    <h3 className="font-semibold text-foreground line-clamp-2 mb-1">{item.name}</h3>
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <h3 className="font-semibold text-foreground line-clamp-2 flex-1">{item.name}</h3>
+                      {item.priority && (
+                        <Badge 
+                          variant={item.priority === "high" ? "destructive" : item.priority === "medium" ? "default" : "secondary"} 
+                          className="shrink-0"
+                          data-testid={`badge-priority-${item.id}`}
+                        >
+                          {item.priority === "high" && <ArrowUp className="w-3 h-3 mr-1" />}
+                          {item.priority === "medium" && <Circle className="w-3 h-3 mr-1" />}
+                          {item.priority === "low" && <AlertCircle className="w-3 h-3 mr-1" />}
+                          {item.priority}
+                        </Badge>
+                      )}
+                    </div>
                     {item.price && (
                       <p className="text-lg font-bold text-primary">${parseFloat(item.price).toFixed(2)}</p>
                     )}
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {item.category && (
+                        <Badge variant="outline" data-testid={`badge-category-${item.id}`}>
+                          {item.category}
+                        </Badge>
+                      )}
+                      {item.quantity && item.quantity !== 1 && (
+                        <Badge variant="outline" data-testid={`badge-quantity-${item.id}`}>
+                          Qty: {item.quantity}
+                        </Badge>
+                      )}
+                    </div>
                     {item.description && (
                       <p className="text-sm text-muted-foreground line-clamp-3 mt-2">{item.description}</p>
                     )}

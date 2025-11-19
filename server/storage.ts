@@ -175,11 +175,26 @@ export class DatabaseStorage implements IStorage {
 
   async getUserWishlistItems(userId: string): Promise<WishlistItem[]> {
     const items = await db
-      .select()
+      .select({
+        id: wishlistItems.id,
+        userId: wishlistItems.userId,
+        familyId: wishlistItems.familyId,
+        name: wishlistItems.name,
+        description: wishlistItems.description,
+        price: wishlistItems.price,
+        url: wishlistItems.url,
+        imageUrl: wishlistItems.imageUrl,
+        source: wishlistItems.source,
+        productId: wishlistItems.productId,
+        priority: wishlistItems.priority,
+        quantity: wishlistItems.quantity,
+        category: wishlistItems.category,
+        createdAt: wishlistItems.createdAt,
+      })
       .from(wishlistItems)
       .where(eq(wishlistItems.userId, userId))
       .orderBy(sql`${wishlistItems.createdAt} desc`);
-    return items;
+    return items as WishlistItem[];
   }
 
   async getMemberWishlistItems(userId: string, viewerId: string): Promise<any[]> {

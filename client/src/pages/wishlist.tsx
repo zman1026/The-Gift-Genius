@@ -31,11 +31,14 @@ const addItemSchema = z.object({
 
 type AddItemFormData = z.infer<typeof addItemSchema>;
 
+const CATEGORIES = ["toys", "clothes", "electronics", "books", "home", "other"] as const;
+
 export default function Wishlist() {
   const { toast } = useToast();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
   const form = useForm<AddItemFormData>({
     resolver: zodResolver(addItemSchema),
@@ -217,6 +220,13 @@ export default function Wishlist() {
   }
 
   const hasItems = items && items.length > 0;
+  
+  const filteredItems = items ? items.filter((item: any) => {
+    if (!selectedCategory) return true;
+    return item.category === selectedCategory;
+  }) : [];
+  
+  const hasFilteredItems = filteredItems && filteredItems.length > 0;
 
   return (
     <div className="p-6 md:p-8 lg:p-12 space-y-6">
@@ -391,6 +401,30 @@ export default function Wishlist() {
         </Dialog>
       </div>
 
+      {hasItems && (
+        <div className="flex flex-wrap gap-2">
+          <Badge
+            variant={selectedCategory === null ? "default" : "outline"}
+            className="cursor-pointer hover-elevate active-elevate-2"
+            onClick={() => setSelectedCategory(null)}
+            data-testid="filter-all"
+          >
+            All Items
+          </Badge>
+          {CATEGORIES.map((category) => (
+            <Badge
+              key={category}
+              variant={selectedCategory === category ? "default" : "outline"}
+              className="cursor-pointer hover-elevate active-elevate-2 capitalize"
+              onClick={() => setSelectedCategory(category)}
+              data-testid={`filter-${category}`}
+            >
+              {category}
+            </Badge>
+          ))}
+        </div>
+      )}
+
       {!hasItems ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-16 text-center">
@@ -407,9 +441,24 @@ export default function Wishlist() {
             </Button>
           </CardContent>
         </Card>
+      ) : !hasFilteredItems ? (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center mb-4">
+              <Gift className="w-10 h-10 text-muted-foreground" />
+            </div>
+            <h3 className="font-semibold text-xl mb-2 text-foreground">No items in this category</h3>
+            <p className="text-muted-foreground mb-6 max-w-md">
+              Try selecting a different category or add new items.
+            </p>
+            <Button onClick={() => setSelectedCategory(null)} variant="outline" data-testid="button-clear-filter">
+              Show All Items
+            </Button>
+          </CardContent>
+        </Card>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {items.map((item: any) => (
+          {filteredItems.map((item: any) => (
             <Card key={item.id} className="overflow-hidden hover-elevate" data-testid={`wishlist-item-${item.id}`}>
               <div className="aspect-[4/3] bg-muted relative overflow-hidden">
                 {item.imageUrl ? (
