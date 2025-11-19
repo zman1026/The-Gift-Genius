@@ -1,0 +1,110 @@
+import { Home, Gift, Users, Search, Settings, LogOut } from "lucide-react";
+import { useLocation } from "wouter";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarFooter,
+} from "@/components/ui/sidebar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useAuth } from "@/hooks/useAuth";
+import { Button } from "@/components/ui/button";
+
+const menuItems = [
+  {
+    title: "Dashboard",
+    url: "/",
+    icon: Home,
+    testId: "nav-dashboard",
+  },
+  {
+    title: "My Wishlist",
+    url: "/wishlist",
+    icon: Gift,
+    testId: "nav-wishlist",
+  },
+  {
+    title: "Family Members",
+    url: "/members",
+    icon: Users,
+    testId: "nav-members",
+  },
+  {
+    title: "Search Products",
+    url: "/search",
+    icon: Search,
+    testId: "nav-search",
+  },
+];
+
+export function AppSidebar() {
+  const [location] = useLocation();
+  const { user } = useAuth();
+
+  const getInitials = (firstName?: string, lastName?: string) => {
+    if (!firstName && !lastName) return "U";
+    return `${firstName?.[0] || ""}${lastName?.[0] || ""}`.toUpperCase();
+  };
+
+  return (
+    <Sidebar>
+      <SidebarContent>
+        <SidebarGroup>
+          <SidebarGroupLabel className="text-lg font-serif text-primary px-4 py-4">
+            Christmas Wishlist
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {menuItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={location === item.url}
+                    data-testid={item.testId}
+                  >
+                    <a href={item.url}>
+                      <item.icon />
+                      <span>{item.title}</span>
+                    </a>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      </SidebarContent>
+
+      <SidebarFooter className="p-4 border-t border-sidebar-border">
+        <div className="flex items-center gap-3 mb-3">
+          <Avatar className="h-10 w-10">
+            <AvatarImage src={user?.profileImageUrl || undefined} alt={user?.firstName || "User"} />
+            <AvatarFallback>{getInitials(user?.firstName, user?.lastName)}</AvatarFallback>
+          </Avatar>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-sidebar-foreground truncate" data-testid="text-user-name">
+              {user?.firstName || user?.lastName
+                ? `${user.firstName || ""} ${user.lastName || ""}`.trim()
+                : user?.email || "User"}
+            </p>
+            <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+          </div>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          className="w-full"
+          onClick={() => window.location.href = '/api/logout'}
+          data-testid="button-logout"
+        >
+          <LogOut className="w-4 h-4 mr-2" />
+          Log Out
+        </Button>
+      </SidebarFooter>
+    </Sidebar>
+  );
+}
