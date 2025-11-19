@@ -146,6 +146,38 @@ export class DatabaseStorage implements IStorage {
     return result;
   }
 
+  async getFamilyMembersByFamily(familyId: string, requestingUserId: string): Promise<any[]> {
+    // First verify that the requesting user is a member of this family
+    const membership = await this.getFamilyMember(familyId, requestingUserId);
+    if (!membership) {
+      throw new Error("You are not a member of this family");
+    }
+
+    // Get all family members for a specific family
+    const result = await db
+      .select({
+        userId: users.id,
+        email: users.email,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        profileImageUrl: users.profileImageUrl,
+        itemCount: sql<number>`count(distinct ${wishlistItems.id})::int`,
+      })
+      .from(familyMembers)
+      .innerJoin(users, eq(familyMembers.userId, users.id))
+      .leftJoin(
+        wishlistItems,
+        and(
+          eq(wishlistItems.userId, users.id),
+          eq(wishlistItems.familyId, familyId)
+        )
+      )
+      .where(eq(familyMembers.familyId, familyId))
+      .groupBy(users.id);
+    
+    return result;
+  }
+
   async getFamilyMember(familyId: string, userId: string): Promise<FamilyMember | undefined> {
     const [member] = await db
       .select()
@@ -197,7 +229,59 @@ export class DatabaseStorage implements IStorage {
     return items as WishlistItem[];
   }
 
+  async getUserWishlistItemsByFamily(userId: string, familyId: string): Promise<WishlistItem[]> {
+    // First verify that the user is a member of this family
+    const membership = await this.getFamilyMember(familyId, userId);
+    if (!membership) {
+      throw new Error("You are not a member of this family");
+    }
+
+    const items = await db
+      .select({
+        id: wishlistItems.id,
+        userId: wishlistItems.userId,
+        familyId: wishlistItems.familyId,
+        name: wishlistItems.name,
+        description: wishlistItems.description,
+        price: wishlistItems.price,
+        url: wishlistItems.url,
+        imageUrl: wishlistItems.imageUrl,
+        source: wishlistItems.source,
+        productId: wishlistItems.productId,
+        priority: wishlistItems.priority,
+        quantity: wishlistItems.quantity,
+        category: wishlistItems.category,
+        createdAt: wishlistItems.createdAt,
+      })
+      .from(wishlistItems)
+      .where(and(eq(wishlistItems.userId, userId), eq(wishlistItems.familyId, familyId)))
+      .orderBy(sql`${wishlistItems.createdAt} desc`);
+    return items as WishlistItem[];
+  }
+
   async getMemberWishlistItems(userId: string, viewerId: string): Promise<any[]> {
+    // First, get all families that both users share
+    const sharedFamilies = await db
+      .select({ familyId: sql<string>`fm1.family_id` })
+      .from(sql`${familyMembers} as fm1`)
+      .innerJoin(
+        sql`${familyMembers} as fm2`,
+        sql`fm1.family_id = fm2.family_id`
+      )
+      .where(
+        and(
+          sql`fm1.user_id = ${userId}`,
+          sql`fm2.user_id = ${viewerId}`
+        )
+      );
+
+    if (sharedFamilies.length === 0) {
+      throw new Error("You do not share any families with this user");
+    }
+
+    const sharedFamilyIds = sharedFamilies.map(f => f.familyId);
+
+    // Only return items from shared families
     const items = await db
       .select({
         id: wishlistItems.id,
@@ -229,7 +313,12 @@ export class DatabaseStorage implements IStorage {
       })
       .from(wishlistItems)
       .leftJoin(itemPurchases, eq(wishlistItems.id, itemPurchases.itemId))
-      .where(eq(wishlistItems.userId, userId))
+      .where(
+        and(
+          eq(wishlistItems.userId, userId),
+          sql`${wishlistItems.familyId} = ANY(${sharedFamilyIds})`
+        )
+      )
       .orderBy(sql`${wishlistItems.createdAt} desc`);
     
     return items;
@@ -298,6 +387,45 @@ export class DatabaseStorage implements IStorage {
       .where(
         and(
           sql`${wishlistItems.familyId} = ANY(${familyIds})`,
+          sql`${wishlistItems.userId} != ${userId}`,
+          sql`${itemPurchases.id} IS NULL`
+        )
+      );
+
+    return {
+      myItemsCount: myItemsResult.count,
+      familyMembersCount: membersResult.count,
+      itemsToPurchaseCount: unpurchasedResult.count,
+    };
+  }
+
+  async getUserStatsByFamily(userId: string, familyId: string): Promise<any> {
+    // First verify that the user is a member of this family
+    const membership = await this.getFamilyMember(familyId, userId);
+    if (!membership) {
+      throw new Error("You are not a member of this family");
+    }
+
+    // Count user's own items in this family
+    const [myItemsResult] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(wishlistItems)
+      .where(and(eq(wishlistItems.userId, userId), eq(wishlistItems.familyId, familyId)));
+
+    // Count family members in this family
+    const [membersResult] = await db
+      .select({ count: sql<number>`count(distinct ${familyMembers.userId})::int` })
+      .from(familyMembers)
+      .where(eq(familyMembers.familyId, familyId));
+
+    // Count unpurchased items from family members except self in this family
+    const [unpurchasedResult] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(wishlistItems)
+      .leftJoin(itemPurchases, eq(wishlistItems.id, itemPurchases.itemId))
+      .where(
+        and(
+          eq(wishlistItems.familyId, familyId),
           sql`${wishlistItems.userId} != ${userId}`,
           sql`${itemPurchases.id} IS NULL`
         )

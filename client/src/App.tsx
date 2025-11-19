@@ -6,6 +6,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { useAuth } from "@/hooks/useAuth";
+import { FamilyProvider } from "@/contexts/FamilyContext";
+import { FamilySwitcher } from "@/components/family-switcher";
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/landing";
 import Home from "@/pages/home";
@@ -37,29 +39,32 @@ function AppContent() {
   }
 
   return (
-    <SidebarProvider style={style as React.CSSProperties}>
-      <div className="flex h-screen w-full">
-        <AppSidebar />
-        <div className="flex flex-col flex-1 overflow-hidden">
-          <header className="flex items-center justify-between p-2 border-b border-border">
-            <SidebarTrigger data-testid="button-sidebar-toggle" />
-          </header>
-          <main className="flex-1 overflow-y-auto">
-            <Switch>
-              <Route path="/" component={Home} />
-              <Route path="/families/create" component={CreateFamily} />
-              <Route path="/families/join" component={JoinFamily} />
-              <Route path="/wishlist" component={Wishlist} />
-              <Route path="/members" component={Members} />
-              <Route path="/members/:userId" component={MemberWishlist} />
-              <Route path="/search" component={Search} />
-              <Route component={NotFound} />
-            </Switch>
-          </main>
+    <FamilyProvider>
+      <SidebarProvider style={style as React.CSSProperties}>
+        <div className="flex h-screen w-full">
+          <AppSidebar />
+          <div className="flex flex-col flex-1 overflow-hidden">
+            <header className="flex items-center justify-between p-2 border-b border-border gap-4">
+              <SidebarTrigger data-testid="button-sidebar-toggle" />
+              <FamilySwitcher />
+            </header>
+            <main className="flex-1 overflow-y-auto">
+              <Switch>
+                <Route path="/" component={Home} />
+                <Route path="/families/create" component={CreateFamily} />
+                <Route path="/families/join" component={JoinFamily} />
+                <Route path="/wishlist" component={Wishlist} />
+                <Route path="/members" component={Members} />
+                <Route path="/members/:userId" component={MemberWishlist} />
+                <Route path="/search" component={Search} />
+                <Route component={NotFound} />
+              </Switch>
+            </main>
+          </div>
         </div>
-      </div>
-      <Toaster />
-    </SidebarProvider>
+        <Toaster />
+      </SidebarProvider>
+    </FamilyProvider>
   );
 }
 

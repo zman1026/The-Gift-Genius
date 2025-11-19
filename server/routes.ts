@@ -94,8 +94,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/members', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const members = await storage.getFamilyMembers(userId);
-      res.json(members);
+      const { familyId } = req.query;
+      
+      if (familyId && typeof familyId === 'string') {
+        const members = await storage.getFamilyMembersByFamily(familyId, userId);
+        res.json(members);
+      } else {
+        const members = await storage.getFamilyMembers(userId);
+        res.json(members);
+      }
     } catch (error) {
       console.error("Error fetching members:", error);
       res.status(500).json({ message: "Failed to fetch family members" });
@@ -140,8 +147,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/wishlist', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const items = await storage.getUserWishlistItems(userId);
-      res.json(items);
+      const { familyId } = req.query;
+      
+      if (familyId && typeof familyId === 'string') {
+        const items = await storage.getUserWishlistItemsByFamily(userId, familyId);
+        res.json(items);
+      } else {
+        const items = await storage.getUserWishlistItems(userId);
+        res.json(items);
+      }
     } catch (error) {
       console.error("Error fetching wishlist:", error);
       res.status(500).json({ message: "Failed to fetch wishlist" });
@@ -151,21 +165,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/wishlist', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const { name, description, price, url, imageUrl, priority, quantity, category } = req.body;
+      const { name, description, price, url, imageUrl, priority, quantity, category, familyId } = req.body;
 
       if (!name || typeof name !== 'string') {
         return res.status(400).json({ message: "Item name is required" });
       }
 
-      // Get user's first family (or require familyId in request)
-      const families = await storage.getUserFamilies(userId);
-      if (families.length === 0) {
-        return res.status(400).json({ message: "You must join a family before adding wishlist items" });
+      // Use provided familyId or get user's first family
+      let targetFamilyId = familyId;
+      if (!targetFamilyId) {
+        const families = await storage.getUserFamilies(userId);
+        if (families.length === 0) {
+          return res.status(400).json({ message: "You must join a family before adding wishlist items" });
+        }
+        targetFamilyId = families[0].id;
+      }
+
+      // Verify user is a member of the target family
+      const membership = await storage.getFamilyMember(targetFamilyId, userId);
+      if (!membership) {
+        return res.status(403).json({ message: "You are not a member of this family" });
       }
 
       const item = await storage.createWishlistItem({
         userId,
-        familyId: families[0].id, // Use first family
+        familyId: targetFamilyId,
         name,
         description: description || null,
         price: price ? String(price) : null,
@@ -188,21 +212,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/wishlist/from-search', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const { name, description, price, url, imageUrl, productId, source, priority, quantity, category } = req.body;
+      const { name, description, price, url, imageUrl, productId, source, priority, quantity, category, familyId } = req.body;
 
       if (!name || typeof name !== 'string') {
         return res.status(400).json({ message: "Item name is required" });
       }
 
-      // Get user's first family
-      const families = await storage.getUserFamilies(userId);
-      if (families.length === 0) {
-        return res.status(400).json({ message: "You must join a family before adding wishlist items" });
+      // Use provided familyId or get user's first family
+      let targetFamilyId = familyId;
+      if (!targetFamilyId) {
+        const families = await storage.getUserFamilies(userId);
+        if (families.length === 0) {
+          return res.status(400).json({ message: "You must join a family before adding wishlist items" });
+        }
+        targetFamilyId = families[0].id;
+      }
+
+      // Verify user is a member of the target family
+      const membership = await storage.getFamilyMember(targetFamilyId, userId);
+      if (!membership) {
+        return res.status(403).json({ message: "You are not a member of this family" });
       }
 
       const item = await storage.createWishlistItem({
         userId,
-        familyId: families[0].id,
+        familyId: targetFamilyId,
         name,
         description: description || null,
         price: price ? String(price) : null,
@@ -370,8 +404,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/stats', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const stats = await storage.getUserStats(userId);
-      res.json(stats);
+      const { familyId } = req.query;
+      
+      if (familyId && typeof familyId === 'string') {
+        const stats = await storage.getUserStatsByFamily(userId, familyId);
+        res.json(stats);
+      } else {
+        const stats = await storage.getUserStats(userId);
+        res.json(stats);
+      }
     } catch (error) {
       console.error("Error fetching stats:", error);
       res.status(500).json({ message: "Failed to fetch stats" });
