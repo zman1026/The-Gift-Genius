@@ -5,6 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useFamily } from "@/contexts/FamilyContext";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -19,6 +20,7 @@ const CATEGORIES = ["toys", "clothes", "electronics", "books", "home", "other"] 
 export default function MemberWishlist() {
   const { toast } = useToast();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const { selectedFamilyId } = useFamily();
   const [, params] = useRoute("/members/:userId");
   const [, setLocation] = useLocation();
   const [purchaseNotes, setPurchaseNotes] = useState<Record<string, string>>({});
@@ -41,15 +43,35 @@ export default function MemberWishlist() {
     }
   }, [isAuthenticated, authLoading, toast]);
 
-  const { data: memberData, isLoading: memberLoading } = useQuery({
-    queryKey: ["/api/members", userId],
-    enabled: !!userId,
+  const { data: memberData, isLoading: memberLoading} = useQuery({
+    queryKey: ["/api/members", userId, selectedFamilyId],
+    queryFn: async () => {
+      if (!userId) return null;
+      const response = await fetch(`/api/members/${userId}`, {
+        credentials: "include",
+      });
+      if (!response.ok) {
+        throw new Error("Failed to fetch member");
+      }
+      return response.json();
+    },
+    enabled: !!userId && !!selectedFamilyId,
     retry: false,
   });
 
   const { data: items, isLoading: itemsLoading } = useQuery({
-    queryKey: ["/api/members", userId, "wishlist"],
-    enabled: !!userId,
+    queryKey: ["/api/members", userId, "wishlist", selectedFamilyId],
+    queryFn: async () => {
+      if (!userId || !selectedFamilyId) return [];
+      const response = await fetch(`/api/members/${userId}/wishlist?familyId=${selectedFamilyId}`, {
+        credentials: "include",
+      });
+      if (!response.ok) {
+        throw new Error("Failed to fetch wishlist");
+      }
+      return response.json();
+    },
+    enabled: !!userId && !!selectedFamilyId,
     retry: false,
   });
 
@@ -58,8 +80,8 @@ export default function MemberWishlist() {
       return await apiRequest("POST", `/api/wishlist/${itemId}/purchase`, { notes });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/members", userId, "wishlist"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/members", userId, "wishlist", selectedFamilyId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats", selectedFamilyId] });
       toast({
         title: "Success",
         description: "Item marked as purchased!",
@@ -92,8 +114,8 @@ export default function MemberWishlist() {
       return await apiRequest("DELETE", `/api/wishlist/${itemId}/purchase`, {});
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/members", userId, "wishlist"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/members", userId, "wishlist", selectedFamilyId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats", selectedFamilyId] });
       toast({
         title: "Success",
         description: "Purchase marking removed",

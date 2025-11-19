@@ -129,13 +129,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const viewerId = req.user.claims.sub;
       const { userId } = req.params;
+      const { familyId } = req.query;
 
       // Don't allow viewing own wishlist this way
       if (userId === viewerId) {
         return res.status(400).json({ message: "Use /api/wishlist to view your own items" });
       }
 
-      const items = await storage.getMemberWishlistItems(userId, viewerId);
+      const items = await storage.getMemberWishlistItems(userId, viewerId, familyId as string | undefined);
       res.json(items);
     } catch (error) {
       console.error("Error fetching member wishlist:", error);

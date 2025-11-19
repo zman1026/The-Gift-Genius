@@ -4,6 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useFamily } from "@/contexts/FamilyContext";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +14,7 @@ import { Search as SearchIcon, Plus, ExternalLink, Gift } from "lucide-react";
 export default function Search() {
   const { toast } = useToast();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const { selectedFamilyId } = useFamily();
   const [searchQuery, setSearchQuery] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -56,11 +58,12 @@ export default function Search() {
         priority: "medium",
         quantity: 1,
         category: null,
+        familyId: selectedFamilyId,
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/wishlist"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/wishlist", selectedFamilyId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats", selectedFamilyId] });
       toast({
         title: "Success",
         description: "Item added to your wishlist!",

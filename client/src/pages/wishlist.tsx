@@ -4,6 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useFamily } from "@/contexts/FamilyContext";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -36,6 +37,7 @@ const CATEGORIES = ["toys", "clothes", "electronics", "books", "home", "other"] 
 export default function Wishlist() {
   const { toast } = useToast();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const { selectedFamilyId } = useFamily();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -69,7 +71,18 @@ export default function Wishlist() {
   }, [isAuthenticated, authLoading, toast]);
 
   const { data: items, isLoading } = useQuery({
-    queryKey: ["/api/wishlist"],
+    queryKey: ["/api/wishlist", selectedFamilyId],
+    queryFn: async () => {
+      if (!selectedFamilyId) return [];
+      const response = await fetch(`/api/wishlist?familyId=${selectedFamilyId}`, {
+        credentials: "include",
+      });
+      if (!response.ok) {
+        throw new Error("Failed to fetch wishlist");
+      }
+      return response.json();
+    },
+    enabled: !!selectedFamilyId,
     retry: false,
   });
 
@@ -78,11 +91,12 @@ export default function Wishlist() {
       return await apiRequest("POST", "/api/wishlist", {
         ...data,
         price: data.price ? parseFloat(data.price) : null,
+        familyId: selectedFamilyId,
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/wishlist"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/wishlist", selectedFamilyId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats", selectedFamilyId] });
       toast({
         title: "Success",
         description: "Item added to your wishlist!",
@@ -118,7 +132,7 @@ export default function Wishlist() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/wishlist"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/wishlist", selectedFamilyId] });
       toast({
         title: "Success",
         description: "Item updated successfully!",
@@ -151,8 +165,8 @@ export default function Wishlist() {
       return await apiRequest("DELETE", `/api/wishlist/${id}`, {});
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/wishlist"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/wishlist", selectedFamilyId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats", selectedFamilyId] });
       toast({
         title: "Success",
         description: "Item removed from wishlist",

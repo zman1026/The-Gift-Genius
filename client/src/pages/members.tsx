@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { useFamily } from "@/contexts/FamilyContext";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -12,6 +13,7 @@ import { Users, Gift, Eye } from "lucide-react";
 export default function Members() {
   const { toast } = useToast();
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
+  const { selectedFamilyId } = useFamily();
   const [, setLocation] = useLocation();
 
   useEffect(() => {
@@ -29,7 +31,18 @@ export default function Members() {
   }, [isAuthenticated, authLoading, toast]);
 
   const { data: members, isLoading } = useQuery({
-    queryKey: ["/api/members"],
+    queryKey: ["/api/members", selectedFamilyId],
+    queryFn: async () => {
+      if (!selectedFamilyId) return [];
+      const response = await fetch(`/api/members?familyId=${selectedFamilyId}`, {
+        credentials: "include",
+      });
+      if (!response.ok) {
+        throw new Error("Failed to fetch members");
+      }
+      return response.json();
+    },
+    enabled: !!selectedFamilyId,
     retry: false,
   });
 

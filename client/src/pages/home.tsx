@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
+import { useFamily } from "@/contexts/FamilyContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -12,6 +13,7 @@ import { useLocation } from "wouter";
 export default function Home() {
   const { toast } = useToast();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const { selectedFamilyId } = useFamily();
   const [, setLocation] = useLocation();
 
   const { data: families, isLoading: familiesLoading } = useQuery({
@@ -20,7 +22,18 @@ export default function Home() {
   });
 
   const { data: stats, isLoading: statsLoading } = useQuery({
-    queryKey: ["/api/stats"],
+    queryKey: ["/api/stats", selectedFamilyId],
+    queryFn: async () => {
+      if (!selectedFamilyId) return null;
+      const response = await fetch(`/api/stats?familyId=${selectedFamilyId}`, {
+        credentials: "include",
+      });
+      if (!response.ok) {
+        throw new Error("Failed to fetch stats");
+      }
+      return response.json();
+    },
+    enabled: !!selectedFamilyId,
     retry: false,
   });
 

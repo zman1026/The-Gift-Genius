@@ -38,7 +38,7 @@ export interface IStorage {
   updateWishlistItem(id: string, item: Partial<InsertWishlistItem>): Promise<WishlistItem>;
   deleteWishlistItem(id: string): Promise<void>;
   getUserWishlistItems(userId: string): Promise<WishlistItem[]>;
-  getMemberWishlistItems(userId: string, viewerId: string): Promise<any[]>;
+  getMemberWishlistItems(userId: string, viewerId: string, familyId?: string): Promise<any[]>;
   getWishlistItem(id: string): Promise<WishlistItem | undefined>;
   
   // Purchase operations
@@ -259,7 +259,7 @@ export class DatabaseStorage implements IStorage {
     return items as WishlistItem[];
   }
 
-  async getMemberWishlistItems(userId: string, viewerId: string): Promise<any[]> {
+  async getMemberWishlistItems(userId: string, viewerId: string, familyId?: string): Promise<any[]> {
     // First, get all families that both users share
     const sharedFamilies = await db
       .select({ familyId: sql<string>`fm1.family_id` })
@@ -281,7 +281,19 @@ export class DatabaseStorage implements IStorage {
 
     const sharedFamilyIds = sharedFamilies.map(f => f.familyId);
 
-    // Only return items from shared families
+    // If familyId is provided, verify it's in the shared families
+    if (familyId) {
+      if (!sharedFamilyIds.includes(familyId)) {
+        throw new Error("You do not share this family with this user");
+      }
+    }
+
+    // Build where conditions - filter by specific family if provided, otherwise all shared families
+    const whereConditions = familyId
+      ? and(eq(wishlistItems.userId, userId), eq(wishlistItems.familyId, familyId))
+      : and(eq(wishlistItems.userId, userId), sql`${wishlistItems.familyId} = ANY(${sharedFamilyIds})`);
+
+    // Only return items from shared families (or specific family if provided)
     const items = await db
       .select({
         id: wishlistItems.id,
@@ -313,12 +325,7 @@ export class DatabaseStorage implements IStorage {
       })
       .from(wishlistItems)
       .leftJoin(itemPurchases, eq(wishlistItems.id, itemPurchases.itemId))
-      .where(
-        and(
-          eq(wishlistItems.userId, userId),
-          sql`${wishlistItems.familyId} = ANY(${sharedFamilyIds})`
-        )
-      )
+      .where(whereConditions)
       .orderBy(sql`${wishlistItems.createdAt} desc`);
     
     return items;
