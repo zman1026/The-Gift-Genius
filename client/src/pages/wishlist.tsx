@@ -287,7 +287,7 @@ export default function Wishlist() {
     return (
       <div className="p-6 md:p-8 lg:p-12 space-y-6">
         <Skeleton className="h-10 w-64" />
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
           {[...Array(4)].map((_, i) => (
             <Skeleton key={i} className="h-80" />
           ))}
@@ -592,7 +592,7 @@ export default function Wishlist() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
           {filteredItems.map((item: any) => (
             <Card key={item.id} className="overflow-hidden hover-elevate" data-testid={`wishlist-item-${item.id}`}>
               <div className="aspect-[4/3] bg-muted relative overflow-hidden">

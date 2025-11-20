@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ProductDetailsDialog } from "@/components/product-details-dialog";
 import { Search as SearchIcon, Plus, ExternalLink, Gift } from "lucide-react";
+import { Link } from "wouter";
 
 export default function Search() {
   const { toast } = useToast();
@@ -163,28 +164,36 @@ export default function Search() {
       </div>
 
       {/* Search Bar */}
-      <form onSubmit={handleSearch} className="max-w-3xl">
-        <div className="flex gap-3">
-          <div className="flex-1 relative">
-            <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-            <Input
-              type="search"
-              placeholder="Search for products... (e.g., wireless headphones, coffee maker)"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 h-12"
-              data-testid="input-search"
-            />
+      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+        <form onSubmit={handleSearch} className="flex-1 max-w-3xl w-full">
+          <div className="flex gap-3">
+            <div className="flex-1 relative">
+              <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+              <Input
+                type="search"
+                placeholder="Search for products... (e.g., wireless headphones, coffee maker)"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 h-12"
+                data-testid="input-search"
+              />
+            </div>
+            <Button type="submit" size="lg" disabled={!searchQuery.trim()} data-testid="button-search">
+              Search
+            </Button>
           </div>
-          <Button type="submit" size="lg" disabled={!searchQuery.trim()} data-testid="button-search">
-            Search
+        </form>
+        <Link href="/wishlist">
+          <Button variant="outline" size="lg" data-testid="button-add-manually">
+            <Plus className="w-4 h-4 mr-2" />
+            Add Manually
           </Button>
-        </div>
-      </form>
+        </Link>
+      </div>
 
       {/* Results */}
       {(isLoading || isFetching) && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
           {[...Array(6)].map((_, i) => (
             <Skeleton key={i} className="h-96" />
           ))}
@@ -209,7 +218,7 @@ export default function Search() {
               </CardContent>
             </Card>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
               {results.map((product: any, index: number) => (
                 <Card key={`${product.product_id}-${index}`} className="overflow-hidden hover-elevate" data-testid={`search-result-${index}`}>
                   <div className="aspect-square bg-muted relative overflow-hidden">
