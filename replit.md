@@ -56,6 +56,8 @@ Preferred communication style: Simple, everyday language.
 - Opens Google Shopping search in new tab with item name as query
 - Optional original product link if available
 - No longer shows individual retailer listings (removed "Where to Buy" section)
+- No longer fetches from `/api/wishlist/:id/shopping-options` endpoint (removed)
+- Only accessible when viewing other family members' wishlists (not your own)
 
 **Wishlist Image Upload:**
 - Image upload via ObjectUploader component using Uppy v5 dashboard modal
@@ -152,9 +154,14 @@ Preferred communication style: Simple, everyday language.
   - Returns up to 20 results per query
   - Intelligent retailer prioritization:
     - Tier 0 (highest): Brand's own website (e.g., apple.com for "apple iphone")
-    - Tier 1: Reputable US retailers (Amazon, Best Buy, Target, Walmart, etc.)
+    - Tier 1: Reputable US retailers (Amazon, Best Buy, Target, Walmart, Apple Store, Samsung, and 30+ others)
     - Tier 2: Other retailers
   - Excludes unreliable retailers (Temu, Wish, AliExpress, DHgate, Banggood, Gearbest)
+  - Recursive URL extraction:
+    - Decodes Google redirect URLs to find actual merchant domains
+    - Handles nested redirects with depth limiting (max 5 levels)
+    - Extracts merchant URLs from `url`, `u`, and `q` query parameters
+    - Ensures accurate brand and retailer tier detection even with encoded URLs
   - Within same tier: sorted by popularity score (rating × log₁₀(reviews + 1))
   - Client-side caching (5-minute staleTime) for improved performance
   - Handles various rating/review formats (strings, numbers, "1.2K" notation)
