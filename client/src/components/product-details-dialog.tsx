@@ -262,7 +262,7 @@ export function ProductDetailsDialog({
                 type="submit"
                 disabled={isPending}
                 className="flex-1"
-                data-testid="button-add-product"
+                data-testid="button-add"
               >
                 {isPending ? (
                   <>
