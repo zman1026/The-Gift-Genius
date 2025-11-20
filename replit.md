@@ -95,6 +95,17 @@ Preferred communication style: Simple, everyday language.
 - Email module: `server/emailService.ts`
 - **Development Limitation**: In testing mode without a verified domain, Resend only allows sending emails to the account owner's verified email address. To send to any email address in production, verify a domain at resend.com/domains
 
+**Product Search:**
+- **SerpApi** - Google Shopping API for product search
+- Environment variable: `SERPAPI_KEY`
+- Search endpoint: `GET /api/search?q={query}`
+- **Features:**
+  - Location-aware search (United States, English language)
+  - Returns up to 20 results per query
+  - Smart popularity sorting: rating × log₁₀(reviews + 1) with position fallback
+  - Client-side caching (5-minute staleTime) for improved performance
+  - Handles various rating/review formats (strings, numbers, "1.2K" notation)
+
 **Development Tools:**
 - **Vite plugins**: Runtime error overlay, cartographer (Replit), dev banner (Replit)
 - **Drizzle Kit** for database migrations and schema push
