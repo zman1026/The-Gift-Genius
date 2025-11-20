@@ -517,6 +517,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const data = await response.json();
       const results = data.shopping_results || [];
       
+      console.log(`[Product Search] Query: "${q}" - Found ${results.length} results`);
+      if (results.length > 0) {
+        console.log(`[Product Search] First result sample:`, {
+          title: results[0].title,
+          link: results[0].link,
+          snippet: results[0].snippet,
+          price: results[0].extracted_price || results[0].price,
+        });
+      }
+      
       // Sort results by popularity and relevance
       // Prioritize highly rated items with many reviews
       const sortedResults = results.sort((a: any, b: any) => {
@@ -601,6 +611,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const data = await response.json();
       const results = data.shopping_results || [];
       
+      console.log(`[Shopping Options] Searching for: "${item.name}"`);
+      console.log(`[Shopping Options] Found ${results.length} results from SerpApi`);
+      
       // Parse and normalize results
       const parseReviewCount = (reviews: any) => {
         if (!reviews) return 0;
@@ -627,8 +640,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         };
       });
       
-      // Filter out results without valid links or prices
-      const validResults = normalizedResults.filter((r: any) => r.link && r.price > 0);
+      // Filter out results without valid links (relaxed filter - don't require price)
+      const validResults = normalizedResults.filter((r: any) => r.link);
+      
+      console.log(`[Shopping Options] ${validResults.length} results after filtering (must have link)`);
       
       // Sort by reputation score (high ratings + many reviews)
       // This ensures we show reputable stores first, not just cheap prices
