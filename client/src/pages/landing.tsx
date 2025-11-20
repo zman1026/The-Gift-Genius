@@ -14,12 +14,21 @@ export default function Landing() {
               Family Christmas Wishlist
             </span>
           </div>
-          <Button
-            onClick={() => window.location.href = '/api/login'}
-            data-testid="button-nav-login"
-          >
-            Login
-          </Button>
+          <div className="flex items-center gap-3">
+            <Button
+              onClick={() => window.location.href = '/api/login'}
+              data-testid="button-nav-get-started"
+            >
+              Get Started
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => window.location.href = '/api/login'}
+              data-testid="button-nav-login"
+            >
+              Login
+            </Button>
+          </div>
         </div>
       </header>
 
