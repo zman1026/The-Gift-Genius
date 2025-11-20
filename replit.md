@@ -36,6 +36,20 @@ Preferred communication style: Simple, everyday language.
 - Custom hooks (`useAuth`, `useIsMobile`, `useToast`) encapsulate reusable logic
 - Form state managed via react-hook-form with Zod schema validation
 
+**User Profile Features:**
+- User settings dialog accessible via sidebar avatar
+- Profile updates: firstName, lastName, profileImageUrl
+- Image upload supports base64 data URIs and HTTP/HTTPS URLs
+- Form validation: non-empty names required, image format validated
+- Empty submissions handled as no-op (returns current user)
+
+**Product Search & Add Flow:**
+- Product details edit dialog shown before adding from search
+- Edit capabilities: name, price, description, URL, image, priority, quantity, category
+- Price validation: allows $0 or greater, handles NaN/empty as null
+- Category optional (omitted if null)
+- Form pre-populated with search result data
+
 ### Backend Architecture
 
 **Technology Stack:**
@@ -49,6 +63,12 @@ Preferred communication style: Simple, everyday language.
 - Session-based authentication using express-session with PostgreSQL store
 - Request/response logging middleware for debugging
 - Structured error handling with appropriate HTTP status codes
+- Comprehensive Zod validation on all endpoints:
+  - Whitelisted fields only (prevents arbitrary updates)
+  - Non-empty string validation with trim()
+  - Profile images: accepts base64 data URIs (`data:image/*`) or valid URLs
+  - Numeric validation: rejects NaN, allows 0 for prices
+  - Empty payloads handled as no-ops where appropriate
 
 **Authentication:**
 - **Replit Auth** using OpenID Connect (OIDC) via Passport.js
