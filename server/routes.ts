@@ -538,8 +538,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const rating = parseFloat(String(result.rating || result.product_rating || '0').replace(/[^\d.]/g, '')) || 0;
           const reviews = parseReviewCount(result.reviews || result.reviews_count || result.rating_count);
           
-          // Try multiple link fields from SerpApi response
-          const link = result.link || result.product_link || '';
+          // Try to find the direct store link
+          // Priority: direct merchant link > product_link > fallback to Google redirect
+          let link = '';
+          if (result.merchant_link || result.product_link) {
+            // Use direct link if available
+            link = result.merchant_link || result.product_link;
+          } else if (result.link) {
+            // Fallback to Google redirect
+            link = result.link;
+          }
           
           // Calculate popularity score
           const popularity = rating * Math.log10(reviews + 1);
@@ -617,6 +625,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log(`[Shopping Options] Searching for: "${item.name}"`);
       console.log(`[Shopping Options] Found ${results.length} results from SerpApi`);
+      if (results.length > 0) {
+        console.log(`[Shopping Options] First result full data:`, JSON.stringify(results[0], null, 2));
+      }
       
       // Parse and normalize results
       const parseReviewCount = (reviews: any) => {
@@ -630,8 +641,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const rating = parseFloat(String(result.rating || result.product_rating || '0').replace(/[^\d.]/g, '')) || 0;
         const reviews = parseReviewCount(result.reviews || result.reviews_count || result.rating_count);
         
-        // Try multiple link fields from SerpApi response
-        const link = result.link || result.product_link || '';
+        // Try to find the direct store link
+        // Priority: direct merchant link > product_link > fallback to Google redirect
+        let link = '';
+        if (result.merchant_link || result.product_link) {
+          // Use direct link if available
+          link = result.merchant_link || result.product_link;
+        } else if (result.link) {
+          // Fallback to Google redirect
+          link = result.link;
+        }
         
         return {
           title: result.title || result.name,
