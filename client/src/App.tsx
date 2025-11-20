@@ -22,6 +22,7 @@ import Wishlist from "@/pages/wishlist";
 import Members from "@/pages/members";
 import MemberWishlist from "@/pages/member-wishlist";
 import Search from "@/pages/search";
+import Purchased from "@/pages/purchased";
 
 function AppContent() {
   const { isAuthenticated, isLoading, user } = useAuth();
@@ -85,6 +86,7 @@ function AppContent() {
                 <Route path="/members" component={Members} />
                 <Route path="/members/:userId" component={MemberWishlist} />
                 <Route path="/search" component={Search} />
+                <Route path="/purchased" component={Purchased} />
                 <Route component={NotFound} />
               </Switch>
             </main>

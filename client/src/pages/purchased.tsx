@@ -1,0 +1,248 @@
+import { useQuery } from "@tanstack/react-query";
+import { useFamily } from "@/contexts/FamilyContext";
+import { useAuth } from "@/hooks/useAuth";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { ShoppingBag, ExternalLink, Calendar, User, Gift, AlertCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { format } from "date-fns";
+
+interface PurchasedItem {
+  id: string;
+  itemId: string;
+  notes: string | null;
+  purchasedAt: string;
+  item: {
+    id: string;
+    name: string;
+    description: string | null;
+    price: string | null;
+    url: string | null;
+    imageUrl: string | null;
+    priority: string;
+    quantity: number;
+    category: string | null;
+    userId: string;
+  };
+  purchaser: {
+    id: string;
+    email: string;
+    firstName: string | null;
+    lastName: string | null;
+    profileImageUrl: string | null;
+  };
+  owner: {
+    id: string;
+    email: string;
+    firstName: string | null;
+    lastName: string | null;
+    profileImageUrl: string | null;
+  };
+}
+
+export default function Purchased() {
+  const { selectedFamilyId } = useFamily();
+  const { user } = useAuth();
+
+  const { data: purchases, isLoading } = useQuery<PurchasedItem[]>({
+    queryKey: ["/api/purchases", selectedFamilyId, (user as any)?.id],
+    queryFn: async () => {
+      const response = await fetch(`/api/purchases?familyId=${selectedFamilyId}`);
+      if (!response.ok) {
+        throw new Error("Failed to fetch purchased items");
+      }
+      return response.json();
+    },
+    enabled: !!selectedFamilyId && !!user,
+  });
+
+  const getInitials = (firstName?: string | null, lastName?: string | null) => {
+    if (!firstName && !lastName) return "U";
+    return `${firstName?.[0] || ""}${lastName?.[0] || ""}`.toUpperCase();
+  };
+
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case "high":
+        return "text-red-600 dark:text-red-400";
+      case "medium":
+        return "text-yellow-600 dark:text-yellow-400";
+      case "low":
+        return "text-blue-600 dark:text-blue-400";
+      default:
+        return "text-muted-foreground";
+    }
+  };
+
+  const getPriorityLabel = (priority: string) => {
+    switch (priority) {
+      case "high":
+        return "Must-Have!";
+      case "medium":
+        return "Would Love";
+      case "low":
+        return "Just a Thought";
+      default:
+        return priority;
+    }
+  };
+
+  if (!selectedFamilyId) {
+    return (
+      <div className="p-4 md:p-8 lg:p-12 flex items-center justify-center min-h-[400px]">
+        <div className="text-center space-y-4">
+          <AlertCircle className="w-12 h-12 mx-auto text-muted-foreground" />
+          <div>
+            <h2 className="text-xl font-semibold">No Family Selected</h2>
+            <p className="text-muted-foreground mt-2">
+              Please select or create a family to view purchased items.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="p-4 md:p-8 lg:p-12 space-y-6">
+        <Skeleton className="h-10 w-64" />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {[...Array(6)].map((_, i) => (
+            <Skeleton key={i} className="h-64" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-4 md:p-8 lg:p-12 space-y-6">
+      <div>
+        <h1 className="font-serif text-3xl md:text-4xl font-semibold text-foreground flex items-center gap-3">
+          <ShoppingBag className="w-8 h-8 md:w-10 md:h-10 text-primary" />
+          Purchased Items
+        </h1>
+        <p className="text-muted-foreground mt-2">
+          Items you've marked as purchased across your family
+        </p>
+      </div>
+
+      {!purchases || purchases.length === 0 ? (
+        <Card className="p-12">
+          <div className="text-center space-y-4">
+            <ShoppingBag className="w-16 h-16 mx-auto text-muted-foreground" />
+            <div>
+              <h3 className="text-xl font-semibold">No Purchased Items Yet</h3>
+              <p className="text-muted-foreground mt-2">
+                When you mark items as purchased, they'll appear here.
+              </p>
+            </div>
+          </div>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {purchases.map((purchase) => (
+            <Card
+              key={purchase.id}
+              className="overflow-hidden hover-elevate"
+              data-testid={`purchased-card-${purchase.id}`}
+            >
+              {purchase.item.imageUrl && (
+                <div className="aspect-video w-full overflow-hidden bg-muted">
+                  <img
+                    src={purchase.item.imageUrl}
+                    alt={purchase.item.name}
+                    className="w-full h-full object-cover"
+                    data-testid={`img-purchased-${purchase.id}`}
+                  />
+                </div>
+              )}
+              <CardHeader className="space-y-3">
+                <CardTitle className="flex items-start justify-between gap-2">
+                  <span className="line-clamp-2" data-testid={`text-item-name-${purchase.id}`}>
+                    {purchase.item.name}
+                  </span>
+                  {purchase.item.price && (
+                    <Badge variant="secondary" className="shrink-0">
+                      ${parseFloat(purchase.item.price).toFixed(2)}
+                    </Badge>
+                  )}
+                </CardTitle>
+                <div className="flex items-center gap-2 text-sm">
+                  <span className={getPriorityColor(purchase.item.priority)}>
+                    {getPriorityLabel(purchase.item.priority)}
+                  </span>
+                  {purchase.item.quantity > 1 && (
+                    <Badge variant="outline" className="text-xs">
+                      Qty: {purchase.item.quantity}
+                    </Badge>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {purchase.item.description && (
+                  <p className="text-sm text-muted-foreground line-clamp-2">
+                    {purchase.item.description}
+                  </p>
+                )}
+
+                <div className="space-y-3 pt-3 border-t">
+                  <div className="flex items-center gap-2">
+                    <Gift className="w-4 h-4 text-muted-foreground" />
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <Avatar className="h-6 w-6">
+                        <AvatarImage
+                          src={purchase.owner.profileImageUrl || undefined}
+                          alt={purchase.owner.firstName || "User"}
+                        />
+                        <AvatarFallback className="text-xs">
+                          {getInitials(purchase.owner.firstName, purchase.owner.lastName)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="text-sm text-muted-foreground truncate">
+                        {purchase.owner.firstName || purchase.owner.lastName
+                          ? `${purchase.owner.firstName || ""} ${purchase.owner.lastName || ""}`.trim()
+                          : purchase.owner.email}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">
+                      {format(new Date(purchase.purchasedAt), "MMM d, yyyy")}
+                    </span>
+                  </div>
+
+                  {purchase.notes && user && purchase.purchaser.id === (user as any).id && (
+                    <div className="bg-muted/50 p-3 rounded-md">
+                      <p className="text-sm text-foreground italic">{purchase.notes}</p>
+                    </div>
+                  )}
+                </div>
+
+                {purchase.item.url && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    asChild
+                    data-testid={`button-view-product-${purchase.id}`}
+                  >
+                    <a href={purchase.item.url} target="_blank" rel="noopener noreferrer">
+                      <ExternalLink className="w-4 h-4 mr-2" />
+                      View Product
+                    </a>
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}

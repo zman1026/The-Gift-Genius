@@ -48,6 +48,7 @@ export interface IStorage {
   markItemPurchased(purchase: InsertItemPurchase): Promise<ItemPurchase>;
   unmarkItemPurchased(itemId: string, userId: string): Promise<void>;
   getItemPurchase(itemId: string): Promise<ItemPurchase | undefined>;
+  getPurchasedItemsByUser(userId: string, familyId: string): Promise<any[]>;
   
   // Stats operations
   getUserStats(userId: string): Promise<any>;
@@ -429,6 +430,55 @@ export class DatabaseStorage implements IStorage {
       .from(itemPurchases)
       .where(eq(itemPurchases.itemId, itemId));
     return purchase;
+  }
+
+  async getPurchasedItemsByUser(userId: string, familyId: string): Promise<any[]> {
+    const purchases = await db
+      .select({
+        id: itemPurchases.id,
+        itemId: itemPurchases.itemId,
+        notes: itemPurchases.notes,
+        purchasedAt: itemPurchases.purchasedAt,
+        item: {
+          id: wishlistItems.id,
+          name: wishlistItems.name,
+          description: wishlistItems.description,
+          price: wishlistItems.price,
+          url: wishlistItems.url,
+          imageUrl: wishlistItems.imageUrl,
+          priority: wishlistItems.priority,
+          quantity: wishlistItems.quantity,
+          category: wishlistItems.category,
+          userId: wishlistItems.userId,
+        },
+        purchaser: {
+          id: sql<string>`purchaser.id`,
+          email: sql<string>`purchaser.email`,
+          firstName: sql<string>`purchaser.first_name`,
+          lastName: sql<string>`purchaser.last_name`,
+          profileImageUrl: sql<string>`purchaser.profile_image_url`,
+        },
+        owner: {
+          id: sql<string>`owner.id`,
+          email: sql<string>`owner.email`,
+          firstName: sql<string>`owner.first_name`,
+          lastName: sql<string>`owner.last_name`,
+          profileImageUrl: sql<string>`owner.profile_image_url`,
+        },
+      })
+      .from(itemPurchases)
+      .innerJoin(wishlistItems, eq(itemPurchases.itemId, wishlistItems.id))
+      .innerJoin(sql`users AS purchaser`, sql`${itemPurchases.purchasedById} = purchaser.id`)
+      .innerJoin(sql`users AS owner`, sql`${wishlistItems.userId} = owner.id`)
+      .where(
+        and(
+          eq(wishlistItems.familyId, familyId),
+          eq(itemPurchases.purchasedById, userId)
+        )
+      )
+      .orderBy(sql`${itemPurchases.purchasedAt} desc`);
+
+    return purchases;
   }
 
   // Stats operations

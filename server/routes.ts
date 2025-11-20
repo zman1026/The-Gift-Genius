@@ -510,6 +510,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get('/api/purchases', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { familyId } = req.query;
+
+      if (!familyId || typeof familyId !== 'string') {
+        return res.status(400).json({ message: "familyId is required" });
+      }
+
+      const isMember = await storage.getFamilyMember(familyId, userId);
+      if (!isMember) {
+        return res.status(403).json({ message: "You are not a member of this family" });
+      }
+
+      const purchases = await storage.getPurchasedItemsByUser(userId, familyId);
+      res.json(purchases);
+    } catch (error) {
+      console.error("Error fetching purchased items:", error);
+      res.status(500).json({ message: "Failed to fetch purchased items" });
+    }
+  });
+
   // Object storage routes (for wishlist item image uploads)
   // Get presigned URL for uploading image
   app.post('/api/objects/upload', isAuthenticated, async (req: any, res) => {
