@@ -33,7 +33,11 @@ const addItemSchema = z.object({
 
 type AddItemFormData = z.infer<typeof addItemSchema>;
 
-const CATEGORIES = ["toys", "clothes", "electronics", "books", "home", "other"] as const;
+const PRIORITIES = [
+  { value: "high", label: "Must-Have!", icon: ArrowUp },
+  { value: "medium", label: "Would Love", icon: Circle },
+  { value: "low", label: "Just a Thought", icon: AlertCircle },
+] as const;
 
 export default function Wishlist() {
   const { toast } = useToast();
@@ -41,7 +45,7 @@ export default function Wishlist() {
   const { selectedFamilyId } = useFamily();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedPriority, setSelectedPriority] = useState<string | null>(null);
   
   const form = useForm<AddItemFormData>({
     resolver: zodResolver(addItemSchema),
@@ -249,10 +253,19 @@ export default function Wishlist() {
 
   const hasItems = items && items.length > 0;
   
-  const filteredItems = items ? items.filter((item: any) => {
-    if (!selectedCategory) return true;
-    return item.category === selectedCategory;
-  }) : [];
+  // Filter and sort by priority
+  const filteredItems = items ? items
+    .filter((item: any) => {
+      if (!selectedPriority) return true;
+      return item.priority === selectedPriority;
+    })
+    .sort((a: any, b: any) => {
+      // Sort by priority: high -> medium -> low
+      const priorityOrder = { high: 0, medium: 1, low: 2 };
+      const aPriority = a.priority || 'medium';
+      const bPriority = b.priority || 'medium';
+      return priorityOrder[aPriority as keyof typeof priorityOrder] - priorityOrder[bPriority as keyof typeof priorityOrder];
+    }) : [];
   
   const hasFilteredItems = filteredItems && filteredItems.length > 0;
 
@@ -440,24 +453,28 @@ export default function Wishlist() {
       {hasItems && (
         <div className="flex flex-wrap gap-2">
           <Badge
-            variant={selectedCategory === null ? "default" : "outline"}
+            variant={selectedPriority === null ? "default" : "outline"}
             className="cursor-pointer hover-elevate active-elevate-2"
-            onClick={() => setSelectedCategory(null)}
+            onClick={() => setSelectedPriority(null)}
             data-testid="filter-all"
           >
-            All Items
+            All Priorities
           </Badge>
-          {CATEGORIES.map((category) => (
-            <Badge
-              key={category}
-              variant={selectedCategory === category ? "default" : "outline"}
-              className="cursor-pointer hover-elevate active-elevate-2 capitalize"
-              onClick={() => setSelectedCategory(category)}
-              data-testid={`filter-${category}`}
-            >
-              {category}
-            </Badge>
-          ))}
+          {PRIORITIES.map((priority) => {
+            const Icon = priority.icon;
+            return (
+              <Badge
+                key={priority.value}
+                variant={selectedPriority === priority.value ? (priority.value === "high" ? "destructive" : "default") : "outline"}
+                className="cursor-pointer hover-elevate active-elevate-2"
+                onClick={() => setSelectedPriority(priority.value)}
+                data-testid={`filter-${priority.value}`}
+              >
+                <Icon className="w-3 h-3 mr-1" />
+                {priority.label}
+              </Badge>
+            );
+          })}
         </div>
       )}
 
@@ -491,11 +508,11 @@ export default function Wishlist() {
             <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center mb-4">
               <Gift className="w-10 h-10 text-muted-foreground" />
             </div>
-            <h3 className="font-semibold text-xl mb-2 text-foreground">No items in this category</h3>
+            <h3 className="font-semibold text-xl mb-2 text-foreground">No items with this priority</h3>
             <p className="text-muted-foreground mb-6 max-w-md">
-              Try selecting a different category or add new items.
+              Try selecting a different priority filter or add new items.
             </p>
-            <Button onClick={() => setSelectedCategory(null)} variant="outline" data-testid="button-clear-filter">
+            <Button onClick={() => setSelectedPriority(null)} variant="outline" data-testid="button-clear-filter">
               Show All Items
             </Button>
           </CardContent>
