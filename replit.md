@@ -80,6 +80,15 @@ Preferred communication style: Simple, everyday language.
 - Visual priority indicators with icons (ArrowUp, Circle, AlertCircle)
 - Category field still available for data entry but not used for filtering
 
+**Dashboard Invite Feature:**
+- "Invite Family Member" quick action card opens invitation dialog directly
+- Dialog provides two invitation methods: email and manual sharing
+- Email invitation section with form validation and API integration
+- Manual sharing section with invite code and link copy buttons
+- Copy buttons show check icon feedback and toast notifications
+- Dialog matches members page invite functionality for consistency
+- Available on dashboard when user has selected a family
+
 ### Backend Architecture
 
 **Technology Stack:**
