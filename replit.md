@@ -89,6 +89,34 @@ Preferred communication style: Simple, everyday language.
 - Dialog matches members page invite functionality for consistency
 - Available on dashboard when user has selected a family
 
+**Purchased Items Feature:**
+- Dedicated page showing all items the current user has marked as purchased
+- **Privacy-First Design:** Users can ONLY see their own purchased items, never other family members' purchases
+- **Defense-in-Depth Security Implementation:**
+  - **Layer 1 (Backend):** API filters by `purchasedById === authenticated user ID`
+  - **Layer 2 (Frontend):** Defensive check before displaying notes: `purchase.purchaser.id === user.id`
+  - **Layer 3 (Cache):** User-scoped React Query cache key prevents cross-user cache sharing
+- Mobile-responsive grid layout (1-3 columns)
+- Each purchase card displays:
+  - Item image, name, description, price
+  - Priority badge and quantity
+  - Item owner's avatar and name (person who added to wishlist)
+  - Purchase date
+  - Private purchase notes (only visible to purchaser)
+  - "View Product" link if available
+- Empty state when no purchases exist
+- Navigation via sidebar "Purchased Items" link with ShoppingBag icon
+
+**Mobile Optimization (Phase 1):**
+- Bottom navigation bar for mobile devices (Home, Wishlist, Members, Purchased, Search)
+- Touch-friendly interactive elements (min 44x44px tap targets)
+- Responsive grid layouts across all pages
+- Proper z-index layering: mobile nav at z-40, sidebar sheet at z-50
+- Content padding strategy: main content pb-24, sidebar content pb-20, sidebar footer pb-24
+- PWA manifest and mobile meta tags for proper rendering
+- Safe area viewport support for iOS devices
+- Adaptive navigation: sidebar accessible on all screens, bottom nav for mobile
+
 ### Backend Architecture
 
 **Technology Stack:**
