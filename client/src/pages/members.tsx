@@ -294,7 +294,7 @@ export default function Members() {
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {members.map((member: any) => {
-            const isCurrentUser = user && member.userId === (user as any).id;
+            const isCurrentUser = !!user && member.userId === (user as any).id;
             return (
               <Card
                 key={member.userId}
