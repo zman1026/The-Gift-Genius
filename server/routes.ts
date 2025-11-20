@@ -449,14 +449,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
       searchUrl.searchParams.set('engine', 'google_shopping');
       searchUrl.searchParams.set('q', q);
       searchUrl.searchParams.set('api_key', apiKey);
+      
+      // Add location and language parameters for better, faster results
+      searchUrl.searchParams.set('location', 'United States');
+      searchUrl.searchParams.set('google_domain', 'google.com');
+      searchUrl.searchParams.set('hl', 'en');
+      searchUrl.searchParams.set('gl', 'us');
+      
+      // Request more results for better selection
+      searchUrl.searchParams.set('num', '20');
 
       const response = await fetch(searchUrl.toString());
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error("SerpApi error:", response.status, errorText);
         throw new Error('Search service error');
       }
 
       const data = await response.json();
-      res.json(data.shopping_results || []);
+      const results = data.shopping_results || [];
+      
+      // Sort results by relevance and popularity
+      // Prioritize items with reviews, ratings, and reasonable prices
+      const sortedResults = results.sort((a: any, b: any) => {
+        // First priority: items with prices (available products)
+        const aHasPrice = a.price || a.extracted_price;
+        const bHasPrice = b.price || b.extracted_price;
+        if (aHasPrice && !bHasPrice) return -1;
+        if (!aHasPrice && bHasPrice) return 1;
+        
+        // Second priority: items with ratings
+        const aRating = parseFloat(a.rating) || 0;
+        const bRating = parseFloat(b.rating) || 0;
+        if (aRating !== bRating) return bRating - aRating;
+        
+        // Third priority: items with more reviews
+        const aReviews = parseInt(a.reviews) || 0;
+        const bReviews = parseInt(b.reviews) || 0;
+        if (aReviews !== bReviews) return bReviews - aReviews;
+        
+        // Default: maintain original order (Google's relevance)
+        return 0;
+      });
+      
+      res.json(sortedResults);
     } catch (error) {
       console.error("Error searching products:", error);
       res.status(500).json({ message: "Failed to search products" });
