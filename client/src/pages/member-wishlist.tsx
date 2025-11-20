@@ -14,6 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Gift, ArrowLeft, CheckCircle2, ExternalLink, MessageSquare, AlertCircle, Circle, ArrowUp } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { ShoppingOptionsDialog } from "@/components/shopping-options-dialog";
 
 const CATEGORIES = ["toys", "clothes", "electronics", "books", "home", "other"] as const;
 
@@ -26,6 +27,7 @@ export default function MemberWishlist() {
   const [purchaseNotes, setPurchaseNotes] = useState<Record<string, string>>({});
   const [openNoteDialog, setOpenNoteDialog] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedItemForShopping, setSelectedItemForShopping] = useState<any>(null);
   
   // Use a ref to always get the current selectedFamilyId (prevents stale closure bugs)
   const selectedFamilyIdRef = useRef(selectedFamilyId);
@@ -273,7 +275,8 @@ export default function MemberWishlist() {
             return (
               <Card
                 key={item.id}
-                className={`overflow-hidden hover-elevate ${isPurchased ? 'opacity-75' : ''}`}
+                className={`overflow-hidden hover-elevate cursor-pointer ${isPurchased ? 'opacity-75' : ''}`}
+                onClick={() => !isPurchased && setSelectedItemForShopping(item)}
                 data-testid={`wishlist-item-${item.id}`}
               >
                 <div className="aspect-[4/3] bg-muted relative overflow-hidden">
@@ -310,7 +313,7 @@ export default function MemberWishlist() {
                           {item.priority === "high" && <ArrowUp className="w-3 h-3 mr-1" />}
                           {item.priority === "medium" && <Circle className="w-3 h-3 mr-1" />}
                           {item.priority === "low" && <AlertCircle className="w-3 h-3 mr-1" />}
-                          {item.priority}
+                          {item.priority === "high" ? "Must-Have!" : item.priority === "medium" ? "Would Love" : "Just a Thought"}
                         </Badge>
                       )}
                     </div>
@@ -343,7 +346,7 @@ export default function MemberWishlist() {
                     </div>
                   )}
 
-                  <div className="flex gap-2 pt-2">
+                  <div className="flex gap-2 pt-2" onClick={(e) => e.stopPropagation()}>
                     {item.url && (
                       <Button
                         variant="outline"
@@ -421,6 +424,17 @@ export default function MemberWishlist() {
             );
           })}
         </div>
+      )}
+
+      {/* Shopping Options Dialog */}
+      {selectedItemForShopping && selectedFamilyId && userId && (
+        <ShoppingOptionsDialog
+          item={selectedItemForShopping}
+          open={!!selectedItemForShopping}
+          onOpenChange={(open) => !open && setSelectedItemForShopping(null)}
+          userId={userId}
+          familyId={selectedFamilyId}
+        />
       )}
     </div>
   );

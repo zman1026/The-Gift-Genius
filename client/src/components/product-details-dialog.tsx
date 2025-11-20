@@ -198,9 +198,9 @@ export function ProductDetailsDialog({
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="low">Low</SelectItem>
-                      <SelectItem value="medium">Medium</SelectItem>
-                      <SelectItem value="high">High</SelectItem>
+                      <SelectItem value="high">Must-Have!</SelectItem>
+                      <SelectItem value="medium">Would Love</SelectItem>
+                      <SelectItem value="low">Just a Thought</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />

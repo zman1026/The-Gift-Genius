@@ -374,9 +374,9 @@ export default function Wishlist() {
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="high">High</SelectItem>
-                            <SelectItem value="medium">Medium</SelectItem>
-                            <SelectItem value="low">Low</SelectItem>
+                            <SelectItem value="high">Must-Have!</SelectItem>
+                            <SelectItem value="medium">Would Love</SelectItem>
+                            <SelectItem value="low">Just a Thought</SelectItem>
                           </SelectContent>
                         </Select>
                         <FormMessage />
@@ -530,7 +530,7 @@ export default function Wishlist() {
                         {item.priority === "high" && <ArrowUp className="w-3 h-3 mr-1" />}
                         {item.priority === "medium" && <Circle className="w-3 h-3 mr-1" />}
                         {item.priority === "low" && <AlertCircle className="w-3 h-3 mr-1" />}
-                        {item.priority}
+                        {item.priority === "high" ? "Must-Have!" : item.priority === "medium" ? "Would Love" : "Just a Thought"}
                       </Badge>
                     )}
                   </div>

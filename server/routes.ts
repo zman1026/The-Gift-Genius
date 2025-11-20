@@ -557,6 +557,108 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Shopping options route - Find where to buy a wishlist item
+  app.get('/api/wishlist/:id/shopping-options', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { id } = req.params;
+
+      // Get the wishlist item
+      const item = await storage.getWishlistItem(id);
+      if (!item) {
+        return res.status(404).json({ message: "Item not found" });
+      }
+
+      // Verify user has access to this item (is in the same family)
+      const familyMember = await storage.getFamilyMember(item.familyId, userId);
+      if (!familyMember) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const apiKey = process.env.SERPAPI_KEY;
+      if (!apiKey) {
+        return res.status(500).json({ message: "Shopping service not configured" });
+      }
+
+      // Search for the item name
+      const searchUrl = new URL('https://serpapi.com/search');
+      searchUrl.searchParams.set('engine', 'google_shopping');
+      searchUrl.searchParams.set('q', item.name);
+      searchUrl.searchParams.set('api_key', apiKey);
+      searchUrl.searchParams.set('location', 'United States');
+      searchUrl.searchParams.set('google_domain', 'google.com');
+      searchUrl.searchParams.set('hl', 'en');
+      searchUrl.searchParams.set('gl', 'us');
+      searchUrl.searchParams.set('num', '20');
+
+      const response = await fetch(searchUrl.toString());
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("SerpApi error:", response.status, errorText);
+        throw new Error('Shopping service error');
+      }
+
+      const data = await response.json();
+      const results = data.shopping_results || [];
+      
+      // Parse and normalize results
+      const parseReviewCount = (reviews: any) => {
+        if (!reviews) return 0;
+        const str = String(reviews).toLowerCase();
+        if (str.includes('k')) return parseFloat(str) * 1000;
+        return parseInt(str.replace(/[^\d]/g, '')) || 0;
+      };
+      
+      const normalizedResults = results.map((result: any) => {
+        const rating = parseFloat(String(result.rating || result.product_rating || '0').replace(/[^\d.]/g, '')) || 0;
+        const reviews = parseReviewCount(result.reviews || result.reviews_count || result.rating_count);
+        
+        return {
+          title: result.title || result.name,
+          price: result.extracted_price || result.price || 0,
+          link: result.link,
+          source: result.source || result.merchant || 'Unknown Store',
+          rating: rating > 0 ? rating : undefined,
+          reviews: reviews > 0 ? reviews : undefined,
+          thumbnail: result.thumbnail,
+          // Calculate reputation score: (rating * log(reviews + 1))
+          // This prioritizes stores with both high ratings AND many reviews
+          reputationScore: rating * Math.log10(reviews + 1),
+        };
+      });
+      
+      // Filter out results without valid links or prices
+      const validResults = normalizedResults.filter((r: any) => r.link && r.price > 0);
+      
+      // Sort by reputation score (high ratings + many reviews)
+      // This ensures we show reputable stores first, not just cheap prices
+      const sortedResults = validResults.sort((a: any, b: any) => {
+        // Prioritize items with ratings and reviews
+        if (a.reputationScore > 0 || b.reputationScore > 0) {
+          return b.reputationScore - a.reputationScore;
+        }
+        // Fallback to price if no reputation data
+        return a.price - b.price;
+      });
+      
+      // Return top 10 options
+      const topOptions = sortedResults.slice(0, 10).map((r: any) => ({
+        title: r.title,
+        price: r.price,
+        link: r.link,
+        source: r.source,
+        rating: r.rating,
+        reviews: r.reviews,
+        thumbnail: r.thumbnail,
+      }));
+      
+      res.json(topOptions);
+    } catch (error) {
+      console.error("Error fetching shopping options:", error);
+      res.status(500).json({ message: "Failed to fetch shopping options" });
+    }
+  });
+
   // Stats route
   app.get('/api/stats', isAuthenticated, async (req: any, res) => {
     try {
