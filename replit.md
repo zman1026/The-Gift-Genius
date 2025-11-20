@@ -50,6 +50,13 @@ Preferred communication style: Simple, everyday language.
 - Category optional (omitted if null)
 - Form pre-populated with search result data
 
+**Wishlist Organization:**
+- Priority-based filtering and sorting system
+- Filter badges: "All Priorities", "Must-Have!" (high), "Would Love" (medium), "Just a Thought" (low)
+- Automatic sorting: high priority → medium → low
+- Visual priority indicators with icons (ArrowUp, Circle, AlertCircle)
+- Category field still available for data entry but not used for filtering
+
 ### Backend Architecture
 
 **Technology Stack:**
