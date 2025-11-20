@@ -6,6 +6,8 @@ import { z } from "zod";
 import { randomBytes } from "crypto";
 import { sendInviteEmail } from "./emailService";
 import * as cheerio from "cheerio";
+import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
+import { ObjectPermission } from "./objectAcl";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
@@ -477,6 +479,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error unmarking purchase:", error);
       res.status(500).json({ message: "Failed to remove purchase marking" });
+    }
+  });
+
+  // Object storage routes (for wishlist item image uploads)
+  // Get presigned URL for uploading image
+  app.post('/api/objects/upload', isAuthenticated, async (req: any, res) => {
+    try {
+      const objectStorageService = new ObjectStorageService();
+      const uploadURL = await objectStorageService.getObjectEntityUploadURL();
+      res.json({ uploadURL });
+    } catch (error) {
+      console.error("Error getting upload URL:", error);
+      res.status(500).json({ message: "Failed to get upload URL" });
+    }
+  });
+
+  // Set ACL policy for uploaded wishlist item image
+  app.put('/api/wishlist-images', isAuthenticated, async (req: any, res) => {
+    try {
+      if (!req.body.imageUrl) {
+        return res.status(400).json({ message: "imageUrl is required" });
+      }
+
+      const userId = req.user.claims.sub;
+      const objectStorageService = new ObjectStorageService();
+      
+      // Set ACL policy: public visibility so family members can view the image
+      const objectPath = await objectStorageService.trySetObjectEntityAclPolicy(
+        req.body.imageUrl,
+        {
+          owner: userId,
+          visibility: "public", // Public so family members can see wishlist images
+        }
+      );
+
+      res.json({ objectPath });
+    } catch (error) {
+      console.error("Error setting wishlist image ACL:", error);
+      res.status(500).json({ message: "Failed to set image ACL" });
+    }
+  });
+
+  // Serve uploaded images with ACL check
+  app.get('/objects/:objectPath(*)', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const objectStorageService = new ObjectStorageService();
+      
+      const objectFile = await objectStorageService.getObjectEntityFile(req.path);
+      const canAccess = await objectStorageService.canAccessObjectEntity({
+        objectFile,
+        userId: userId,
+        requestedPermission: ObjectPermission.READ,
+      });
+
+      if (!canAccess) {
+        return res.sendStatus(401);
+      }
+
+      objectStorageService.downloadObject(objectFile, res);
+    } catch (error) {
+      console.error("Error serving object:", error);
+      if (error instanceof ObjectNotFoundError) {
+        return res.sendStatus(404);
+      }
+      return res.sendStatus(500);
     }
   });
 

@@ -50,6 +50,20 @@ Preferred communication style: Simple, everyday language.
 - Category optional (omitted if null)
 - Form pre-populated with search result data
 
+**Wishlist Image Upload:**
+- Image upload via ObjectUploader component using Uppy v5 dashboard modal
+- Replaces previous imageUrl text input field
+- Upload button displays "Upload Image" with Upload icon
+- Shows "Image uploaded" message and preview thumbnail after successful upload
+- Edit dialog displays existing image thumbnail if item has imageUrl
+- Maximum file size: 10MB per image
+- Images stored in Replit Object Storage with public ACL for family access
+- **Implementation Details:**
+  - Uppy cleanup uses `destroy()` method for proper v5 compatibility
+  - FormField uses `{...field}` pattern for proper form state synchronization
+  - State management clears uploaded image URL on successful mutation
+  - URL normalization handles both PRIVATE_OBJECT_DIR formats (with/without bucket)
+
 **Wishlist Organization:**
 - Priority-based filtering and sorting system
 - Filter badges: "All Priorities", "Must-Have!" (high), "Would Love" (medium), "Just a Thought" (low)
@@ -132,6 +146,26 @@ Preferred communication style: Simple, everyday language.
   - Smart popularity sorting: rating × log₁₀(reviews + 1) with position fallback
   - Client-side caching (5-minute staleTime) for improved performance
   - Handles various rating/review formats (strings, numbers, "1.2K" notation)
+
+**Object Storage:**
+- **Replit Object Storage** - Cloud storage for wishlist item images
+- Environment variables: `DEFAULT_OBJECT_STORAGE_BUCKET_ID`, `PUBLIC_OBJECT_SEARCH_PATHS`, `PRIVATE_OBJECT_DIR`
+- **Features:**
+  - Direct browser uploads via presigned URLs (no server bandwidth usage)
+  - Public visibility for wishlist images (accessible by all family members)
+  - ACL-based access control with read/write permissions
+  - Automatic bucket management and file serving
+- **API Endpoints:**
+  - `POST /api/objects/upload` - Get presigned URL for file upload
+  - `PUT /api/wishlist-images` - Set ACL policy for uploaded wishlist image
+  - `GET /objects/:objectPath` - Serve images with authentication and ACL checks
+- **Frontend Integration:**
+  - Uppy v5 file uploader with dashboard modal interface
+  - Maximum file size: 10MB per image
+  - Upload button in Add/Edit item dialogs
+  - Image preview after successful upload
+  - Import path: `import DashboardModal from "@uppy/react/dashboard-modal"`
+  - CSS: `@uppy/core/css/style.css` and `@uppy/dashboard/css/style.css`
 
 **Development Tools:**
 - **Vite plugins**: Runtime error overlay, cartographer (Replit), dev banner (Replit)

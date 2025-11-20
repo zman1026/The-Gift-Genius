@@ -14,11 +14,13 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Gift, Plus, Trash2, Edit, ExternalLink, AlertCircle, Circle, ArrowUp, Search } from "lucide-react";
+import { Gift, Plus, Trash2, Edit, ExternalLink, AlertCircle, Circle, ArrowUp, Search, Upload } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Link } from "wouter";
+import { ObjectUploader } from "@/components/ObjectUploader";
+import type { UploadResult } from "@uppy/core";
 
 const addItemSchema = z.object({
   name: z.string().min(1, "Item name is required").max(255),
@@ -46,6 +48,7 @@ export default function Wishlist() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
   const [selectedPriority, setSelectedPriority] = useState<string | null>(null);
+  const [uploadedImageUrl, setUploadedImageUrl] = useState<string>("");
   
   const form = useForm<AddItemFormData>({
     resolver: zodResolver(addItemSchema),
@@ -118,6 +121,7 @@ export default function Wishlist() {
         description: "Item added to your wishlist!",
       });
       setIsAddDialogOpen(false);
+      setUploadedImageUrl("");
       form.reset();
     },
     onError: (error: Error) => {
@@ -155,6 +159,7 @@ export default function Wishlist() {
         description: "Item updated successfully!",
       });
       setEditingItem(null);
+      setUploadedImageUrl("");
       form.reset();
     },
     onError: (error: Error) => {
@@ -220,6 +225,7 @@ export default function Wishlist() {
 
   const handleEdit = (item: any) => {
     setEditingItem(item);
+    setUploadedImageUrl("");
     form.reset({
       name: item.name,
       description: item.description || "",
@@ -235,7 +241,46 @@ export default function Wishlist() {
   const handleCloseDialog = () => {
     setIsAddDialogOpen(false);
     setEditingItem(null);
+    setUploadedImageUrl("");
     form.reset();
+  };
+
+  const handleGetUploadParameters = async () => {
+    const res = await apiRequest("POST", "/api/objects/upload", {});
+    const data = await res.json();
+    return {
+      method: "PUT" as const,
+      url: data.uploadURL,
+    };
+  };
+
+  const handleUploadComplete = async (result: UploadResult<Record<string, unknown>, Record<string, unknown>>) => {
+    if (result.successful && result.successful.length > 0) {
+      const uploadedFileUrl = result.successful[0].uploadURL;
+      
+      try {
+        // Set ACL policy for the uploaded image
+        const res = await apiRequest("PUT", "/api/wishlist-images", {
+          imageUrl: uploadedFileUrl,
+        });
+        const data = await res.json();
+        
+        // Update form with the normalized object path
+        setUploadedImageUrl(data.objectPath);
+        form.setValue("imageUrl", data.objectPath);
+        
+        toast({
+          title: "Success",
+          description: "Image uploaded successfully!",
+        });
+      } catch (error: any) {
+        toast({
+          title: "Error",
+          description: error.message || "Failed to process uploaded image",
+          variant: "destructive",
+        });
+      }
+    }
   };
 
   if (isLoading) {
@@ -361,19 +406,47 @@ export default function Wishlist() {
                     </FormItem>
                   )}
                 />
-                <FormField
-                  control={form.control}
-                  name="imageUrl"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Image URL</FormLabel>
-                      <FormControl>
-                        <Input placeholder="https://example.com/image.jpg" {...field} data-testid="input-item-image" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
+                <div className="space-y-2">
+                  <FormLabel>Item Image</FormLabel>
+                  <div className="flex items-center gap-4">
+                    <ObjectUploader
+                      maxNumberOfFiles={1}
+                      maxFileSize={10485760}
+                      onGetUploadParameters={handleGetUploadParameters}
+                      onComplete={handleUploadComplete}
+                      buttonVariant="outline"
+                    >
+                      <Upload className="w-4 h-4 mr-2" />
+                      Upload Image
+                    </ObjectUploader>
+                    {uploadedImageUrl && (
+                      <span className="text-sm text-muted-foreground">Image uploaded</span>
+                    )}
+                  </div>
+                  {uploadedImageUrl && (
+                    <div className="relative w-32 h-32 border rounded-md overflow-hidden">
+                      <img
+                        src={uploadedImageUrl}
+                        alt="Uploaded preview"
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
                   )}
-                />
+                  {editingItem?.imageUrl && !uploadedImageUrl && (
+                    <div className="relative w-32 h-32 border rounded-md overflow-hidden">
+                      <img
+                        src={editingItem.imageUrl}
+                        alt="Current item"
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  )}
+                  <FormField
+                    control={form.control}
+                    name="imageUrl"
+                    render={({ field }) => <input type="hidden" {...field} data-testid="input-item-image-url" />}
+                  />
+                </div>
                 <div className="grid grid-cols-3 gap-4">
                   <FormField
                     control={form.control}
