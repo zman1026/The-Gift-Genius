@@ -81,8 +81,8 @@ export function ShoppingOptionsDialog({
       return await apiRequest("POST", `/api/wishlist/${item.id}/purchase`, { notes });
     },
     onSuccess: () => {
-      // Invalidate all variations of the wishlist query to ensure UI updates
-      queryClient.invalidateQueries({ queryKey: ["/api/members"] });
+      // Invalidate the specific wishlist query that member-wishlist page uses
+      queryClient.invalidateQueries({ queryKey: ["/api/members", userId, "wishlist", familyId] });
       queryClient.invalidateQueries({ queryKey: ["/api/stats", familyId] });
       toast({
         title: "Success",
