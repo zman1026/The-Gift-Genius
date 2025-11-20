@@ -399,7 +399,7 @@ export class DatabaseStorage implements IStorage {
       .from(familyMembers)
       .where(sql`${familyMembers.familyId} = ANY(${familyIds})`);
 
-    // Count unpurchased items from all family members except self
+    // Count unpurchased high priority items from all family members except self
     const [unpurchasedResult] = await db
       .select({ count: sql<number>`count(*)::int` })
       .from(wishlistItems)
@@ -408,7 +408,8 @@ export class DatabaseStorage implements IStorage {
         and(
           sql`${wishlistItems.familyId} = ANY(${familyIds})`,
           sql`${wishlistItems.userId} != ${userId}`,
-          sql`${itemPurchases.id} IS NULL`
+          sql`${itemPurchases.id} IS NULL`,
+          eq(wishlistItems.priority, 'high')
         )
       );
 
@@ -438,7 +439,7 @@ export class DatabaseStorage implements IStorage {
       .from(familyMembers)
       .where(eq(familyMembers.familyId, familyId));
 
-    // Count unpurchased items from family members except self in this family
+    // Count unpurchased high priority items from family members except self in this family
     const [unpurchasedResult] = await db
       .select({ count: sql<number>`count(*)::int` })
       .from(wishlistItems)
@@ -447,7 +448,8 @@ export class DatabaseStorage implements IStorage {
         and(
           eq(wishlistItems.familyId, familyId),
           sql`${wishlistItems.userId} != ${userId}`,
-          sql`${itemPurchases.id} IS NULL`
+          sql`${itemPurchases.id} IS NULL`,
+          eq(wishlistItems.priority, 'high')
         )
       );
 
