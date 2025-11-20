@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -12,28 +12,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
 import { 
   ExternalLink, 
-  CheckCircle2, 
-  Star, 
-  Store, 
-  DollarSign,
+  CheckCircle2,
   Gift,
-  ShoppingCart
+  ShoppingBag
 } from "lucide-react";
-
-interface ShoppingOption {
-  title: string;
-  price: number;
-  link: string;
-  source: string;
-  rating?: number;
-  reviews?: number;
-  thumbnail?: string;
-}
 
 interface ShoppingOptionsDialogProps {
   item: any;
@@ -59,22 +44,6 @@ export function ShoppingOptionsDialog({
       setNotes("");
     }
   }, [open, item]);
-
-  const { data: shoppingOptions, isLoading } = useQuery({
-    queryKey: ["/api/wishlist", item?.id, "shopping-options"],
-    queryFn: async () => {
-      if (!item?.id) return [];
-      const response = await fetch(`/api/wishlist/${item.id}/shopping-options`, {
-        credentials: "include",
-      });
-      if (!response.ok) {
-        throw new Error("Failed to fetch shopping options");
-      }
-      return response.json();
-    },
-    enabled: !!item && open,
-    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
-  });
 
   const markPurchasedMutation = useMutation({
     mutationFn: async () => {
@@ -146,105 +115,39 @@ export function ShoppingOptionsDialog({
           </CardContent>
         </Card>
 
-        {/* Original Product Link */}
-        {item.url && (
-          <div className="bg-muted/50 p-3 rounded-md">
-            <Label className="text-xs text-muted-foreground mb-2 block">
-              Original Product Link
-            </Label>
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full justify-between"
-              onClick={() => window.open(item.url, '_blank')}
-              data-testid="button-original-link"
-            >
-              <span className="truncate">Visit Original Page</span>
-              <ExternalLink className="w-4 h-4 ml-2 flex-shrink-0" />
-            </Button>
-          </div>
-        )}
-
-        {/* Shopping Options */}
-        <div>
+        {/* View with Google Shopping */}
+        <div className="bg-muted/50 p-4 rounded-md">
           <Label className="text-sm font-semibold mb-3 block flex items-center gap-2">
-            <ShoppingCart className="w-4 h-4" />
-            Where to Buy
+            <ShoppingBag className="w-4 h-4" />
+            Find this product
           </Label>
-
-          {isLoading ? (
-            <div className="space-y-3">
-              {[...Array(3)].map((_, i) => (
-                <Skeleton key={i} className="h-24 w-full" />
-              ))}
-            </div>
-          ) : shoppingOptions && shoppingOptions.length > 0 ? (
-            <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2">
-              {shoppingOptions.map((option: ShoppingOption, index: number) => (
-                <Card key={index} className="hover-elevate">
-                  <CardContent className="p-3">
-                    <div className="flex gap-3">
-                      {option.thumbnail && (
-                        <div className="w-16 h-16 bg-muted rounded overflow-hidden flex-shrink-0">
-                          <img
-                            src={option.thumbnail}
-                            alt={option.title}
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-2 mb-1">
-                          <h4 className="font-medium text-sm line-clamp-2 flex-1">
-                            {option.title}
-                          </h4>
-                          <Badge variant="default" className="flex-shrink-0">
-                            <DollarSign className="w-3 h-3 mr-0.5" />
-                            {option.price.toFixed(2)}
-                          </Badge>
-                        </div>
-                        <div className="flex items-center gap-3 text-xs text-muted-foreground mb-2">
-                          <span className="flex items-center gap-1">
-                            <Store className="w-3 h-3" />
-                            {option.source}
-                          </span>
-                          {option.rating && (
-                            <span className="flex items-center gap-1">
-                              <Star className="w-3 h-3 fill-primary text-primary" />
-                              {option.rating.toFixed(1)}
-                            </span>
-                          )}
-                          {option.reviews && (
-                            <span>
-                              ({option.reviews.toLocaleString()} reviews)
-                            </span>
-                          )}
-                        </div>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="w-full"
-                          onClick={() => window.open(option.link, '_blank')}
-                          data-testid={`button-buy-option-${index}`}
-                        >
-                          View at {option.source}
-                          <ExternalLink className="w-3 h-3 ml-2" />
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          ) : (
-            <Card>
-              <CardContent className="p-6 text-center">
-                <Store className="w-10 h-10 text-muted-foreground mx-auto mb-2" />
-                <p className="text-sm text-muted-foreground">
-                  No shopping options found. Try the original link above.
-                </p>
-              </CardContent>
-            </Card>
+          <Button
+            variant="outline"
+            size="default"
+            className="w-full justify-between"
+            onClick={() => {
+              const searchQuery = encodeURIComponent(item.name);
+              window.open(`https://www.google.com/search?tbm=shop&q=${searchQuery}`, '_blank');
+            }}
+            data-testid="button-google-shopping"
+          >
+            <span>View product with Google Shopping</span>
+            <ExternalLink className="w-4 h-4 ml-2 flex-shrink-0" />
+          </Button>
+          {item.url && (
+            <>
+              <div className="my-3 text-center text-xs text-muted-foreground">or</div>
+              <Button
+                variant="outline"
+                size="default"
+                className="w-full justify-between"
+                onClick={() => window.open(item.url, '_blank')}
+                data-testid="button-original-link"
+              >
+                <span className="truncate">Visit original product page</span>
+                <ExternalLink className="w-4 h-4 ml-2 flex-shrink-0" />
+              </Button>
+            </>
           )}
         </div>
 

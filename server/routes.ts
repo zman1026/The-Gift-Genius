@@ -599,8 +599,117 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return parseInt(str.replace(/[^\d]/g, '')) || 0;
       };
       
-      // Normalize and sort results by popularity and relevance
-      // Prioritize highly rated items with many reviews
+      // Define reputable US retailers and brands (normalized domain keywords)
+      const trustedRetailers = [
+        'amazon', 'bestbuy', 'target', 'walmart', 'apple', 'samsung',
+        'newegg', 'bhphotovideo', 'costco', 'homedepot',
+        'lowes', 'macys', 'nordstrom', 'sephora', 'ulta',
+        'kohls', 'jcpenney', 'sears', 'staples', 'officedepot',
+        'dell', 'hp', 'lenovo', 'microsoft', 'sony', 'lg', 'panasonic',
+        'nike', 'adidas', 'underarmour', 'rei', 'dickssportinggoods',
+        'gamestop', 'barnesandnoble', 'chewy', 'petco', 'petsmart',
+        'google', 'ebay', 'etsy', 'wayfair', 'overstock'
+      ];
+      
+      // Sites to exclude from results (normalized domain keywords)
+      const excludedRetailers = [
+        'temu', 'wish', 'aliexpress', 'dhgate', 'banggood', 'gearbest'
+      ];
+      
+      // Helper to extract actual merchant URL from Google redirect (recursive to handle nested redirects)
+      const extractMerchantUrl = (urlString: string, depth: number = 0): string => {
+        if (!urlString || depth > 5) return urlString; // Prevent infinite recursion
+        
+        try {
+          const url = new URL(urlString);
+          
+          // If it's a Google redirect, extract the actual merchant URL
+          if (url.hostname.includes('google.com')) {
+            // Try common Google redirect parameters and decode them
+            const encodedMerchantUrl = url.searchParams.get('url') || 
+                                      url.searchParams.get('u') || 
+                                      url.searchParams.get('q');
+            
+            if (encodedMerchantUrl) {
+              // Decode the URL parameter
+              const decodedUrl = decodeURIComponent(encodedMerchantUrl);
+              
+              // Recursively extract in case of nested redirects
+              return extractMerchantUrl(decodedUrl, depth + 1);
+            }
+          }
+          
+          // Return original URL if not a redirect
+          return urlString;
+        } catch {
+          // If URL parsing fails, try to decode anyway in case it's just encoded
+          try {
+            const decoded = decodeURIComponent(urlString);
+            if (decoded !== urlString && depth < 5) {
+              return extractMerchantUrl(decoded, depth + 1);
+            }
+          } catch {}
+          return urlString;
+        }
+      };
+      
+      // Helper to extract and normalize hostname from URL
+      const extractHostname = (urlString: string): string => {
+        try {
+          // First extract the actual merchant URL if it's a Google redirect
+          const actualUrl = extractMerchantUrl(urlString);
+          
+          // Handle both full URLs and partial URLs
+          const url = actualUrl.startsWith('http') ? new URL(actualUrl) : new URL(`https://${actualUrl}`);
+          return url.hostname.toLowerCase().replace(/^www\./, '');
+        } catch {
+          return urlString.toLowerCase().replace(/^www\./, '');
+        }
+      };
+      
+      // Helper to normalize text for matching (remove spaces, apostrophes, special chars)
+      const normalizeForMatching = (text: string): string => {
+        return text.toLowerCase().replace(/[\s'&-]+/g, '');
+      };
+      
+      // Helper to check if a hostname or source matches a retailer keyword
+      const matchesRetailer = (source: string, link: string, retailer: string): boolean => {
+        const normalizedRetailer = normalizeForMatching(retailer);
+        const normalizedSource = normalizeForMatching(source || '');
+        const hostname = extractHostname(link || '');
+        
+        // Check if source contains retailer name
+        if (normalizedSource.includes(normalizedRetailer)) {
+          return true;
+        }
+        
+        // Check if hostname contains retailer (e.g., amazon.com, store.apple.com)
+        if (hostname.includes(normalizedRetailer)) {
+          return true;
+        }
+        
+        return false;
+      };
+      
+      // Helper to identify brand from search query
+      const extractBrandFromQuery = (query: string): string | null => {
+        const normalizedQuery = normalizeForMatching(query);
+        
+        // Check if query contains any of the brand names
+        // Prioritize longer matches first (e.g., "bestbuy" before "best")
+        const sortedBrands = [...trustedRetailers].sort((a, b) => b.length - a.length);
+        
+        for (const brand of sortedBrands) {
+          const normalizedBrand = normalizeForMatching(brand);
+          if (normalizedQuery.includes(normalizedBrand)) {
+            return brand;
+          }
+        }
+        return null;
+      };
+      
+      // Normalize and sort results by reputation, brand relevance, and popularity
+      // Prioritize brand websites first, then reputable retailers, exclude bad sites
       const sortedResults = results
         .map((result: any) => {
           // Extract rating
@@ -618,20 +727,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
             link = result.link;
           }
           
+          // Extract actual merchant URL from potential Google redirects
+          const merchantUrl = extractMerchantUrl(link);
+          const source = result.source || result.merchant || '';
+          
+          // Check if this is an excluded retailer (check both source and actual merchant URL)
+          const isExcluded = excludedRetailers.some(excluded => 
+            matchesRetailer(source, merchantUrl, excluded)
+          );
+          
           // Calculate popularity score
           const popularity = rating * Math.log10(reviews + 1);
           
+          // Determine retailer tier for sorting priority
+          let retailerTier = 2; // Default: unknown retailer
+          
+          // Check if this is the brand's own website (highest priority)
+          const queryBrand = extractBrandFromQuery(q);
+          if (queryBrand && matchesRetailer(source, merchantUrl, queryBrand)) {
+            retailerTier = 0; // Brand website (e.g., apple.com for "apple iphone")
+          }
+          // Check if this is a trusted retailer
+          else if (trustedRetailers.some(retailer => matchesRetailer(source, merchantUrl, retailer))) {
+            retailerTier = 1; // Reputable retailer
+          }
+          
           return {
             ...result,
-            link: link, // Ensure link is present
+            link: link,
             snippet: result.snippet || result.description || '',
             extracted_price: result.extracted_price || (typeof result.price === 'number' ? result.price : null),
             _popularity: popularity,
             _position: result.position || Infinity,
+            _retailerTier: retailerTier,
+            _isExcluded: isExcluded,
           };
         })
+        // Filter out excluded retailers
+        .filter((result: any) => !result._isExcluded)
         .sort((a: any, b: any) => {
-          // If both have meaningful popularity scores, use those
+          // First, sort by retailer tier (0 = brand site, 1 = trusted retailer, 2 = other)
+          if (a._retailerTier !== b._retailerTier) {
+            return a._retailerTier - b._retailerTier;
+          }
+          
+          // Within same tier, prioritize by popularity score
           if (a._popularity > 0 || b._popularity > 0) {
             if (a._popularity !== b._popularity) return b._popularity - a._popularity;
           }
@@ -639,7 +779,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Fallback to position (Google's relevance ordering)
           return a._position - b._position;
         })
-        .map(({ _popularity, _position, ...result }: any) => result); // Remove temp fields
+        .map(({ _popularity, _position, _retailerTier, _isExcluded, ...result }: any) => result); // Remove temp fields
       
       res.json(sortedResults);
     } catch (error) {
@@ -648,128 +788,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Shopping options route - Find where to buy a wishlist item
-  app.get('/api/wishlist/:id/shopping-options', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const { id } = req.params;
-
-      // Get the wishlist item
-      const item = await storage.getWishlistItem(id);
-      if (!item) {
-        return res.status(404).json({ message: "Item not found" });
-      }
-
-      // Verify user has access to this item (is in the same family)
-      const familyMember = await storage.getFamilyMember(item.familyId, userId);
-      if (!familyMember) {
-        return res.status(403).json({ message: "Access denied" });
-      }
-
-      const apiKey = process.env.SERPAPI_KEY;
-      if (!apiKey) {
-        return res.status(500).json({ message: "Shopping service not configured" });
-      }
-
-      // Search for the item name
-      const searchUrl = new URL('https://serpapi.com/search');
-      searchUrl.searchParams.set('engine', 'google_shopping');
-      searchUrl.searchParams.set('q', item.name);
-      searchUrl.searchParams.set('api_key', apiKey);
-      searchUrl.searchParams.set('location', 'United States');
-      searchUrl.searchParams.set('google_domain', 'google.com');
-      searchUrl.searchParams.set('hl', 'en');
-      searchUrl.searchParams.set('gl', 'us');
-      searchUrl.searchParams.set('num', '20');
-
-      const response = await fetch(searchUrl.toString());
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("SerpApi error:", response.status, errorText);
-        throw new Error('Shopping service error');
-      }
-
-      const data = await response.json();
-      const results = data.shopping_results || [];
-      
-      console.log(`[Shopping Options] Searching for: "${item.name}"`);
-      console.log(`[Shopping Options] Found ${results.length} results from SerpApi`);
-      if (results.length > 0) {
-        console.log(`[Shopping Options] First result full data:`, JSON.stringify(results[0], null, 2));
-      }
-      
-      // Parse and normalize results
-      const parseReviewCount = (reviews: any) => {
-        if (!reviews) return 0;
-        const str = String(reviews).toLowerCase();
-        if (str.includes('k')) return parseFloat(str) * 1000;
-        return parseInt(str.replace(/[^\d]/g, '')) || 0;
-      };
-      
-      const normalizedResults = results.map((result: any) => {
-        const rating = parseFloat(String(result.rating || result.product_rating || '0').replace(/[^\d.]/g, '')) || 0;
-        const reviews = parseReviewCount(result.reviews || result.reviews_count || result.rating_count);
-        
-        // Try to find the direct store link
-        // Priority: direct merchant link > product_link > fallback to Google redirect
-        let link = '';
-        if (result.merchant_link || result.product_link) {
-          // Use direct link if available
-          link = result.merchant_link || result.product_link;
-        } else if (result.link) {
-          // Fallback to Google redirect
-          link = result.link;
-        }
-        
-        return {
-          title: result.title || result.name,
-          price: result.extracted_price || result.price || 0,
-          link: link,
-          source: result.source || result.merchant || 'Unknown Store',
-          rating: rating > 0 ? rating : undefined,
-          reviews: reviews > 0 ? reviews : undefined,
-          thumbnail: result.thumbnail,
-          // Calculate reputation score: (rating * log(reviews + 1))
-          // This prioritizes stores with both high ratings AND many reviews
-          reputationScore: rating * Math.log10(reviews + 1),
-        };
-      });
-      
-      console.log(`[Shopping Options] Normalized first result:`, normalizedResults[0]);
-      
-      // Filter out results without valid links (relaxed filter - don't require price)
-      const validResults = normalizedResults.filter((r: any) => r.link);
-      
-      console.log(`[Shopping Options] ${validResults.length} results after filtering (must have link)`);
-      
-      // Sort by reputation score (high ratings + many reviews)
-      // This ensures we show reputable stores first, not just cheap prices
-      const sortedResults = validResults.sort((a: any, b: any) => {
-        // Prioritize items with ratings and reviews
-        if (a.reputationScore > 0 || b.reputationScore > 0) {
-          return b.reputationScore - a.reputationScore;
-        }
-        // Fallback to price if no reputation data
-        return a.price - b.price;
-      });
-      
-      // Return top 10 options
-      const topOptions = sortedResults.slice(0, 10).map((r: any) => ({
-        title: r.title,
-        price: r.price,
-        link: r.link,
-        source: r.source,
-        rating: r.rating,
-        reviews: r.reviews,
-        thumbnail: r.thumbnail,
-      }));
-      
-      res.json(topOptions);
-    } catch (error) {
-      console.error("Error fetching shopping options:", error);
-      res.status(500).json({ message: "Failed to fetch shopping options" });
-    }
-  });
 
   // Stats route
   app.get('/api/stats', isAuthenticated, async (req: any, res) => {

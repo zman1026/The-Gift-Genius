@@ -49,6 +49,13 @@ Preferred communication style: Simple, everyday language.
 - Price validation: allows $0 or greater, handles NaN/empty as null
 - Category optional (omitted if null)
 - Form pre-populated with search result data
+- "Add Manually" button available on search page for quick manual entry
+
+**Shopping Options Dialog:**
+- Simplified interface with "View product with Google Shopping" button
+- Opens Google Shopping search in new tab with item name as query
+- Optional original product link if available
+- No longer shows individual retailer listings (removed "Where to Buy" section)
 
 **Wishlist Image Upload:**
 - Image upload via ObjectUploader component using Uppy v5 dashboard modal
@@ -143,7 +150,12 @@ Preferred communication style: Simple, everyday language.
 - **Features:**
   - Location-aware search (United States, English language)
   - Returns up to 20 results per query
-  - Smart popularity sorting: rating × log₁₀(reviews + 1) with position fallback
+  - Intelligent retailer prioritization:
+    - Tier 0 (highest): Brand's own website (e.g., apple.com for "apple iphone")
+    - Tier 1: Reputable US retailers (Amazon, Best Buy, Target, Walmart, etc.)
+    - Tier 2: Other retailers
+  - Excludes unreliable retailers (Temu, Wish, AliExpress, DHgate, Banggood, Gearbest)
+  - Within same tier: sorted by popularity score (rating × log₁₀(reviews + 1))
   - Client-side caching (5-minute staleTime) for improved performance
   - Handles various rating/review formats (strings, numbers, "1.2K" notation)
 
