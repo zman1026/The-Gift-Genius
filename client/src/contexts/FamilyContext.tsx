@@ -15,7 +15,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     return localStorage.getItem('selectedFamilyId');
   });
 
-  const { data: families = [], isLoading } = useQuery({
+  const { data: families = [], isLoading } = useQuery<any[]>({
     queryKey: ['/api/families'],
   });
 

@@ -9,15 +9,25 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { Users, Gift, Eye, UserPlus, Copy, Check, Lightbulb, Mail, Send } from "lucide-react";
+import { Users, Gift, Eye, UserPlus, Copy, Check, Lightbulb, Mail, Send, UserMinus } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 
 const inviteEmailSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
@@ -33,8 +43,11 @@ export default function Members() {
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
+  const [memberToRemove, setMemberToRemove] = useState<any>(null);
   
   const selectedFamily = families?.find((f: any) => f.id === selectedFamilyId);
+  const isOrganizer = selectedFamily?.createdById === (user as any)?.id;
 
   const form = useForm<InviteEmailForm>({
     resolver: zodResolver(inviteEmailSchema),
@@ -61,6 +74,32 @@ export default function Members() {
         description: error.message || "There was a problem sending the invite email.",
         variant: "destructive",
       });
+    },
+  });
+
+  const removeMemberMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      if (!selectedFamilyId) throw new Error("No family selected");
+      return apiRequest("DELETE", `/api/families/${selectedFamilyId}/members/${userId}`, {});
+    },
+    onSuccess: () => {
+      // Invalidate both members and families queries to keep counts accurate
+      queryClient.invalidateQueries({ queryKey: ["/api/members", selectedFamilyId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/families"] });
+      toast({
+        title: "Member removed",
+        description: "The member has been removed from the family",
+      });
+      setShowRemoveConfirm(false);
+      setMemberToRemove(null);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to remove member",
+        description: error.message || "There was a problem removing the member",
+        variant: "destructive",
+      });
+      setShowRemoveConfirm(false);
     },
   });
 
@@ -325,16 +364,33 @@ export default function Members() {
                     </div>
                   </div>
                   {!isCurrentUser && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full"
-                      onClick={() => setLocation(`/members/${member.userId}`)}
-                      data-testid={`button-view-wishlist-${member.userId}`}
-                    >
-                      <Eye className="w-4 h-4 mr-2" />
-                      View Wishlist
-                    </Button>
+                    <>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full"
+                        onClick={() => setLocation(`/members/${member.userId}`)}
+                        data-testid={`button-view-wishlist-${member.userId}`}
+                      >
+                        <Eye className="w-4 h-4 mr-2" />
+                        View Wishlist
+                      </Button>
+                      {isOrganizer && (
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          className="w-full"
+                          onClick={() => {
+                            setMemberToRemove(member);
+                            setShowRemoveConfirm(true);
+                          }}
+                          data-testid={`button-remove-member-${member.userId}`}
+                        >
+                          <UserMinus className="w-4 h-4 mr-2" />
+                          Remove
+                        </Button>
+                      )}
+                    </>
                   )}
                   {isCurrentUser && (
                     <Button
@@ -354,6 +410,28 @@ export default function Members() {
           })}
         </div>
       )}
+
+      <AlertDialog open={showRemoveConfirm} onOpenChange={setShowRemoveConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove Family Member?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to remove {memberToRemove?.firstName || "this member"} from the family? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-remove">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => removeMemberMutation.mutate(memberToRemove?.userId)}
+              disabled={removeMemberMutation.isPending}
+              className="bg-destructive hover:bg-destructive/90"
+              data-testid="button-confirm-remove"
+            >
+              {removeMemberMutation.isPending ? "Removing..." : "Remove Member"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

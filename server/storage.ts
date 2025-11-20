@@ -33,6 +33,8 @@ export interface IStorage {
   addFamilyMember(member: InsertFamilyMember): Promise<FamilyMember>;
   getFamilyMembers(userId: string): Promise<any[]>;
   getFamilyMember(familyId: string, userId: string): Promise<FamilyMember | undefined>;
+  removeFamilyMember(familyId: string, userIdToRemove: string, requesterId: string): Promise<void>;
+  leaveFamily(familyId: string, userId: string): Promise<void>;
   
   // Wishlist operations
   createWishlistItem(item: InsertWishlistItem): Promise<WishlistItem>;
@@ -197,6 +199,66 @@ export class DatabaseStorage implements IStorage {
       .from(familyMembers)
       .where(and(eq(familyMembers.familyId, familyId), eq(familyMembers.userId, userId)));
     return member;
+  }
+
+  async removeFamilyMember(familyId: string, userIdToRemove: string, requesterId: string): Promise<void> {
+    // Check if requester is the family organizer
+    const [family] = await db
+      .select()
+      .from(families)
+      .where(eq(families.id, familyId));
+    
+    if (!family) {
+      throw new Error("Family not found");
+    }
+    
+    if (family.createdById !== requesterId) {
+      throw new Error("Only the family organizer can remove members");
+    }
+    
+    // Don't allow removing themselves using this method
+    if (requesterId === userIdToRemove) {
+      throw new Error("Use leave family to remove yourself");
+    }
+    
+    // Remove the member
+    await db
+      .delete(familyMembers)
+      .where(and(eq(familyMembers.familyId, familyId), eq(familyMembers.userId, userIdToRemove)));
+  }
+
+  async leaveFamily(familyId: string, userId: string): Promise<void> {
+    // Check if user is the organizer
+    const [family] = await db
+      .select()
+      .from(families)
+      .where(eq(families.id, familyId));
+    
+    if (!family) {
+      throw new Error("Family not found");
+    }
+    
+    // Check if this is the last member
+    const members = await db
+      .select()
+      .from(familyMembers)
+      .where(eq(familyMembers.familyId, familyId));
+    
+    // If they're the organizer and last member, delete the whole family
+    if (family.createdById === userId && members.length === 1) {
+      await db.delete(families).where(eq(families.id, familyId));
+      return;
+    }
+    
+    // If they're the organizer but not the last member, they need to transfer ownership first
+    if (family.createdById === userId && members.length > 1) {
+      throw new Error("As the family organizer, you must transfer ownership or remove all other members before leaving");
+    }
+    
+    // Remove the member
+    await db
+      .delete(familyMembers)
+      .where(and(eq(familyMembers.familyId, familyId), eq(familyMembers.userId, userId)));
   }
 
   // Wishlist operations

@@ -235,7 +235,7 @@ export default function Home() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Items to Purchase
+              Must-Have Items to Purchase
             </CardTitle>
             <Gift className="w-4 h-4 text-primary" />
           </CardHeader>
@@ -244,7 +244,7 @@ export default function Home() {
               {stats?.itemsToPurchaseCount || 0}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              Unpurchased items in your families
+              High priority unpurchased items
             </p>
           </CardContent>
         </Card>

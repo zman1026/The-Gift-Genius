@@ -203,6 +203,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Leave family
+  app.delete('/api/families/:familyId/leave', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { familyId } = req.params;
+
+      await storage.leaveFamily(familyId, userId);
+      res.json({ message: "Successfully left family" });
+    } catch (error: any) {
+      console.error("Error leaving family:", error);
+      res.status(400).json({ message: error.message || "Failed to leave family" });
+    }
+  });
+
+  // Remove member from family (organizer only)
+  app.delete('/api/families/:familyId/members/:userId', isAuthenticated, async (req: any, res) => {
+    try {
+      const requesterId = req.user.claims.sub;
+      const { familyId, userId } = req.params;
+
+      await storage.removeFamilyMember(familyId, userId, requesterId);
+      res.json({ message: "Member removed successfully" });
+    } catch (error: any) {
+      console.error("Error removing member:", error);
+      res.status(400).json({ message: error.message || "Failed to remove member" });
+    }
+  });
+
   // Family members routes
   app.get('/api/members', isAuthenticated, async (req: any, res) => {
     try {
