@@ -56,7 +56,7 @@ export function AppSidebar() {
 
   return (
     <Sidebar>
-      <SidebarContent>
+      <SidebarContent className="pb-20 md:pb-0">
         <SidebarGroup>
           <SidebarGroupLabel className="text-lg font-serif text-primary px-4 py-4">
             Christmas Wishlist
@@ -82,7 +82,7 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="p-4 border-t border-sidebar-border">
+      <SidebarFooter className="p-4 pb-24 md:pb-4 border-t border-sidebar-border">
         <div
           className="flex items-center gap-3 mb-3 p-2 rounded-md cursor-pointer hover-elevate active-elevate-2"
           onClick={() => setSettingsOpen(true)}

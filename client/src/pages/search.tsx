@@ -153,12 +153,12 @@ export default function Search() {
   };
 
   return (
-    <div className="p-6 md:p-8 lg:p-12 space-y-6">
+    <div className="p-4 md:p-8 lg:p-12 space-y-6">
       <div>
-        <h1 className="font-serif text-3xl md:text-4xl font-semibold text-foreground">
+        <h1 className="font-serif text-2xl md:text-4xl font-semibold text-foreground">
           Search Products
         </h1>
-        <p className="text-muted-foreground mt-1">
+        <p className="text-sm md:text-base text-muted-foreground mt-1">
           Search for products and add them to your wishlist with one click
         </p>
       </div>

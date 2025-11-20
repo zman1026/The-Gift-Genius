@@ -315,28 +315,28 @@ export default function Wishlist() {
   const hasFilteredItems = filteredItems && filteredItems.length > 0;
 
   return (
-    <div className="p-6 md:p-8 lg:p-12 space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="p-4 md:p-8 lg:p-12 space-y-6">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="font-serif text-3xl md:text-4xl font-semibold text-foreground">
+          <h1 className="font-serif text-2xl md:text-4xl font-semibold text-foreground">
             My Wishlist
           </h1>
-          <p className="text-muted-foreground mt-1">
+          <p className="text-sm md:text-base text-muted-foreground mt-1">
             Add items you'd love to receive this Christmas
           </p>
         </div>
-        <div className="flex gap-3">
-          <Link href="/search">
-            <Button variant="outline" data-testid="button-search-products">
-              <Search className="w-4 h-4 mr-2" />
-              Search Products
+        <div className="flex gap-2 md:gap-3">
+          <Link href="/search" className="flex-1 md:flex-initial">
+            <Button variant="outline" className="w-full" data-testid="button-search-products">
+              <Search className="w-4 h-4 md:mr-2" />
+              <span className="hidden md:inline">Search Products</span>
             </Button>
           </Link>
           <Dialog open={isAddDialogOpen || !!editingItem} onOpenChange={(open) => !open && handleCloseDialog()}>
             <DialogTrigger asChild>
-              <Button onClick={() => setIsAddDialogOpen(true)} data-testid="button-add-manually">
-                <Plus className="w-4 h-4 mr-2" />
-                Add Manually
+              <Button onClick={() => setIsAddDialogOpen(true)} className="flex-1 md:flex-initial" data-testid="button-add-manually">
+                <Plus className="w-4 h-4 md:mr-2" />
+                <span className="md:inline">Add Manually</span>
               </Button>
             </DialogTrigger>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">

@@ -138,13 +138,13 @@ export default function Home() {
   const hasFamilies = familiesData && familiesData.length > 0;
 
   return (
-    <div className="p-6 md:p-8 lg:p-12 space-y-8">
+    <div className="p-4 md:p-8 lg:p-12 space-y-6 md:space-y-8">
       {/* Welcome Header */}
       <div>
-        <h1 className="font-serif text-3xl md:text-4xl font-semibold text-foreground mb-2">
+        <h1 className="font-serif text-2xl md:text-4xl font-semibold text-foreground mb-2">
           Welcome to Your Christmas Dashboard
         </h1>
-        <p className="text-muted-foreground">
+        <p className="text-sm md:text-base text-muted-foreground">
           Manage your wishlists and coordinate gifts with your family.
         </p>
       </div>
