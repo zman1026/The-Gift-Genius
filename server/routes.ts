@@ -22,6 +22,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.put('/api/user', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      // Validate input with Zod schema - allow base64 data URIs or URLs for profile images
+      const updateUserSchema = z.object({
+        firstName: z.string().trim().min(1, "First name cannot be empty").optional(),
+        lastName: z.string().trim().min(1, "Last name cannot be empty").optional(),
+        profileImageUrl: z.string().refine(
+          (val) => {
+            if (!val || val === '') return true; // Allow empty string
+            if (val.startsWith('data:image/')) return true; // Allow data URIs
+            try {
+              new URL(val); // Check if valid HTTP/HTTPS URL
+              return true;
+            } catch {
+              return false;
+            }
+          },
+          "Must be a valid URL or base64 data URI"
+        ).optional(),
+      });
+
+      const validatedData = updateUserSchema.parse(req.body);
+
+      // If no fields to update, return current user without error (no-op)
+      if (!validatedData.firstName && !validatedData.lastName && !validatedData.profileImageUrl) {
+        const user = await storage.getUser(userId);
+        return res.json(user);
+      }
+
+      // Only include defined fields in the update
+      const updates: any = {};
+      if (validatedData.firstName !== undefined) updates.firstName = validatedData.firstName;
+      if (validatedData.lastName !== undefined) updates.lastName = validatedData.lastName;
+      if (validatedData.profileImageUrl !== undefined) updates.profileImageUrl = validatedData.profileImageUrl;
+
+      const user = await storage.updateUser(userId, updates);
+      res.json(user);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid input data", errors: error.errors });
+      }
+      console.error("Error updating user:", error);
+      res.status(500).json({ message: "Failed to update user profile" });
+    }
+  });
+
   // Family routes
   app.post('/api/families', isAuthenticated, async (req: any, res) => {
     try {

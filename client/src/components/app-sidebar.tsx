@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Home, Gift, Users, Search, Settings, LogOut } from "lucide-react";
 import { useLocation } from "wouter";
 import {
@@ -14,6 +15,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
+import { UserSettingsDialog } from "@/components/user-settings-dialog";
 
 const menuItems = [
   {
@@ -45,6 +47,7 @@ const menuItems = [
 export function AppSidebar() {
   const [location] = useLocation();
   const { user } = useAuth();
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const getInitials = (firstName?: string, lastName?: string) => {
     if (!firstName && !lastName) return "U";
@@ -80,7 +83,11 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter className="p-4 border-t border-sidebar-border">
-        <div className="flex items-center gap-3 mb-3">
+        <div
+          className="flex items-center gap-3 mb-3 p-2 rounded-md cursor-pointer hover-elevate active-elevate-2"
+          onClick={() => setSettingsOpen(true)}
+          data-testid="button-open-settings"
+        >
           <Avatar className="h-10 w-10">
             <AvatarImage src={user?.profileImageUrl || undefined} alt={user?.firstName || "User"} />
             <AvatarFallback>{getInitials(user?.firstName, user?.lastName)}</AvatarFallback>
@@ -93,6 +100,7 @@ export function AppSidebar() {
             </p>
             <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
           </div>
+          <Settings className="w-4 h-4 text-muted-foreground" />
         </div>
         <Button
           variant="outline"
@@ -105,6 +113,8 @@ export function AppSidebar() {
           Log Out
         </Button>
       </SidebarFooter>
+
+      <UserSettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
     </Sidebar>
   );
 }

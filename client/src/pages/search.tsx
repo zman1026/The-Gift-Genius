@@ -9,6 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ProductDetailsDialog } from "@/components/product-details-dialog";
 import { Search as SearchIcon, Plus, ExternalLink, Gift } from "lucide-react";
 
 export default function Search() {
@@ -17,6 +18,8 @@ export default function Search() {
   const { selectedFamilyId } = useFamily();
   const [searchQuery, setSearchQuery] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedProduct, setSelectedProduct] = useState<any>(null);
+  const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
   
   // Use a ref to always get the current selectedFamilyId (prevents stale closure bugs)
@@ -75,25 +78,38 @@ export default function Search() {
   }, []);
 
   const addToWishlistMutation = useMutation({
-    mutationFn: async (product: any) => {
-      return await apiRequest("POST", "/api/wishlist/from-search", {
-        name: product.title,
-        price: product.extracted_price || product.price,
-        url: product.link,
-        imageUrl: product.thumbnail,
-        productId: product.product_id,
+    mutationFn: async (details: any) => {
+      if (!selectedProduct) {
+        throw new Error("No product selected");
+      }
+      
+      // Prepare payload with proper validation
+      const payload: any = {
+        name: details.name,
+        price: typeof details.price === 'number' && !isNaN(details.price) ? details.price : null,
+        url: details.url || selectedProduct.link || "",
+        imageUrl: details.imageUrl || selectedProduct.thumbnail || "",
+        productId: selectedProduct.product_id,
         source: "google_shopping",
-        description: product.snippet || "",
-        priority: "medium",
-        quantity: 1,
-        category: null,
+        description: details.description || "",
+        priority: details.priority,
+        quantity: details.quantity,
         familyId: selectedFamilyIdRef.current,
-      });
+      };
+      
+      // Only include category if it has a value
+      if (details.category) {
+        payload.category = details.category;
+      }
+      
+      return await apiRequest("POST", "/api/wishlist/from-search", payload);
     },
     onSuccess: () => {
       const currentFamilyId = selectedFamilyIdRef.current;
       queryClient.invalidateQueries({ queryKey: ["/api/wishlist", currentFamilyId] });
       queryClient.invalidateQueries({ queryKey: ["/api/stats", currentFamilyId] });
+      setDetailsDialogOpen(false);
+      setSelectedProduct(null);
       toast({
         title: "Success",
         description: "Item added to your wishlist!",
@@ -118,6 +134,15 @@ export default function Search() {
       });
     },
   });
+
+  const handleAddToWishlist = (product: any) => {
+    setSelectedProduct(product);
+    setDetailsDialogOpen(true);
+  };
+
+  const handleConfirmAdd = (details: any) => {
+    addToWishlistMutation.mutate(details);
+  };
 
   return (
     <div className="p-6 md:p-8 lg:p-12 space-y-6">
@@ -210,8 +235,7 @@ export default function Search() {
                         variant="default"
                         size="sm"
                         className="flex-1"
-                        onClick={() => addToWishlistMutation.mutate(product)}
-                        disabled={addToWishlistMutation.isPending}
+                        onClick={() => handleAddToWishlist(product)}
                         data-testid={`button-add-to-wishlist-${index}`}
                       >
                         <Plus className="w-4 h-4 mr-1" />
@@ -249,6 +273,14 @@ export default function Search() {
           </CardContent>
         </Card>
       )}
+
+      <ProductDetailsDialog
+        open={detailsDialogOpen}
+        onOpenChange={setDetailsDialogOpen}
+        product={selectedProduct}
+        onConfirm={handleConfirmAdd}
+        isPending={addToWishlistMutation.isPending}
+      />
     </div>
   );
 }
