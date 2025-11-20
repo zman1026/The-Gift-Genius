@@ -5,6 +5,7 @@ import { setupAuth, isAuthenticated } from "./replitAuth";
 import { z } from "zod";
 import { randomBytes } from "crypto";
 import { sendInviteEmail } from "./emailService";
+import * as cheerio from "cheerio";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
@@ -476,6 +477,125 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error unmarking purchase:", error);
       res.status(500).json({ message: "Failed to remove purchase marking" });
+    }
+  });
+
+  // Product URL extraction route
+  app.post('/api/extract-product', isAuthenticated, async (req: any, res) => {
+    try {
+      const { url } = req.body;
+
+      if (!url || typeof url !== 'string') {
+        return res.status(400).json({ message: "Product URL is required" });
+      }
+
+      // Validate URL format
+      let productUrl: URL;
+      try {
+        productUrl = new URL(url);
+      } catch {
+        return res.status(400).json({ message: "Invalid URL format" });
+      }
+
+      // Fetch the page
+      const response = await fetch(productUrl.toString(), {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        },
+        signal: AbortSignal.timeout(10000), // 10 second timeout
+      });
+
+      if (!response.ok) {
+        return res.status(400).json({ message: "Failed to fetch product page" });
+      }
+
+      const html = await response.text();
+      const $ = cheerio.load(html);
+
+      // Helper function to clean text
+      const cleanText = (text: string | undefined) => text?.trim().replace(/\s+/g, ' ') || '';
+
+      // Extract structured data (JSON-LD)
+      let structuredData: any = null;
+      $('script[type="application/ld+json"]').each((_, el) => {
+        try {
+          const data = JSON.parse($(el).html() || '{}');
+          if (data['@type'] === 'Product' || (Array.isArray(data) && data.some((d: any) => d['@type'] === 'Product'))) {
+            structuredData = Array.isArray(data) ? data.find((d: any) => d['@type'] === 'Product') : data;
+          }
+        } catch (e) {
+          // Ignore parse errors
+        }
+      });
+
+      // Extract product information with priority fallbacks
+      const product: any = {
+        name: '',
+        price: null,
+        description: '',
+        imageUrl: '',
+      };
+
+      // Extract name
+      product.name = cleanText(
+        structuredData?.name ||
+        $('meta[property="og:title"]').attr('content') ||
+        $('meta[name="twitter:title"]').attr('content') ||
+        $('h1').first().text() ||
+        $('title').text()
+      );
+
+      // Extract price
+      const priceText = 
+        structuredData?.offers?.price ||
+        structuredData?.offers?.[0]?.price ||
+        $('meta[property="product:price:amount"]').attr('content') ||
+        $('[itemprop="price"]').attr('content') ||
+        $('[itemprop="price"]').text() ||
+        $('.price, .product-price, [data-price]').first().text();
+      
+      if (priceText) {
+        const priceMatch = String(priceText).match(/[\d,.]+/);
+        if (priceMatch) {
+          product.price = parseFloat(priceMatch[0].replace(/,/g, ''));
+        }
+      }
+
+      // Extract description
+      product.description = cleanText(
+        structuredData?.description ||
+        $('meta[property="og:description"]').attr('content') ||
+        $('meta[name="description"]').attr('content') ||
+        $('meta[name="twitter:description"]').attr('content') ||
+        $('[itemprop="description"]').text()
+      );
+
+      // Extract image
+      product.imageUrl = 
+        structuredData?.image ||
+        (Array.isArray(structuredData?.image) ? structuredData?.image[0] : null) ||
+        $('meta[property="og:image"]').attr('content') ||
+        $('meta[name="twitter:image"]').attr('content') ||
+        $('[itemprop="image"]').attr('src') ||
+        $('img.product-image, img[data-product-image]').first().attr('src') ||
+        '';
+
+      // Make image URL absolute if relative
+      if (product.imageUrl && !product.imageUrl.startsWith('http')) {
+        product.imageUrl = new URL(product.imageUrl, productUrl.origin).toString();
+      }
+
+      console.log('[Extract Product] URL:', url);
+      console.log('[Extract Product] Extracted:', product);
+
+      // Return extracted data
+      res.json({
+        ...product,
+        sourceUrl: productUrl.toString(),
+      });
+    } catch (error) {
+      console.error("Error extracting product from URL:", error);
+      res.status(500).json({ message: "Failed to extract product information" });
     }
   });
 

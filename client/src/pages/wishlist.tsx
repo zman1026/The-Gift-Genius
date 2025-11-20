@@ -14,11 +14,13 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
 import { Gift, Plus, Trash2, Edit, ExternalLink, AlertCircle, Circle, ArrowUp, Search } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Link } from "wouter";
+import { Loader2 } from "lucide-react";
 
 const addItemSchema = z.object({
   name: z.string().min(1, "Item name is required").max(255),
@@ -46,6 +48,8 @@ export default function Wishlist() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
   const [selectedPriority, setSelectedPriority] = useState<string | null>(null);
+  const [extractUrl, setExtractUrl] = useState("");
+  const [isExtracting, setIsExtracting] = useState(false);
   
   const form = useForm<AddItemFormData>({
     resolver: zodResolver(addItemSchema),
@@ -235,7 +239,50 @@ export default function Wishlist() {
   const handleCloseDialog = () => {
     setIsAddDialogOpen(false);
     setEditingItem(null);
+    setExtractUrl("");
     form.reset();
+  };
+
+  const handleExtractFromUrl = async () => {
+    if (!extractUrl.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a product URL",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsExtracting(true);
+    try {
+      const res = await apiRequest("POST", "/api/extract-product", { url: extractUrl });
+      const data = await res.json();
+      
+      // Pre-fill form with extracted data
+      form.reset({
+        name: data.name || "",
+        description: data.description || "",
+        price: data.price ? String(data.price) : "",
+        url: data.sourceUrl || extractUrl,
+        imageUrl: data.imageUrl || "",
+        priority: "medium",
+        quantity: 1,
+        category: undefined,
+      });
+
+      toast({
+        title: "Success",
+        description: "Product information extracted! You can edit before adding.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to extract product information. You can still add manually.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsExtracting(false);
+    }
   };
 
   if (isLoading) {
@@ -298,9 +345,43 @@ export default function Wishlist() {
             <DialogHeader>
               <DialogTitle>{editingItem ? "Edit Item" : "Add New Item"}</DialogTitle>
               <DialogDescription>
-                {editingItem ? "Update the item details below" : "Add a new item to your wishlist manually"}
+                {editingItem ? "Update the item details below" : "Paste a product URL to auto-fill details, or add manually"}
               </DialogDescription>
             </DialogHeader>
+            
+            {!editingItem && (
+              <div className="space-y-2 pb-4 border-b">
+                <Label>Quick Add from URL (Optional)</Label>
+                <div className="flex gap-2">
+                  <Input
+                    type="url"
+                    placeholder="https://www.example.com/product/..."
+                    value={extractUrl}
+                    onChange={(e) => setExtractUrl(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleExtractFromUrl();
+                      }
+                    }}
+                    disabled={isExtracting}
+                    data-testid="input-extract-url"
+                  />
+                  <Button 
+                    type="button" 
+                    onClick={handleExtractFromUrl}
+                    disabled={isExtracting || !extractUrl.trim()}
+                    data-testid="button-extract-url"
+                  >
+                    {isExtracting ? "Extracting..." : "Extract"}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Paste a product URL from Amazon, Target, or any online store to automatically extract product details
+                </p>
+              </div>
+            )}
+            
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                 <FormField
