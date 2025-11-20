@@ -74,6 +74,13 @@ export function ProductDetailsDialog({
 
   useEffect(() => {
     if (product && open) {
+      console.log('[ProductDialog] Resetting form with product:', {
+        name: product.title,
+        price: product.extracted_price,
+        description: product.snippet,
+        url: product.link,
+        imageUrl: product.thumbnail,
+      });
       form.reset({
         name: product.title || "",
         price: product.extracted_price !== undefined && product.extracted_price !== null ? product.extracted_price : null,

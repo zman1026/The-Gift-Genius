@@ -136,6 +136,13 @@ export default function Search() {
   });
 
   const handleAddToWishlist = (product: any) => {
+    console.log('[Search] Adding product to wishlist:', {
+      title: product.title,
+      link: product.link,
+      snippet: product.snippet,
+      price: product.extracted_price,
+      thumbnail: product.thumbnail,
+    });
     setSelectedProduct(product);
     setDetailsDialogOpen(true);
   };
