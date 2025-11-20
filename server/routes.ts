@@ -469,27 +469,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const data = await response.json();
       const results = data.shopping_results || [];
       
-      // Sort results by relevance and popularity
-      // Prioritize items with reviews, ratings, and reasonable prices
+      // Sort results by popularity and relevance
+      // Prioritize highly rated items with many reviews
       const sortedResults = results.sort((a: any, b: any) => {
-        // First priority: items with prices (available products)
-        const aHasPrice = a.price || a.extracted_price;
-        const bHasPrice = b.price || b.extracted_price;
-        if (aHasPrice && !bHasPrice) return -1;
-        if (!aHasPrice && bHasPrice) return 1;
+        // Extract ratings (handle both string and number formats)
+        const aRating = parseFloat(String(a.rating || a.product_rating || '0').replace(/[^\d.]/g, '')) || 0;
+        const bRating = parseFloat(String(b.rating || b.product_rating || '0').replace(/[^\d.]/g, '')) || 0;
         
-        // Second priority: items with ratings
-        const aRating = parseFloat(a.rating) || 0;
-        const bRating = parseFloat(b.rating) || 0;
-        if (aRating !== bRating) return bRating - aRating;
+        // Extract review counts (handle various formats like "1,234" or "1.2K")
+        const parseReviewCount = (reviews: any) => {
+          if (!reviews) return 0;
+          const str = String(reviews).toLowerCase();
+          if (str.includes('k')) return parseFloat(str) * 1000;
+          return parseInt(str.replace(/[^\d]/g, '')) || 0;
+        };
+        const aReviews = parseReviewCount(a.reviews || a.reviews_count || a.rating_count);
+        const bReviews = parseReviewCount(b.reviews || b.reviews_count || b.rating_count);
         
-        // Third priority: items with more reviews
-        const aReviews = parseInt(a.reviews) || 0;
-        const bReviews = parseInt(b.reviews) || 0;
-        if (aReviews !== bReviews) return bReviews - aReviews;
+        // Calculate popularity score: (rating * log(reviews + 1))
+        // This balances quality (rating) with popularity (reviews)
+        const aPopularity = aRating * Math.log10(aReviews + 1);
+        const bPopularity = bRating * Math.log10(bReviews + 1);
         
-        // Default: maintain original order (Google's relevance)
-        return 0;
+        // If both have meaningful popularity scores, use those
+        if (aPopularity > 0 || bPopularity > 0) {
+          if (aPopularity !== bPopularity) return bPopularity - aPopularity;
+        }
+        
+        // Fallback to position (Google's relevance ordering)
+        const aPosition = a.position || Infinity;
+        const bPosition = b.position || Infinity;
+        return aPosition - bPosition;
       });
       
       res.json(sortedResults);

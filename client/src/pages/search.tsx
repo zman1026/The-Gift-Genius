@@ -17,6 +17,7 @@ export default function Search() {
   const { selectedFamilyId } = useFamily();
   const [searchQuery, setSearchQuery] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
   
   // Use a ref to always get the current selectedFamilyId (prevents stale closure bugs)
   const selectedFamilyIdRef = useRef(selectedFamilyId);
@@ -38,27 +39,40 @@ export default function Search() {
     }
   }, [isAuthenticated, authLoading, toast]);
 
-  const { data: results, isLoading, refetch } = useQuery({
+  const { data: results, isLoading, isFetching } = useQuery({
     queryKey: ["/api/search", searchTerm],
     queryFn: async () => {
       const response = await fetch(`/api/search?q=${encodeURIComponent(searchTerm)}`, {
         credentials: "include",
       });
       if (!response.ok) {
-        throw new Error("Failed to search products");
+        const error = await response.json().catch(() => ({ message: "Failed to search products" }));
+        throw new Error(error.message || "Failed to search products");
       }
       return response.json();
     },
     enabled: searchTerm.length > 0,
-    retry: false,
+    retry: 1,
+    staleTime: 5 * 60 * 1000,
   });
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
       setSearchTerm(searchQuery.trim());
     }
   };
+
+  useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
+  }, []);
 
   const addToWishlistMutation = useMutation({
     mutationFn: async (product: any) => {
@@ -137,7 +151,7 @@ export default function Search() {
       </form>
 
       {/* Results */}
-      {isLoading && (
+      {(isLoading || isFetching) && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {[...Array(6)].map((_, i) => (
             <Skeleton key={i} className="h-96" />
@@ -145,7 +159,7 @@ export default function Search() {
         </div>
       )}
 
-      {!isLoading && searchTerm && results && (
+      {!isLoading && !isFetching && searchTerm && results && (
         <div>
           <p className="text-sm text-muted-foreground mb-4">
             Found {results.length} results for "{searchTerm}"
