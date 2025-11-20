@@ -582,7 +582,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Make image URL absolute if relative
       if (product.imageUrl && !product.imageUrl.startsWith('http')) {
-        product.imageUrl = new URL(product.imageUrl, productUrl.origin).toString();
+        try {
+          product.imageUrl = new URL(product.imageUrl, productUrl.origin).toString();
+        } catch (e) {
+          console.error('[Extract Product] Failed to make image URL absolute:', e);
+          product.imageUrl = ''; // Reset to empty if URL construction fails
+        }
       }
 
       console.log('[Extract Product] URL:', url);
@@ -595,6 +600,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Error extracting product from URL:", error);
+      console.error("Error stack:", error instanceof Error ? error.stack : 'No stack trace');
       res.status(500).json({ message: "Failed to extract product information" });
     }
   });
