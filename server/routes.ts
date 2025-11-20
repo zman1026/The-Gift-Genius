@@ -519,46 +519,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log(`[Product Search] Query: "${q}" - Found ${results.length} results`);
       if (results.length > 0) {
-        console.log(`[Product Search] First result sample:`, {
-          title: results[0].title,
-          link: results[0].link,
-          snippet: results[0].snippet,
-          price: results[0].extracted_price || results[0].price,
-        });
+        console.log(`[Product Search] First result full data:`, JSON.stringify(results[0], null, 2));
       }
       
-      // Sort results by popularity and relevance
+      // Helper to parse review counts
+      const parseReviewCount = (reviews: any) => {
+        if (!reviews) return 0;
+        const str = String(reviews).toLowerCase();
+        if (str.includes('k')) return parseFloat(str) * 1000;
+        return parseInt(str.replace(/[^\d]/g, '')) || 0;
+      };
+      
+      // Normalize and sort results by popularity and relevance
       // Prioritize highly rated items with many reviews
-      const sortedResults = results.sort((a: any, b: any) => {
-        // Extract ratings (handle both string and number formats)
-        const aRating = parseFloat(String(a.rating || a.product_rating || '0').replace(/[^\d.]/g, '')) || 0;
-        const bRating = parseFloat(String(b.rating || b.product_rating || '0').replace(/[^\d.]/g, '')) || 0;
-        
-        // Extract review counts (handle various formats like "1,234" or "1.2K")
-        const parseReviewCount = (reviews: any) => {
-          if (!reviews) return 0;
-          const str = String(reviews).toLowerCase();
-          if (str.includes('k')) return parseFloat(str) * 1000;
-          return parseInt(str.replace(/[^\d]/g, '')) || 0;
-        };
-        const aReviews = parseReviewCount(a.reviews || a.reviews_count || a.rating_count);
-        const bReviews = parseReviewCount(b.reviews || b.reviews_count || b.rating_count);
-        
-        // Calculate popularity score: (rating * log(reviews + 1))
-        // This balances quality (rating) with popularity (reviews)
-        const aPopularity = aRating * Math.log10(aReviews + 1);
-        const bPopularity = bRating * Math.log10(bReviews + 1);
-        
-        // If both have meaningful popularity scores, use those
-        if (aPopularity > 0 || bPopularity > 0) {
-          if (aPopularity !== bPopularity) return bPopularity - aPopularity;
-        }
-        
-        // Fallback to position (Google's relevance ordering)
-        const aPosition = a.position || Infinity;
-        const bPosition = b.position || Infinity;
-        return aPosition - bPosition;
-      });
+      const sortedResults = results
+        .map((result: any) => {
+          // Extract rating
+          const rating = parseFloat(String(result.rating || result.product_rating || '0').replace(/[^\d.]/g, '')) || 0;
+          const reviews = parseReviewCount(result.reviews || result.reviews_count || result.rating_count);
+          
+          // Try multiple link fields from SerpApi response
+          const link = result.link || result.product_link || '';
+          
+          // Calculate popularity score
+          const popularity = rating * Math.log10(reviews + 1);
+          
+          return {
+            ...result,
+            link: link, // Ensure link is present
+            snippet: result.snippet || result.description || '',
+            extracted_price: result.extracted_price || (typeof result.price === 'number' ? result.price : null),
+            _popularity: popularity,
+            _position: result.position || Infinity,
+          };
+        })
+        .sort((a: any, b: any) => {
+          // If both have meaningful popularity scores, use those
+          if (a._popularity > 0 || b._popularity > 0) {
+            if (a._popularity !== b._popularity) return b._popularity - a._popularity;
+          }
+          
+          // Fallback to position (Google's relevance ordering)
+          return a._position - b._position;
+        })
+        .map(({ _popularity, _position, ...result }: any) => result); // Remove temp fields
       
       res.json(sortedResults);
     } catch (error) {
@@ -626,10 +630,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const rating = parseFloat(String(result.rating || result.product_rating || '0').replace(/[^\d.]/g, '')) || 0;
         const reviews = parseReviewCount(result.reviews || result.reviews_count || result.rating_count);
         
+        // Try multiple link fields from SerpApi response
+        const link = result.link || result.product_link || '';
+        
         return {
           title: result.title || result.name,
           price: result.extracted_price || result.price || 0,
-          link: result.link,
+          link: link,
           source: result.source || result.merchant || 'Unknown Store',
           rating: rating > 0 ? rating : undefined,
           reviews: reviews > 0 ? reviews : undefined,
@@ -639,6 +646,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           reputationScore: rating * Math.log10(reviews + 1),
         };
       });
+      
+      console.log(`[Shopping Options] Normalized first result:`, normalizedResults[0]);
       
       // Filter out results without valid links (relaxed filter - don't require price)
       const validResults = normalizedResults.filter((r: any) => r.link);
