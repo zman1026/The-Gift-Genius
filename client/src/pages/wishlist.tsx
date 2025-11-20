@@ -469,12 +469,20 @@ export default function Wishlist() {
             </div>
             <h3 className="font-semibold text-xl mb-2 text-foreground">Your Wishlist is Empty</h3>
             <p className="text-muted-foreground mb-6 max-w-md">
-              Start adding items you'd love to receive. You can add them manually or search for products.
+              Start adding items you'd love to receive. Search for products or add them manually.
             </p>
-            <Button onClick={() => setIsAddDialogOpen(true)} data-testid="button-add-first-item">
-              <Plus className="w-4 h-4 mr-2" />
-              Add Your First Item
-            </Button>
+            <div className="flex gap-3">
+              <Link href="/search">
+                <Button data-testid="button-search-first-gift">
+                  <Search className="w-4 h-4 mr-2" />
+                  Search for Your First Gift
+                </Button>
+              </Link>
+              <Button variant="outline" onClick={() => setIsAddDialogOpen(true)} data-testid="button-add-first-item">
+                <Plus className="w-4 h-4 mr-2" />
+                Manually Add
+              </Button>
+            </div>
           </CardContent>
         </Card>
       ) : !hasFilteredItems ? (
