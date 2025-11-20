@@ -50,6 +50,21 @@ Preferred communication style: Simple, everyday language.
 - Category optional (omitted if null)
 - Form pre-populated with search result data
 
+**URL Extraction Feature:**
+- Users can paste product URLs directly into "Add Manually" dialog
+- Automatic extraction of product metadata from e-commerce sites
+- Extraction strategy (priority order):
+  - JSON-LD structured data (schema.org Product type)
+  - Open Graph meta tags (og:title, og:image, og:description)
+  - Twitter Card meta tags
+  - Schema.org microdata attributes (itemprop)
+  - Common CSS selectors as fallback
+- Extracted data: name, description, price, image URL, source URL
+- Form pre-fills with extracted data (editable before submission)
+- Graceful error handling with manual entry fallback
+- 10-second timeout for extraction requests
+- Note: Some e-commerce sites may block automated requests (expected behavior)
+
 **Wishlist Organization:**
 - Priority-based filtering and sorting system
 - Filter badges: "All Priorities", "Must-Have!" (high), "Would Love" (medium), "Just a Thought" (low)
