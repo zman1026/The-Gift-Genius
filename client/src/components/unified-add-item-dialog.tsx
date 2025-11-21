@@ -424,7 +424,7 @@ export function UnifiedAddItemDialog({
             </form>
 
             {/* Smart Suggestion Card */}
-            {showExperienceSuggestion && !searchTerm && (
+            {showExperienceSuggestion && (
               <Card className="border-primary/20 bg-primary/5" data-testid="experience-suggestion-card">
                 <CardContent className="p-4">
                   <div className="flex items-start gap-3">
@@ -459,7 +459,7 @@ export function UnifiedAddItemDialog({
                           onClick={handleDismissSuggestion}
                           data-testid="button-dismiss-suggestion"
                         >
-                          Search Anyway
+                          {searchTerm ? "Not What I Meant" : "Search Anyway"}
                         </Button>
                       </div>
                     </div>

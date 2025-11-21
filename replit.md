@@ -19,8 +19,9 @@ The backend uses **Express.js** with **TypeScript**, **Drizzle ORM** for databas
 ### Feature Specifications
 - **User Profiles:** Users can update their firstName, lastName, and profileImageUrl.
 - **Unified Add Item Dialog:** Streamlined interface with two modes:
-    - **Quick Add:** Search for products or paste URLs to find items via SerpApi with inline results display, error handling, and empty state feedback
+    - **Quick Add:** Search for products or paste URLs to find items via SerpApi with inline results display, error handling, and empty state feedback. Features intelligent query detection that automatically suggests Custom Item tab for non-product searches (experiences, services, memberships).
     - **Custom Item:** Manually create items with support for different types (product, experience, service, membership, other) including experiences like "trip to the zoo" or services like "music lessons"
+    - **Smart Search Detection:** Real-time keyword detection using word-boundary regex to identify non-product queries. When users type queries like "disney trip", "music lessons", or "gym membership", a contextual suggestion card appears prompting them to use Custom Item tab. Includes dismissal state management to prevent suggestion loops and avoid false positives (e.g., "classic" won't trigger "class"). Pre-fills form name and itemType when user accepts suggestion.
 - **Shopping Options:** Provides a simplified interface to view products via Google Shopping.
 - **Wishlist Image Upload:** Integrates **Uppy v5** for image uploads to Replit Object Storage, with a 10MB file limit.
 - **Wishlist Organization:** Items are filterable and sortable by priority (Must-Have, Would Love, Just a Thought). Items support multiple types beyond physical products.
