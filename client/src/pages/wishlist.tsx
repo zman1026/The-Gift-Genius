@@ -662,24 +662,22 @@ export default function Wishlist() {
                     <Gift className="w-12 h-12 text-muted-foreground" />
                   </div>
                 )}
+                {item.priority && (
+                  <Badge 
+                    variant={item.priority === "high" ? "destructive" : item.priority === "medium" ? "default" : "secondary"} 
+                    className="absolute top-2 right-2 text-xs h-5"
+                    data-testid={`badge-priority-${item.id}`}
+                  >
+                    {item.priority === "high" && <ArrowUp className="w-2.5 h-2.5 mr-0.5" />}
+                    {item.priority === "medium" && <Circle className="w-2.5 h-2.5 mr-0.5" />}
+                    {item.priority === "low" && <AlertCircle className="w-2.5 h-2.5 mr-0.5" />}
+                    {item.priority === "high" ? "Must-Have!" : item.priority === "medium" ? "Would Love" : "Just a Thought"}
+                  </Badge>
+                )}
               </div>
               <CardContent className="p-3 space-y-2">
                 <div>
-                  <div className="flex items-start justify-between gap-1 mb-1">
-                    <h3 className="font-semibold text-sm text-foreground line-clamp-2 flex-1">{item.name}</h3>
-                    {item.priority && (
-                      <Badge 
-                        variant={item.priority === "high" ? "destructive" : item.priority === "medium" ? "default" : "secondary"} 
-                        className="shrink-0 text-xs h-5"
-                        data-testid={`badge-priority-${item.id}`}
-                      >
-                        {item.priority === "high" && <ArrowUp className="w-2.5 h-2.5 mr-0.5" />}
-                        {item.priority === "medium" && <Circle className="w-2.5 h-2.5 mr-0.5" />}
-                        {item.priority === "low" && <AlertCircle className="w-2.5 h-2.5 mr-0.5" />}
-                        {item.priority === "high" ? "Must-Have!" : item.priority === "medium" ? "Would Love" : "Just a Thought"}
-                      </Badge>
-                    )}
-                  </div>
+                  <h3 className="font-semibold text-sm text-foreground line-clamp-2">{item.name}</h3>
                   {item.price && (
                     <p className="text-base font-bold text-primary">${parseFloat(item.price).toFixed(2)}</p>
                   )}

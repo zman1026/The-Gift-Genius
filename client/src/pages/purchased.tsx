@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { ShoppingBag, ExternalLink, Calendar, User, Gift, AlertCircle } from "lucide-react";
+import { ShoppingBag, ExternalLink, Calendar, User, Gift, AlertCircle, ArrowUp, Circle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
@@ -246,16 +246,37 @@ export default function Purchased() {
               className="overflow-hidden hover-elevate"
               data-testid={`purchased-card-${purchase.id}`}
             >
-              {purchase.item.imageUrl && (
-                <div className="aspect-square w-full overflow-hidden bg-muted">
+              <div className="aspect-square w-full overflow-hidden bg-muted relative">
+                {purchase.item.imageUrl ? (
                   <img
                     src={purchase.item.imageUrl}
                     alt={purchase.item.name}
                     className="w-full h-full object-cover"
                     data-testid={`img-purchased-${purchase.id}`}
                   />
-                </div>
-              )}
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <Gift className="w-12 h-12 text-muted-foreground" />
+                  </div>
+                )}
+                {purchase.item.priority && (
+                  <Badge 
+                    variant={
+                      purchase.item.priority === "high" ? "destructive" : 
+                      purchase.item.priority === "medium" ? "default" : 
+                      "secondary"
+                    }
+                    className="absolute top-2 right-2 text-xs h-5"
+                  >
+                    {purchase.item.priority === "high" && <ArrowUp className="w-2.5 h-2.5 mr-0.5" />}
+                    {purchase.item.priority === "medium" && <Circle className="w-2.5 h-2.5 mr-0.5" />}
+                    {purchase.item.priority === "low" && <AlertCircle className="w-2.5 h-2.5 mr-0.5" />}
+                    {purchase.item.priority === "high" ? "Must-Have!" : 
+                     purchase.item.priority === "medium" ? "Would Love" : 
+                     "Just a Thought"}
+                  </Badge>
+                )}
+              </div>
               <CardHeader className="space-y-2 p-3">
                 <CardTitle className="flex items-start justify-between gap-1 text-sm">
                   <span className="line-clamp-2" data-testid={`text-item-name-${purchase.id}`}>
@@ -267,16 +288,11 @@ export default function Purchased() {
                     </Badge>
                   )}
                 </CardTitle>
-                <div className="flex items-center gap-1 text-xs">
-                  <span className={getPriorityColor(purchase.item.priority)}>
-                    {getPriorityLabel(purchase.item.priority)}
-                  </span>
-                  {purchase.item.quantity > 1 && (
-                    <Badge variant="outline" className="text-xs h-5">
-                      Qty: {purchase.item.quantity}
-                    </Badge>
-                  )}
-                </div>
+                {purchase.item.quantity > 1 && (
+                  <Badge variant="outline" className="text-xs h-5">
+                    Qty: {purchase.item.quantity}
+                  </Badge>
+                )}
               </CardHeader>
               <CardContent className="space-y-2 p-3 pt-0">
                 {purchase.item.description && (
