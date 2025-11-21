@@ -5,11 +5,11 @@ import { DollarSign, TrendingDown, Settings } from "lucide-react";
 
 interface BudgetTrackerProps {
   budget: number | null;
-  totalWishlistValue: number;
+  totalPurchased: number;
   onSetBudget: () => void;
 }
 
-export function BudgetTracker({ budget, totalWishlistValue, onSetBudget }: BudgetTrackerProps) {
+export function BudgetTracker({ budget, totalPurchased, onSetBudget }: BudgetTrackerProps) {
   if (!budget || budget === 0) {
     return (
       <Card>
@@ -18,9 +18,9 @@ export function BudgetTracker({ budget, totalWishlistValue, onSetBudget }: Budge
             <DollarSign className="w-6 h-6 text-primary" />
           </div>
           <div>
-            <h3 className="font-semibold text-foreground mb-1">Set a Gift Budget</h3>
+            <h3 className="font-semibold text-foreground mb-1">Set Your Gift Budget</h3>
             <p className="text-sm text-muted-foreground">
-              Track your family's gift spending limit
+              Track how much you plan to spend on gifts for others
             </p>
           </div>
           <Button onClick={onSetBudget} size="sm" data-testid="button-set-budget">
@@ -32,8 +32,8 @@ export function BudgetTracker({ budget, totalWishlistValue, onSetBudget }: Budge
     );
   }
 
-  const remaining = budget - totalWishlistValue;
-  const percentUsed = Math.min((totalWishlistValue / budget) * 100, 100);
+  const remaining = budget - totalPurchased;
+  const percentUsed = Math.min((totalPurchased / budget) * 100, 100);
   const isOverBudget = remaining < 0;
 
   return (
@@ -64,10 +64,10 @@ export function BudgetTracker({ budget, totalWishlistValue, onSetBudget }: Budge
           </div>
           <div className="text-right">
             <p className="text-sm font-medium text-muted-foreground">
-              ${totalWishlistValue.toFixed(2)} / ${budget.toFixed(2)}
+              ${totalPurchased.toFixed(2)} / ${budget.toFixed(2)}
             </p>
             <p className="text-xs text-muted-foreground mt-1">
-              Wishlist / Budget
+              Purchased / Budget
             </p>
           </div>
         </div>
@@ -89,7 +89,7 @@ export function BudgetTracker({ budget, totalWishlistValue, onSetBudget }: Budge
           <div className="flex items-center gap-2 p-2 bg-destructive/10 rounded-md">
             <TrendingDown className="w-4 h-4 text-destructive shrink-0" />
             <p className="text-xs text-destructive">
-              Your wishlist exceeds the budget by ${Math.abs(remaining).toFixed(2)}
+              Your purchases exceed the budget by ${Math.abs(remaining).toFixed(2)}
             </p>
           </div>
         )}

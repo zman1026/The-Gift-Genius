@@ -443,104 +443,100 @@ export default function Members() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+        <div className="space-y-2">
           {members.map((member: any) => {
             const isCurrentUser = !!user && member.userId === (user as any).id;
             return (
               <Card
                 key={member.userId}
-                className="hover-elevate overflow-hidden"
+                className="hover-elevate"
                 data-testid={`member-card-${member.userId}`}
               >
-                <CardContent className="p-6 flex flex-col items-center text-center space-y-4">
-                  <Avatar className="h-20 w-20">
-                    <AvatarImage src={member.profileImageUrl || undefined} alt={member.firstName || "Member"} />
-                    <AvatarFallback className="text-xl">
-                      {getInitials(member.firstName, member.lastName)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="space-y-1 w-full">
-                    <h3 className="font-semibold text-foreground truncate" data-testid={`member-name-${member.userId}`}>
-                      {member.displayName || (member.firstName || member.lastName
-                        ? `${member.firstName || ""} ${member.lastName || ""}`.trim()
-                        : member.email || "Family Member")}
-                    </h3>
-                    {member.displayName && (member.firstName || member.lastName) && (
-                      <p className="text-xs text-muted-foreground truncate">
-                        {`${member.firstName || ""} ${member.lastName || ""}`.trim()}
-                      </p>
-                    )}
-                    {isCurrentUser && (
-                      <p className="text-xs text-primary font-medium">(You)</p>
-                    )}
-                    <div className="flex items-center justify-center gap-2 text-muted-foreground pt-2">
-                      <Gift className="w-4 h-4" />
-                      <span className="text-sm" data-testid={`member-items-${member.userId}`}>
-                        {member.itemCount || 0} items
-                      </span>
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-4">
+                    <Avatar className="h-12 w-12 shrink-0">
+                      <AvatarImage src={member.profileImageUrl || undefined} alt={member.firstName || "Member"} />
+                      <AvatarFallback>
+                        {getInitials(member.firstName, member.lastName)}
+                      </AvatarFallback>
+                    </Avatar>
+                    
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-semibold text-foreground truncate" data-testid={`member-name-${member.userId}`}>
+                          {member.displayName || (member.firstName || member.lastName
+                            ? `${member.firstName || ""} ${member.lastName || ""}`.trim()
+                            : member.email || "Family Member")}
+                        </h3>
+                        {isCurrentUser && (
+                          <span className="text-xs text-primary font-medium">(You)</span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                        <Gift className="w-3.5 h-3.5" />
+                        <span data-testid={`member-items-${member.userId}`}>
+                          {member.itemCount || 0} items
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                  {!isCurrentUser && (
-                    <>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="w-full"
-                        onClick={() => setLocation(`/members/${member.userId}`)}
-                        data-testid={`button-view-wishlist-${member.userId}`}
-                      >
-                        <Eye className="w-4 h-4 mr-2" />
-                        View Wishlist
-                      </Button>
-                      {isOrganizer && (
-                        <div className="flex gap-2 w-full">
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      {!isCurrentUser ? (
+                        <>
                           <Button
                             variant="outline"
                             size="sm"
-                            className="flex-1"
-                            onClick={() => {
-                              setMemberToEdit(member);
-                              editMemberForm.reset({
-                                displayName: member.displayName || "",
-                                firstName: member.firstName || "",
-                                lastName: member.lastName || "",
-                              });
-                              setIsEditMemberDialogOpen(true);
-                            }}
-                            data-testid={`button-edit-member-${member.userId}`}
+                            onClick={() => setLocation(`/members/${member.userId}`)}
+                            data-testid={`button-view-wishlist-${member.userId}`}
                           >
-                            <Edit className="w-4 h-4 mr-2" />
-                            Edit
+                            <Eye className="w-4 h-4 mr-2" />
+                            View Wishlist
                           </Button>
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            className="flex-1"
-                            onClick={() => {
-                              setMemberToRemove(member);
-                              setShowRemoveConfirm(true);
-                            }}
-                            data-testid={`button-remove-member-${member.userId}`}
-                          >
-                            <UserMinus className="w-4 h-4 mr-2" />
-                            Remove
-                          </Button>
-                        </div>
+                          {isOrganizer && (
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => {
+                                  setMemberToEdit(member);
+                                  editMemberForm.reset({
+                                    displayName: member.displayName || "",
+                                    firstName: member.firstName || "",
+                                    lastName: member.lastName || "",
+                                  });
+                                  setIsEditMemberDialogOpen(true);
+                                }}
+                                data-testid={`button-edit-member-${member.userId}`}
+                              >
+                                <Edit className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => {
+                                  setMemberToRemove(member);
+                                  setShowRemoveConfirm(true);
+                                }}
+                                data-testid={`button-remove-member-${member.userId}`}
+                              >
+                                <UserMinus className="w-4 h-4 text-destructive" />
+                              </Button>
+                            </>
+                          )}
+                        </>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setLocation('/wishlist')}
+                          data-testid="button-view-my-wishlist"
+                        >
+                          <Eye className="w-4 h-4 mr-2" />
+                          View My List
+                        </Button>
                       )}
-                    </>
-                  )}
-                  {isCurrentUser && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full"
-                      onClick={() => setLocation('/wishlist')}
-                      data-testid="button-view-my-wishlist"
-                    >
-                      <Eye className="w-4 h-4 mr-2" />
-                      View My List
-                    </Button>
-                  )}
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
             );

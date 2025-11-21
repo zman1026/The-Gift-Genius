@@ -51,7 +51,6 @@ export const families = pgTable("families", {
   name: varchar("name", { length: 255 }).notNull(),
   inviteCode: varchar("invite_code", { length: 50 }).notNull().unique(),
   createdById: varchar("created_by_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
-  budget: decimal("budget", { precision: 10, scale: 2 }), // Total gift budget for the family
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -77,6 +76,7 @@ export const familyMembers = pgTable("family_members", {
   familyId: varchar("family_id").notNull().references(() => families.id, { onDelete: 'cascade' }),
   userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
   displayName: varchar("display_name", { length: 100 }), // Family-specific nickname
+  giftBudget: decimal("gift_budget", { precision: 10, scale: 2 }), // Personal gift-buying budget for this family
   joinedAt: timestamp("joined_at").defaultNow(),
 }, (table) => [
   index("idx_family_members_user_lookup").on(table.userId, table.familyId),

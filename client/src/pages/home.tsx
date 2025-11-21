@@ -69,14 +69,14 @@ export default function Home() {
   });
 
   const updateBudgetMutation = useMutation({
-    mutationFn: async (budget: number | null) => {
+    mutationFn: async (giftBudget: number | null) => {
       if (!selectedFamilyId) throw new Error("No family selected");
-      return apiRequest("PUT", `/api/families/${selectedFamilyId}`, { budget });
+      return apiRequest("PUT", `/api/families/${selectedFamilyId}/budget`, { giftBudget });
     },
     onSuccess: () => {
       toast({
         title: "Budget updated!",
-        description: "Your family budget has been updated successfully.",
+        description: "Your gift-buying budget has been updated successfully.",
       });
       setIsBudgetDialogOpen(false);
       queryClient.invalidateQueries({ queryKey: ["/api/families"] });
@@ -283,8 +283,8 @@ export default function Home() {
       {/* Budget Tracker */}
       {hasFamilies && selectedFamilyId && (
         <BudgetTracker
-          budget={selectedFamily?.budget ? parseFloat(selectedFamily.budget) : null}
-          totalWishlistValue={stats?.totalWishlistValue || 0}
+          budget={selectedFamily?.giftBudget ? parseFloat(selectedFamily.giftBudget) : null}
+          totalPurchased={stats?.totalPurchased || 0}
           onSetBudget={() => setIsBudgetDialogOpen(true)}
         />
       )}
@@ -495,7 +495,7 @@ export default function Home() {
       <BudgetDialog
         open={isBudgetDialogOpen}
         onOpenChange={setIsBudgetDialogOpen}
-        currentBudget={selectedFamily?.budget ? parseFloat(selectedFamily.budget) : null}
+        currentBudget={selectedFamily?.giftBudget ? parseFloat(selectedFamily.giftBudget) : null}
         onSave={(budget) => updateBudgetMutation.mutate(budget)}
         isSaving={updateBudgetMutation.isPending}
       />

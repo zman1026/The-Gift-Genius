@@ -194,18 +194,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const updateFamilySchema = z.object({
         name: z.string().trim().min(1, "Family name cannot be empty").optional(),
-        budget: z.number().min(0, "Budget must be non-negative").nullable().optional(),
       });
 
       const validatedData = updateFamilySchema.parse(req.body);
-      
-      // Convert budget to string for database storage (with 2 decimal places)
-      const updates: any = { ...validatedData };
-      if (validatedData.budget !== undefined) {
-        updates.budget = validatedData.budget !== null ? validatedData.budget.toFixed(2) : null;
-      }
 
-      const family = await storage.updateFamily(familyId, updates, userId);
+      const family = await storage.updateFamily(familyId, validatedData, userId);
       res.json(family);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -219,6 +212,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       console.error("Error updating family:", error);
       res.status(500).json({ message: "Failed to update family" });
+    }
+  });
+
+  // Update personal gift budget for a family
+  app.put('/api/families/:familyId/budget', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { familyId } = req.params;
+
+      const budgetSchema = z.object({
+        giftBudget: z.number().min(0, "Budget must be non-negative").nullable(),
+      });
+
+      const { giftBudget } = budgetSchema.parse(req.body);
+      
+      // Convert to string for database storage (with 2 decimal places)
+      const budgetValue = giftBudget !== null ? giftBudget.toFixed(2) : null;
+
+      await storage.updateFamilyMemberBudget(familyId, userId, budgetValue);
+      res.json({ message: "Budget updated successfully", giftBudget: budgetValue });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid input data", errors: error.errors });
+      }
+      console.error("Error updating gift budget:", error);
+      res.status(500).json({ message: "Failed to update gift budget" });
     }
   });
 

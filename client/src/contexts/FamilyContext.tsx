@@ -6,7 +6,7 @@ interface Family {
   name: string;
   inviteCode: string;
   createdById: string;
-  budget: string | null;
+  giftBudget: string | null;
   createdAt: Date;
   memberCount: number;
 }

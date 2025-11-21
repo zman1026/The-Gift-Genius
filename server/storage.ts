@@ -119,9 +119,12 @@ export class DatabaseStorage implements IStorage {
         name: families.name,
         inviteCode: families.inviteCode,
         createdById: families.createdById,
-        budget: families.budget,
         createdAt: families.createdAt,
         memberCount: sql<number>`count(distinct ${familyMembers.userId})::int`,
+        giftBudget: sql<string | null>`
+          (SELECT gift_budget FROM family_members 
+           WHERE family_id = ${families.id} AND user_id = ${userId} LIMIT 1)
+        `,
       })
       .from(families)
       .innerJoin(familyMembers, eq(families.id, familyMembers.familyId))
@@ -248,6 +251,20 @@ export class DatabaseStorage implements IStorage {
     const [member] = await db
       .update(familyMembers)
       .set({ displayName })
+      .where(and(eq(familyMembers.familyId, familyId), eq(familyMembers.userId, userId)))
+      .returning();
+    
+    if (!member) {
+      throw new Error("Family member not found");
+    }
+    
+    return member;
+  }
+
+  async updateFamilyMemberBudget(familyId: string, userId: string, giftBudget: string | null): Promise<FamilyMember> {
+    const [member] = await db
+      .update(familyMembers)
+      .set({ giftBudget })
       .where(and(eq(familyMembers.familyId, familyId), eq(familyMembers.userId, userId)))
       .returning();
     
@@ -613,11 +630,13 @@ export class DatabaseStorage implements IStorage {
           AND wi.priority = 'high'
         ) as items_to_purchase_count,
         (
-          SELECT COALESCE(SUM(price::numeric), 0)::text
-          FROM ${wishlistItems}
-          WHERE family_id = ${familyId}
-          AND price IS NOT NULL
-        ) as total_wishlist_value
+          SELECT COALESCE(SUM(wi.price::numeric), 0)::text
+          FROM ${itemPurchases} ip
+          INNER JOIN ${wishlistItems} wi ON ip.item_id = wi.id
+          WHERE ip.purchased_by_id = ${userId}
+          AND wi.family_id = ${familyId}
+          AND wi.price IS NOT NULL
+        ) as total_purchased
     `);
 
     const row = result.rows[0] as any;
@@ -625,7 +644,7 @@ export class DatabaseStorage implements IStorage {
       myItemsCount: row?.my_items_count || 0,
       familyMembersCount: row?.family_members_count || 0,
       itemsToPurchaseCount: row?.items_to_purchase_count || 0,
-      totalWishlistValue: parseFloat(row?.total_wishlist_value || '0'),
+      totalPurchased: parseFloat(row?.total_purchased || '0'),
     };
   }
 }

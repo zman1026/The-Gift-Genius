@@ -39,9 +39,9 @@ export function BudgetDialog({ open, onOpenChange, currentBudget, onSave, isSavi
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Set Gift Budget</DialogTitle>
+          <DialogTitle>Set Your Gift-Buying Budget</DialogTitle>
           <DialogDescription>
-            Set a total spending limit for your family's gift giving. This helps track how much you plan to spend.
+            Track how much you personally plan to spend on gifts for others in this family.
           </DialogDescription>
         </DialogHeader>
 
