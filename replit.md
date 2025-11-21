@@ -34,7 +34,12 @@ The backend uses **Express.js** with **TypeScript**, **Drizzle ORM** for databas
 - **Data Access:** Drizzle ORM ensures type-safe database operations with a clear separation of concerns.
 - **Database Schema:** Core tables include `users`, `families`, `family_members`, `wishlist_items`, `item_purchases`, and `sessions`, with well-defined relationships and UUID primary keys.
 - **Security:** Open redirect prevention for invite links, and robust authorization checks for organizer actions. Cookie-based redirect preservation with multi-layer validation: (1) redirect parameters validated on `/api/login` before cookie storage, (2) cookie values revalidated on `/api/callback` before redirect, (3) conditional secure cookies work in both development (HTTP) and production (HTTPS) environments.
-- **Performance:** Client-side caching for product searches and efficient image upload mechanisms.
+- **Performance Optimizations:**
+    - **Server-Side Caching:** SerpApi product search uses memoizee with 10-minute TTL, background refresh (preFetch), and normalized cache keys for faster repeat searches.
+    - **Optimized Search:** Reduced SerpApi results from 20 to 10 items with streamlined payload fields and 10-second request timeout.
+    - **Database Indexes:** Dual covering indexes on `family_members(user_id, family_id)` and `family_members(family_id, user_id)` for efficient lookups. Covering index on `wishlist_items(family_id, user_id, priority)` for fast filtered queries.
+    - **Batched Queries:** Dashboard stats use single SQL queries with LEFT JOINs and subqueries instead of multiple round-trips.
+    - **Smart Cache Invalidation:** React Query staleTime set to 3 minutes, balancing data freshness with reduced server load.
 
 ## External Dependencies
 
