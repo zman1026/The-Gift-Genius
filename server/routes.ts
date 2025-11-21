@@ -503,6 +503,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Organizer-only: Add wishlist item to any member's wishlist
+  app.post('/api/families/:familyId/members/:targetUserId/wishlist', isAuthenticated, async (req: any, res) => {
+    try {
+      const organizerId = req.user.claims.sub;
+      const { familyId, targetUserId } = req.params;
+      const { name, description, price, url, imageUrl, productId, source, priority, quantity, category } = req.body;
+
+      if (!name || typeof name !== 'string') {
+        return res.status(400).json({ message: "Item name is required" });
+      }
+
+      // Verify requester is the organizer of the family
+      const family = await storage.getFamily(familyId);
+      if (!family || family.createdById !== organizerId) {
+        return res.status(403).json({ message: "Only the family organizer can add items to other members' wishlists" });
+      }
+
+      // Verify target user is a member of the family
+      const targetMembership = await storage.getFamilyMember(familyId, targetUserId);
+      if (!targetMembership) {
+        return res.status(404).json({ message: "Target member not found in this family" });
+      }
+
+      const item = await storage.createWishlistItem({
+        userId: targetUserId,
+        familyId,
+        name,
+        description: description || null,
+        price: price ? String(price) : null,
+        url: url || null,
+        imageUrl: imageUrl || null,
+        source: source || "manual",
+        productId: productId || null,
+        priority: priority || "medium",
+        quantity: quantity || 1,
+        category: category || null,
+      });
+
+      res.json(item);
+    } catch (error) {
+      console.error("Error adding item to member's wishlist:", error);
+      res.status(500).json({ message: "Failed to add item" });
+    }
+  });
+
   app.patch('/api/wishlist/:id', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
