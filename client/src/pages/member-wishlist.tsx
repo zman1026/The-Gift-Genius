@@ -12,7 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Gift, ArrowLeft, CheckCircle2, ExternalLink, MessageSquare, AlertCircle, Circle, ArrowUp } from "lucide-react";
+import { Gift, ArrowLeft, CheckCircle2, ExternalLink, MessageSquare, AlertCircle, Circle, ArrowUp, Clock } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ShoppingOptionsDialog } from "@/components/shopping-options-dialog";
 
@@ -148,6 +148,74 @@ export default function MemberWishlist() {
         description: error.message || "Failed to remove purchase marking",
         variant: "destructive",
       });
+    },
+  });
+
+  const markIntentMutation = useMutation({
+    mutationFn: async (itemId: string) => {
+      return await apiRequest("POST", `/api/item-purchases/intent`, { itemId });
+    },
+    onSuccess: () => {
+      const currentFamilyId = selectedFamilyIdRef.current;
+      queryClient.invalidateQueries({ queryKey: ["/api/members", userId, "wishlist", currentFamilyId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats", currentFamilyId] });
+      queryClient.invalidateQueries({ queryKey: ['/api/budgets/summary', currentFamilyId] });
+      toast({
+        title: "Success",
+        description: "Item added to your planned purchases!",
+      });
+    },
+    onError: (error: Error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        });
+        setTimeout(() => {
+          window.location.href = "/api/login";
+        }, 500);
+        return;
+      }
+      toast({
+        title: "Error",
+        description: error.message || "Failed to mark item as intended",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const unmarkIntentMutation = useMutation({
+    mutationFn: async (itemId: string) => {
+      return await apiRequest("DELETE", `/api/item-purchases/intent/${itemId}`, {});
+    },
+    onSuccess: () => {
+      const currentFamilyId = selectedFamilyIdRef.current;
+      queryClient.invalidateQueries({ queryKey: ["/api/members", userId, "wishlist", currentFamilyId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats", currentFamilyId] });
+      queryClient.invalidateQueries({ queryKey: ['/api/budgets/summary', currentFamilyId] });
+      toast({
+        title: "Success",
+        description: "Item removed from planned purchases",
+      });
+    },
+    onError: (error: Error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        });
+        setTimeout(() => {
+          window.location.href = "/api/login";
+        }, 500);
+        return;
+      }
+      toast({
+        title: "Error",
+        description: error.message || "Failed to remove intent",
+        variant: "destructive",
+        });
     },
   });
 
@@ -361,18 +429,43 @@ export default function MemberWishlist() {
                     )}
                     
                     {!isPurchased ? (
-                      <Dialog open={openNoteDialog === item.id} onOpenChange={(open) => setOpenNoteDialog(open ? item.id : null)}>
-                        <DialogTrigger asChild>
+                      <>
+                        {item.purchase?.status === 'intended' && isPurchasedByMe ? (
                           <Button
-                            variant="default"
+                            variant="outline"
                             size="sm"
-                            className={item.url ? "" : "flex-1"}
-                            data-testid={`button-mark-purchased-${item.id}`}
+                            onClick={() => unmarkIntentMutation.mutate(item.id)}
+                            disabled={unmarkIntentMutation.isPending}
+                            data-testid={`button-remove-intent-${item.id}`}
                           >
-                            <CheckCircle2 className="w-4 h-4 mr-1" />
-                            Mark Purchased
+                            <Clock className="w-4 h-4 mr-1" />
+                            Remove Intent
                           </Button>
-                        </DialogTrigger>
+                        ) : !item.purchase?.status ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => markIntentMutation.mutate(item.id)}
+                            disabled={markIntentMutation.isPending}
+                            data-testid={`button-intent-${item.id}`}
+                          >
+                            <Clock className="w-4 h-4 mr-1" />
+                            Intend to Buy
+                          </Button>
+                        ) : null}
+                        
+                        <Dialog open={openNoteDialog === item.id} onOpenChange={(open) => setOpenNoteDialog(open ? item.id : null)}>
+                          <DialogTrigger asChild>
+                            <Button
+                              variant="default"
+                              size="sm"
+                              className={item.url ? "" : "flex-1"}
+                              data-testid={`button-mark-purchased-${item.id}`}
+                            >
+                              <CheckCircle2 className="w-4 h-4 mr-1" />
+                              Mark Purchased
+                            </Button>
+                          </DialogTrigger>
                         <DialogContent>
                           <DialogHeader>
                             <DialogTitle>Mark as Purchased</DialogTitle>
@@ -407,6 +500,7 @@ export default function MemberWishlist() {
                           </div>
                         </DialogContent>
                       </Dialog>
+                      </>
                     ) : isPurchasedByMe ? (
                       <Button
                         variant="outline"

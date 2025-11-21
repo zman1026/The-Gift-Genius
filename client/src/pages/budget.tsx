@@ -150,7 +150,7 @@ export default function BudgetPage() {
     },
   });
 
-  const isOrganizer = selectedFamily && user && selectedFamily.createdById === user.id;
+  const isOrganizer = selectedFamily && user && selectedFamily.createdById === (user as any).id;
   const isLoading = familyBudgetLoading || summaryLoading || membersLoading;
 
   if (!selectedFamilyId) {
@@ -196,7 +196,7 @@ export default function BudgetPage() {
   };
 
   // Get family members excluding current user
-  const otherMembers: any[] = Array.isArray(familyMembers) ? familyMembers.filter((m: any) => m.id !== user?.id) : [];
+  const otherMembers: any[] = Array.isArray(familyMembers) ? familyMembers.filter((m: any) => m.id !== (user as any)?.id) : [];
 
   return (
     <div className="p-4 md:p-8 lg:p-12 space-y-6">
@@ -456,7 +456,7 @@ export default function BudgetPage() {
           {memberBudgets && memberBudgets.length > 0 ? (
             <div className="space-y-6">
               {memberBudgets.map((budget: any) => {
-                const member = familyMembers?.find((m: any) => m.id === budget.targetMemberId);
+                const member = (familyMembers as any)?.find((m: any) => m.id === budget.targetMemberId);
                 const memberUsed = budget.allocated + budget.spent;
                 const memberProgress = budget.amount > 0 ? (memberUsed / budget.amount) * 100 : 0;
                 const memberColor = memberProgress >= 100 ? "text-destructive" : memberProgress >= 80 ? "text-yellow-600" : "text-primary";
