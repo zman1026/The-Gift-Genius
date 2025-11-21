@@ -1016,7 +1016,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // URL scraping route - extract product data from any URL
+  // URL scraping route - extract product data from any URL using SerpApi Product API
   app.post('/api/scrape-url', isAuthenticated, async (req: any, res) => {
     try {
       const { url } = req.body;
@@ -1026,173 +1026,76 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Validate URL format
-      let validUrl: URL;
       try {
-        validUrl = new URL(url);
+        new URL(url);
       } catch {
         return res.status(400).json({ message: "Invalid URL format" });
       }
 
-      // Security: Only allow HTTPS from trusted e-commerce domains (SSRF protection)
-      if (validUrl.protocol !== 'https:') {
-        return res.status(400).json({ message: "Only HTTPS URLs are allowed for security reasons" });
+      const apiKey = process.env.SERPAPI_KEY;
+      if (!apiKey) {
+        console.error('SERPAPI_KEY not configured');
+        return res.status(500).json({ message: "Product URL extraction is not configured" });
       }
 
-      // Allowlist of trusted e-commerce domains and their subdomains
-      const allowedDomains = [
-        'amazon.com', 'amazon.co.uk', 'amazon.ca', 'amazon.de', 'amazon.fr', 'amazon.it', 'amazon.es', 'amazon.co.jp',
-        'walmart.com', 'target.com', 'bestbuy.com', 'ebay.com', 'etsy.com',
-        'wayfair.com', 'homedepot.com', 'lowes.com', 'costco.com', 
-        'macys.com', 'nordstrom.com', 'kohls.com', 'jcpenney.com',
-        'nike.com', 'adidas.com', 'gap.com', 'oldnavy.com',
-        'apple.com', 'microsoft.com', 'dell.com', 'hp.com',
-        'sephora.com', 'ulta.com', 'walgreens.com', 'cvs.com',
-        'chewy.com', 'petco.com', 'petsmart.com',
-        'williams-sonoma.com', 'crateandbarrel.com', 'potterybarn.com',
-        'overstock.com', 'zappos.com', 'newegg.com',
-      ];
+      // Use SerpApi Product API to extract product metadata from URL
+      const serpApiUrl = new URL('https://serpapi.com/search');
+      serpApiUrl.searchParams.set('engine', 'google_product');
+      serpApiUrl.searchParams.set('url', url);
+      serpApiUrl.searchParams.set('api_key', apiKey);
 
-      const hostname = validUrl.hostname.toLowerCase();
-      const isAllowed = allowedDomains.some(domain => 
-        hostname === domain || hostname.endsWith(`.${domain}`)
-      );
-
-      if (!isAllowed) {
-        return res.status(400).json({ 
-          message: "URL must be from a supported retailer (Amazon, Walmart, Target, etc.)" 
-        });
-      }
-
-      // Fetch the page with timeout and redirect protection
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
 
-      const response = await fetch(url, {
+      const response = await fetch(serpApiUrl.toString(), {
         signal: controller.signal,
-        redirect: 'manual', // Don't follow redirects to prevent SSRF bypass
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (compatible; WishlistBot/1.0)',
-        },
       });
       clearTimeout(timeoutId);
 
-      // Handle redirects explicitly (with same domain validation)
-      if (response.status >= 300 && response.status < 400) {
-        return res.status(400).json({ message: "Redirects are not supported for security reasons" });
-      }
-
       if (!response.ok) {
-        return res.status(400).json({ message: `Failed to fetch URL: ${response.statusText}` });
+        console.error(`SerpApi error: ${response.status} ${response.statusText}`);
+        return res.status(400).json({ 
+          message: "Could not extract product data from this URL. Please try a different product or enter details manually." 
+        });
       }
 
-      // Check content-length to prevent huge responses
-      const contentLength = response.headers.get('content-length');
-      if (contentLength && parseInt(contentLength) > 5 * 1024 * 1024) { // 5MB limit
-        return res.status(400).json({ message: "Page is too large to process" });
-      }
+      const data = await response.json();
 
-      const html = await response.text();
-      const $ = cheerio.load(html);
-
-      // Extract product data using various strategies
+      // Extract product information from SerpApi response
       const productData: any = {
         url: url,
         title: '',
         description: '',
         price: '',
         imageUrl: '',
-        source: validUrl.hostname.replace('www.', ''),
       };
 
-      // Strategy 1: Open Graph tags (most reliable for e-commerce)
-      productData.title = $('meta[property="og:title"]').attr('content') || 
-                         $('meta[name="twitter:title"]').attr('content') || 
-                         $('title').text().trim();
-
-      productData.description = $('meta[property="og:description"]').attr('content') || 
-                               $('meta[name="description"]').attr('content') || 
-                               $('meta[name="twitter:description"]').attr('content') || 
-                               '';
-
-      productData.imageUrl = $('meta[property="og:image"]').attr('content') || 
-                            $('meta[property="og:image:url"]').attr('content') ||
-                            $('meta[name="twitter:image"]').attr('content') || 
-                            '';
-
-      // Strategy 2: Price extraction from Open Graph or common patterns
-      const ogPrice = $('meta[property="og:price:amount"]').attr('content') ||
-                     $('meta[property="product:price:amount"]').attr('content');
-      
-      if (ogPrice) {
-        const currency = $('meta[property="og:price:currency"]').attr('content') || 
-                        $('meta[property="product:price:currency"]').attr('content') || 
-                        'USD';
-        productData.price = currency === 'USD' ? `$${ogPrice}` : `${currency} ${ogPrice}`;
-      } else {
-        // Try to find price in common e-commerce patterns
-        const pricePatterns = [
-          $('[data-price]').first().attr('data-price'),
-          $('[itemprop="price"]').first().attr('content'),
-          $('.price').first().text().trim(),
-          $('[class*="price"]').first().text().trim(),
-          $('[id*="price"]').first().text().trim(),
-        ];
-
-        for (const pattern of pricePatterns) {
-          if (pattern && /[\$£€¥]\s*\d+/.test(pattern)) {
-            productData.price = pattern.match(/([\$£€¥]\s*[\d,]+\.?\d*)/)?.[0] || '';
-            if (productData.price) break;
-          }
+      // SerpApi returns product data in the product_results object
+      if (data.product_results) {
+        const product = data.product_results;
+        
+        productData.title = product.title || '';
+        productData.price = product.extracted_price || product.price || '';
+        productData.description = product.description || '';
+        
+        // Get the first image if available
+        if (product.images && product.images.length > 0) {
+          productData.imageUrl = product.images[0];
+        } else if (product.thumbnail) {
+          productData.imageUrl = product.thumbnail;
         }
       }
 
-      // Strategy 3: JSON-LD structured data
-      try {
-        $('script[type="application/ld+json"]').each((i, elem) => {
-          try {
-            const jsonLd = JSON.parse($(elem).html() || '{}');
-            if (jsonLd['@type'] === 'Product' || jsonLd['@type']?.includes?.('Product')) {
-              if (!productData.title && jsonLd.name) {
-                productData.title = jsonLd.name;
-              }
-              if (!productData.description && jsonLd.description) {
-                productData.description = jsonLd.description;
-              }
-              if (!productData.imageUrl && jsonLd.image) {
-                productData.imageUrl = Array.isArray(jsonLd.image) ? jsonLd.image[0] : jsonLd.image;
-              }
-              if (!productData.price && jsonLd.offers) {
-                const offer = Array.isArray(jsonLd.offers) ? jsonLd.offers[0] : jsonLd.offers;
-                if (offer.price) {
-                  const currency = offer.priceCurrency || 'USD';
-                  productData.price = currency === 'USD' ? `$${offer.price}` : `${currency} ${offer.price}`;
-                }
-              }
-            }
-          } catch (e) {
-            // Skip invalid JSON-LD
-          }
-        });
-      } catch (e) {
-        // Continue without JSON-LD data
-      }
-
-      // Clean up extracted data
-      productData.title = productData.title.substring(0, 200).trim();
-      productData.description = productData.description.substring(0, 500).trim();
-
-      // Make relative image URLs absolute
-      if (productData.imageUrl && !productData.imageUrl.startsWith('http')) {
-        productData.imageUrl = new URL(productData.imageUrl, url).href;
-      }
+      // Log for debugging
+      console.log(`SerpApi product extraction: ${productData.title ? 'success' : 'no data found'}`);
 
       res.json(productData);
     } catch (error: any) {
-      console.error("Error scraping URL:", error);
+      console.error(`URL scraping error: ${error.message}`);
       if (error.name === 'AbortError') {
-        return res.status(408).json({ message: "Request timeout - URL took too long to respond" });
+        return res.status(408).json({ message: "Request timeout" });
       }
-      res.status(500).json({ message: "Failed to scrape URL. Please check the URL and try again." });
+      res.status(500).json({ message: "Failed to extract product data" });
     }
   });
 
