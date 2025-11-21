@@ -19,6 +19,7 @@ The backend uses **Express.js** with **TypeScript**, **Drizzle ORM** for databas
 ### Feature Specifications
 - **User Profiles:** Users can update their firstName, lastName, and profileImageUrl.
 - **Product Search & Add:** Allows searching for products via SerpApi, editing details, and adding them to wishlists.
+- **Quick Add from URL:** Secure URL scraping feature that auto-fills wishlist item details from product URLs (Amazon, Walmart, Best Buy, Target, 40+ retailers). Uses Open Graph and JSON-LD metadata extraction with six layers of security protection: HTTPS-only, domain allowlist, safe redirect handling (max 5 redirects with per-hop validation), 5MB content-length check, byte-budget streaming (hard 5MB limit), and 15-second timeout. Designed to be replaced by Affiliate.com API integration for monetization.
 - **Shopping Options:** Provides a simplified interface to view products via Google Shopping.
 - **Wishlist Image Upload:** Integrates **Uppy v5** for image uploads to Replit Object Storage, with a 10MB file limit.
 - **Wishlist Organization:** Items are filterable and sortable by priority (Must-Have, Would Love, Just a Thought).
@@ -47,6 +48,7 @@ The backend uses **Express.js** with **TypeScript**, **Drizzle ORM** for databas
 -   **Database:** **Neon Serverless PostgreSQL** for persistent data storage, utilizing Drizzle ORM.
 -   **Email Service:** **Resend** for sending transactional emails, specifically for family invitations.
 -   **Product Search:** **SerpApi** for integrating Google Shopping search functionality, providing location-aware and intelligently prioritized product results.
+-   **URL Scraping:** **cheerio** for parsing HTML and extracting Open Graph/JSON-LD metadata from retailer product pages. Temporary solution with plans to migrate to **Affiliate.com API** for monetization and improved reliability.
 -   **Object Storage:** **Replit Object Storage** for storing wishlist item images, supporting direct browser uploads and public access control.
 -   **UI Components:** **Radix UI** primitives, **shadcn/ui**, **Tailwind CSS**.
 -   **File Uploader:** **Uppy v5** for client-side image uploads.
