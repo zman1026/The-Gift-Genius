@@ -51,6 +51,7 @@ export const families = pgTable("families", {
   name: varchar("name", { length: 255 }).notNull(),
   inviteCode: varchar("invite_code", { length: 50 }).notNull().unique(),
   createdById: varchar("created_by_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  budget: decimal("budget", { precision: 10, scale: 2 }), // Total gift budget for the family
   createdAt: timestamp("created_at").defaultNow(),
 });
 

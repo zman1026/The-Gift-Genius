@@ -193,12 +193,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { familyId } = req.params;
 
       const updateFamilySchema = z.object({
-        name: z.string().trim().min(1, "Family name cannot be empty"),
+        name: z.string().trim().min(1, "Family name cannot be empty").optional(),
+        budget: z.number().min(0, "Budget must be non-negative").nullable().optional(),
       });
 
       const validatedData = updateFamilySchema.parse(req.body);
+      
+      // Convert budget to string for database storage
+      const updates: any = { ...validatedData };
+      if (validatedData.budget !== undefined) {
+        updates.budget = validatedData.budget !== null ? String(validatedData.budget) : null;
+      }
 
-      const family = await storage.updateFamily(familyId, validatedData, userId);
+      const family = await storage.updateFamily(familyId, updates, userId);
       res.json(family);
     } catch (error) {
       if (error instanceof z.ZodError) {
