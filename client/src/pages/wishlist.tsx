@@ -676,7 +676,7 @@ export default function Wishlist() {
                         {item.priority === "high" && <ArrowUp className="w-2.5 h-2.5 mr-0.5" />}
                         {item.priority === "medium" && <Circle className="w-2.5 h-2.5 mr-0.5" />}
                         {item.priority === "low" && <AlertCircle className="w-2.5 h-2.5 mr-0.5" />}
-                        {item.priority === "high" ? "Must" : item.priority === "medium" ? "Love" : "Maybe"}
+                        {item.priority === "high" ? "Must-Have!" : item.priority === "medium" ? "Would Love" : "Just a Thought"}
                       </Badge>
                     )}
                   </div>
@@ -704,7 +704,7 @@ export default function Wishlist() {
                     <Button
                       variant="outline"
                       size="sm"
-                      className="flex-1 text-xs h-7"
+                      className="flex-1"
                       onClick={() => window.open(item.url, '_blank')}
                       data-testid={`button-view-${item.id}`}
                     >
@@ -715,7 +715,6 @@ export default function Wishlist() {
                   <Button
                     variant="outline"
                     size="icon"
-                    className="h-7 w-7"
                     onClick={() => handleEdit(item)}
                     data-testid={`button-edit-${item.id}`}
                   >
@@ -724,7 +723,6 @@ export default function Wishlist() {
                   <Button
                     variant="destructive"
                     size="icon"
-                    className="h-7 w-7"
                     onClick={() => deleteItemMutation.mutate(item.id)}
                     disabled={deleteItemMutation.isPending}
                     data-testid={`button-delete-${item.id}`}

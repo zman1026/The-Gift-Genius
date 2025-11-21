@@ -324,13 +324,13 @@ export default function Purchased() {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="w-full text-xs h-7"
+                    className="w-full"
                     asChild
                     data-testid={`button-view-product-${purchase.id}`}
                   >
                     <a href={purchase.item.url} target="_blank" rel="noopener noreferrer">
                       <ExternalLink className="w-3 h-3 mr-1" />
-                      View
+                      View Product
                     </a>
                   </Button>
                 )}

@@ -313,7 +313,7 @@ export default function MemberWishlist() {
                           {item.priority === "high" && <ArrowUp className="w-2.5 h-2.5 mr-0.5" />}
                           {item.priority === "medium" && <Circle className="w-2.5 h-2.5 mr-0.5" />}
                           {item.priority === "low" && <AlertCircle className="w-2.5 h-2.5 mr-0.5" />}
-                          {item.priority === "high" ? "Must" : item.priority === "medium" ? "Love" : "Maybe"}
+                          {item.priority === "high" ? "Must-Have!" : item.priority === "medium" ? "Would Love" : "Just a Thought"}
                         </Badge>
                       )}
                     </div>
@@ -351,7 +351,7 @@ export default function MemberWishlist() {
                       <Button
                         variant="outline"
                         size="sm"
-                        className="flex-1 text-xs h-7"
+                        className="flex-1"
                         onClick={() => window.open(item.url, '_blank')}
                         data-testid={`button-view-${item.id}`}
                       >
@@ -366,11 +366,11 @@ export default function MemberWishlist() {
                           <Button
                             variant="default"
                             size="sm"
-                            className={item.url ? "text-xs h-7" : "flex-1 text-xs h-7"}
+                            className={item.url ? "" : "flex-1"}
                             data-testid={`button-mark-purchased-${item.id}`}
                           >
                             <CheckCircle2 className="w-3 h-3 mr-1" />
-                            Mark
+                            Mark Purchased
                           </Button>
                         </DialogTrigger>
                         <DialogContent>
@@ -411,7 +411,6 @@ export default function MemberWishlist() {
                       <Button
                         variant="outline"
                         size="sm"
-                        className="text-xs h-7"
                         onClick={() => unmarkPurchasedMutation.mutate(item.id)}
                         disabled={unmarkPurchasedMutation.isPending}
                         data-testid={`button-unmark-purchased-${item.id}`}
