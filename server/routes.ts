@@ -1065,6 +1065,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get('/api/families/:familyId/purchase-totals', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { familyId } = req.params;
+      
+      const totals = await storage.getPurchaseTotalsByMember(userId, familyId);
+      res.json(totals);
+    } catch (error) {
+      console.error("Error fetching purchase totals:", error);
+      if ((error as Error).message === "You are not a member of this family") {
+        return res.status(403).json({ message: "You are not a member of this family" });
+      }
+      res.status(500).json({ message: "Failed to fetch purchase totals" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

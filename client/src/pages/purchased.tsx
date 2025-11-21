@@ -58,6 +58,41 @@ export default function Purchased() {
     enabled: !!selectedFamilyId && !!user,
   });
 
+  const { data: purchaseTotals } = useQuery({
+    queryKey: ["/api/families", selectedFamilyId, "purchase-totals"],
+    queryFn: async () => {
+      if (!selectedFamilyId) return [];
+      const response = await fetch(`/api/families/${selectedFamilyId}/purchase-totals`, {
+        credentials: "include",
+      });
+      if (!response.ok) {
+        throw new Error("Failed to fetch purchase totals");
+      }
+      return response.json();
+    },
+    enabled: !!selectedFamilyId,
+  });
+
+  const { data: members } = useQuery({
+    queryKey: ["/api/members", selectedFamilyId],
+    queryFn: async () => {
+      if (!selectedFamilyId) return [];
+      const response = await fetch(`/api/members?familyId=${selectedFamilyId}`, {
+        credentials: "include",
+      });
+      if (!response.ok) {
+        throw new Error("Failed to fetch members");
+      }
+      return response.json();
+    },
+    enabled: !!selectedFamilyId,
+  });
+
+  // Create a map of userId to member info
+  const memberMap = new Map(
+    (members || []).map((m: any) => [m.userId, m])
+  );
+
   const getInitials = (firstName?: string | null, lastName?: string | null) => {
     if (!firstName && !lastName) return "U";
     return `${firstName?.[0] || ""}${lastName?.[0] || ""}`.toUpperCase();
@@ -118,6 +153,8 @@ export default function Purchased() {
     );
   }
 
+  const totalSpent = (purchaseTotals || []).reduce((sum: number, p: any) => sum + (p?.totalSpent || 0), 0);
+
   return (
     <div className="p-4 md:p-8 lg:p-12 space-y-6">
       <div>
@@ -129,6 +166,65 @@ export default function Purchased() {
           Items you've marked as purchased across your family
         </p>
       </div>
+
+      {purchaseTotals && purchaseTotals.length > 0 && (
+        <Card data-testid="purchase-totals-summary">
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center justify-between">
+              <span>Spending Summary</span>
+              <Badge variant="secondary" className="text-base">
+                Total: ${totalSpent.toFixed(2)}
+              </Badge>
+            </CardTitle>
+            <CardDescription>
+              How much you've spent on gifts for each family member
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {purchaseTotals.map((total: any) => {
+                const member: any = memberMap.get(total.userId);
+                if (!member) return null;
+                
+                return (
+                  <div
+                    key={total.userId}
+                    className="flex items-center justify-between p-3 rounded-md bg-muted/50"
+                    data-testid={`purchase-total-${total.userId}`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Avatar className="h-9 w-9">
+                        <AvatarImage
+                          src={member.profileImageUrl || undefined}
+                          alt={member.firstName || "Member"}
+                        />
+                        <AvatarFallback>
+                          {getInitials(member.firstName, member.lastName)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="font-medium text-foreground">
+                          {member.displayName || (member.firstName || member.lastName
+                            ? `${member.firstName || ""} ${member.lastName || ""}`.trim()
+                            : member.email)}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {total.itemsPurchased} {total.itemsPurchased === 1 ? "item" : "items"}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-semibold text-primary text-lg">
+                        ${(typeof total.totalSpent === 'number' ? total.totalSpent : 0).toFixed(2)}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {!purchases || purchases.length === 0 ? (
         <Card className="p-12">

@@ -630,12 +630,22 @@ export class DatabaseStorage implements IStorage {
           AND wi.priority = 'high'
         ) as items_to_purchase_count,
         (
-          SELECT COALESCE(SUM(wi.price::numeric), 0)::text
+          SELECT COALESCE(
+            SUM(
+              CASE 
+                WHEN wi.price IS NULL OR wi.price = '' THEN 0
+                ELSE COALESCE(
+                  NULLIF(REGEXP_REPLACE(wi.price, '[^0-9.]', '', 'g'), '')::numeric,
+                  0
+                )
+              END
+            ), 
+            0
+          )::text
           FROM ${itemPurchases} ip
           INNER JOIN ${wishlistItems} wi ON ip.item_id = wi.id
           WHERE ip.purchased_by_id = ${userId}
           AND wi.family_id = ${familyId}
-          AND wi.price IS NOT NULL
         ) as total_purchased
     `);
 
@@ -646,6 +656,45 @@ export class DatabaseStorage implements IStorage {
       itemsToPurchaseCount: row?.items_to_purchase_count || 0,
       totalPurchased: parseFloat(row?.total_purchased || '0'),
     };
+  }
+
+  async getPurchaseTotalsByMember(userId: string, familyId: string) {
+    // Verify membership
+    const membership = await this.getFamilyMember(familyId, userId);
+    if (!membership) {
+      throw new Error("You are not a member of this family");
+    }
+
+    // Get purchase totals grouped by wishlist owner (person receiving the gift)
+    // Strip currency symbols and convert to numeric safely
+    const result = await db.execute(sql`
+      SELECT 
+        wi.user_id,
+        COALESCE(
+          SUM(
+            CASE 
+              WHEN wi.price IS NULL OR wi.price = '' THEN 0
+              ELSE COALESCE(
+                NULLIF(REGEXP_REPLACE(wi.price, '[^0-9.]', '', 'g'), '')::numeric,
+                0
+              )
+            END
+          ), 
+          0
+        )::text as total_spent,
+        COUNT(ip.id)::int as items_purchased
+      FROM ${itemPurchases} ip
+      INNER JOIN ${wishlistItems} wi ON ip.item_id = wi.id
+      WHERE ip.purchased_by_id = ${userId}
+        AND wi.family_id = ${familyId}
+      GROUP BY wi.user_id
+    `);
+
+    return result.rows.map((row: any) => ({
+      userId: row.user_id,
+      totalSpent: parseFloat(row.total_spent || '0'),
+      itemsPurchased: row.items_purchased || 0,
+    }));
   }
 }
 

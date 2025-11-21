@@ -229,6 +229,27 @@ export default function Members() {
     retry: false,
   });
 
+  const { data: purchaseTotals } = useQuery({
+    queryKey: ["/api/families", selectedFamilyId, "purchase-totals"],
+    queryFn: async () => {
+      if (!selectedFamilyId) return [];
+      const response = await fetch(`/api/families/${selectedFamilyId}/purchase-totals`, {
+        credentials: "include",
+      });
+      if (!response.ok) {
+        throw new Error("Failed to fetch purchase totals");
+      }
+      return response.json();
+    },
+    enabled: !!selectedFamilyId,
+    retry: false,
+  });
+
+  // Create a map of userId to purchase total for quick lookup
+  const purchaseMap = new Map(
+    (purchaseTotals || []).map((p: any) => [p.userId, p])
+  );
+
   const getInitials = (firstName?: string, lastName?: string) => {
     if (!firstName && !lastName) return "U";
     return `${firstName?.[0] || ""}${lastName?.[0] || ""}`.toUpperCase();
@@ -472,11 +493,21 @@ export default function Members() {
                           <span className="text-xs text-primary font-medium">(You)</span>
                         )}
                       </div>
-                      <div className="flex items-center gap-2 text-muted-foreground text-sm">
-                        <Gift className="w-3.5 h-3.5" />
-                        <span data-testid={`member-items-${member.userId}`}>
-                          {member.itemCount || 0} items
-                        </span>
+                      <div className="flex items-center gap-3 text-muted-foreground text-sm">
+                        <div className="flex items-center gap-1.5">
+                          <Gift className="w-3.5 h-3.5" />
+                          <span data-testid={`member-items-${member.userId}`}>
+                            {member.itemCount || 0} items
+                          </span>
+                        </div>
+                        {!isCurrentUser && purchaseMap.has(member.userId) && purchaseMap.get(member.userId)?.totalSpent > 0 && (
+                          <div className="flex items-center gap-1.5 text-primary" data-testid={`member-spent-${member.userId}`}>
+                            <span>•</span>
+                            <span className="font-medium">
+                              ${(purchaseMap.get(member.userId)?.totalSpent || 0).toFixed(2)} spent
+                            </span>
+                          </div>
+                        )}
                       </div>
                     </div>
 
