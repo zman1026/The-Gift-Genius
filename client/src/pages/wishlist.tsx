@@ -49,6 +49,8 @@ export default function Wishlist() {
   const [editingItem, setEditingItem] = useState<any>(null);
   const [selectedPriority, setSelectedPriority] = useState<string | null>(null);
   const [uploadedImageUrl, setUploadedImageUrl] = useState<string>("");
+  const [isScrapingUrl, setIsScrapingUrl] = useState(false);
+  const [scrapedData, setScrapedData] = useState<any>(null);
   
   const form = useForm<AddItemFormData>({
     resolver: zodResolver(addItemSchema),
@@ -242,7 +244,72 @@ export default function Wishlist() {
     setIsAddDialogOpen(false);
     setEditingItem(null);
     setUploadedImageUrl("");
+    setScrapedData(null);
     form.reset();
+  };
+
+  const handleScrapeUrl = async (url: string) => {
+    if (!url || url.trim() === '') {
+      setScrapedData(null);
+      return;
+    }
+
+    try {
+      setIsScrapingUrl(true);
+      const response = await apiRequest("POST", "/api/scrape-url", { url: url.trim() });
+      const data = await response.json(); // apiRequest returns Response, need to parse
+      
+      setScrapedData(data);
+      
+      // Track what data was found
+      const foundFields: string[] = [];
+      
+      // Auto-fill form fields with scraped data (with null safety)
+      if (data.title && typeof data.title === 'string' && !form.getValues('name')) {
+        form.setValue('name', data.title);
+        foundFields.push('title');
+      }
+      if (data.description && typeof data.description === 'string' && !form.getValues('description')) {
+        form.setValue('description', data.description);
+        foundFields.push('description');
+      }
+      if (data.price && typeof data.price === 'string' && !form.getValues('price')) {
+        // Extract numeric price from string like "$29.99"
+        const numericPrice = data.price.replace(/[^0-9.]/g, '');
+        if (numericPrice) {
+          form.setValue('price', numericPrice);
+          foundFields.push('price');
+        }
+      }
+      if (data.imageUrl && typeof data.imageUrl === 'string') {
+        form.setValue('imageUrl', data.imageUrl);
+        setUploadedImageUrl(data.imageUrl);
+        foundFields.push('image');
+      }
+      
+      // Provide feedback on what was found
+      if (foundFields.length === 0) {
+        toast({
+          title: "Limited data found",
+          description: "Could not extract product details. Please fill in the fields manually.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Product details loaded!",
+          description: `Found: ${foundFields.join(', ')}. Review and confirm below.`,
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: "Could not fetch product details",
+        description: error.message || "Please enter the details manually",
+        variant: "destructive",
+      });
+      setScrapedData(null);
+    } finally {
+      setIsScrapingUrl(false);
+    }
   };
 
   const handleGetUploadParameters = async () => {
@@ -349,6 +416,46 @@ export default function Wishlist() {
             
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                {!editingItem && (
+                  <div className="p-4 border-2 border-dashed border-primary/30 rounded-lg bg-primary/5 space-y-3">
+                    <div className="flex items-start gap-2">
+                      <ExternalLink className="w-5 h-5 text-primary mt-0.5" />
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-sm text-foreground mb-1">Quick Add from URL</h3>
+                        <p className="text-xs text-muted-foreground">
+                          Paste a product URL to automatically fetch details
+                        </p>
+                      </div>
+                    </div>
+                    <FormField
+                      control={form.control}
+                      name="url"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormControl>
+                            <div className="flex gap-2">
+                              <Input 
+                                placeholder="https://www.amazon.com/product/..." 
+                                {...field} 
+                                data-testid="input-item-url"
+                                disabled={isScrapingUrl}
+                              />
+                              <Button
+                                type="button"
+                                onClick={() => handleScrapeUrl(field.value || '')}
+                                disabled={!field.value || isScrapingUrl}
+                                data-testid="button-fetch-details"
+                              >
+                                {isScrapingUrl ? "Fetching..." : "Fetch Details"}
+                              </Button>
+                            </div>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                )}
                 <FormField
                   control={form.control}
                   name="name"
@@ -393,19 +500,21 @@ export default function Wishlist() {
                     </FormItem>
                   )}
                 />
-                <FormField
-                  control={form.control}
-                  name="url"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Product URL</FormLabel>
-                      <FormControl>
-                        <Input placeholder="https://example.com/product" {...field} data-testid="input-item-url" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                {editingItem && (
+                  <FormField
+                    control={form.control}
+                    name="url"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Product URL</FormLabel>
+                        <FormControl>
+                          <Input placeholder="https://example.com/product" {...field} data-testid="input-item-url-edit" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
                 <div className="space-y-2">
                   <FormLabel>Item Image</FormLabel>
                   <div className="flex items-center gap-4">

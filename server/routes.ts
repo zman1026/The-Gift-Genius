@@ -1016,6 +1016,186 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // URL scraping route - extract product data from any URL
+  app.post('/api/scrape-url', isAuthenticated, async (req: any, res) => {
+    try {
+      const { url } = req.body;
+
+      if (!url || typeof url !== 'string') {
+        return res.status(400).json({ message: "URL is required" });
+      }
+
+      // Validate URL format
+      let validUrl: URL;
+      try {
+        validUrl = new URL(url);
+      } catch {
+        return res.status(400).json({ message: "Invalid URL format" });
+      }
+
+      // Security: Only allow HTTPS from trusted e-commerce domains (SSRF protection)
+      if (validUrl.protocol !== 'https:') {
+        return res.status(400).json({ message: "Only HTTPS URLs are allowed for security reasons" });
+      }
+
+      // Allowlist of trusted e-commerce domains and their subdomains
+      const allowedDomains = [
+        'amazon.com', 'amazon.co.uk', 'amazon.ca', 'amazon.de', 'amazon.fr', 'amazon.it', 'amazon.es', 'amazon.co.jp',
+        'walmart.com', 'target.com', 'bestbuy.com', 'ebay.com', 'etsy.com',
+        'wayfair.com', 'homedepot.com', 'lowes.com', 'costco.com', 
+        'macys.com', 'nordstrom.com', 'kohls.com', 'jcpenney.com',
+        'nike.com', 'adidas.com', 'gap.com', 'oldnavy.com',
+        'apple.com', 'microsoft.com', 'dell.com', 'hp.com',
+        'sephora.com', 'ulta.com', 'walgreens.com', 'cvs.com',
+        'chewy.com', 'petco.com', 'petsmart.com',
+        'williams-sonoma.com', 'crateandbarrel.com', 'potterybarn.com',
+        'overstock.com', 'zappos.com', 'newegg.com',
+      ];
+
+      const hostname = validUrl.hostname.toLowerCase();
+      const isAllowed = allowedDomains.some(domain => 
+        hostname === domain || hostname.endsWith(`.${domain}`)
+      );
+
+      if (!isAllowed) {
+        return res.status(400).json({ 
+          message: "URL must be from a supported retailer (Amazon, Walmart, Target, etc.)" 
+        });
+      }
+
+      // Fetch the page with timeout and redirect protection
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
+      const response = await fetch(url, {
+        signal: controller.signal,
+        redirect: 'manual', // Don't follow redirects to prevent SSRF bypass
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (compatible; WishlistBot/1.0)',
+        },
+      });
+      clearTimeout(timeoutId);
+
+      // Handle redirects explicitly (with same domain validation)
+      if (response.status >= 300 && response.status < 400) {
+        return res.status(400).json({ message: "Redirects are not supported for security reasons" });
+      }
+
+      if (!response.ok) {
+        return res.status(400).json({ message: `Failed to fetch URL: ${response.statusText}` });
+      }
+
+      // Check content-length to prevent huge responses
+      const contentLength = response.headers.get('content-length');
+      if (contentLength && parseInt(contentLength) > 5 * 1024 * 1024) { // 5MB limit
+        return res.status(400).json({ message: "Page is too large to process" });
+      }
+
+      const html = await response.text();
+      const $ = cheerio.load(html);
+
+      // Extract product data using various strategies
+      const productData: any = {
+        url: url,
+        title: '',
+        description: '',
+        price: '',
+        imageUrl: '',
+        source: validUrl.hostname.replace('www.', ''),
+      };
+
+      // Strategy 1: Open Graph tags (most reliable for e-commerce)
+      productData.title = $('meta[property="og:title"]').attr('content') || 
+                         $('meta[name="twitter:title"]').attr('content') || 
+                         $('title').text().trim();
+
+      productData.description = $('meta[property="og:description"]').attr('content') || 
+                               $('meta[name="description"]').attr('content') || 
+                               $('meta[name="twitter:description"]').attr('content') || 
+                               '';
+
+      productData.imageUrl = $('meta[property="og:image"]').attr('content') || 
+                            $('meta[property="og:image:url"]').attr('content') ||
+                            $('meta[name="twitter:image"]').attr('content') || 
+                            '';
+
+      // Strategy 2: Price extraction from Open Graph or common patterns
+      const ogPrice = $('meta[property="og:price:amount"]').attr('content') ||
+                     $('meta[property="product:price:amount"]').attr('content');
+      
+      if (ogPrice) {
+        const currency = $('meta[property="og:price:currency"]').attr('content') || 
+                        $('meta[property="product:price:currency"]').attr('content') || 
+                        'USD';
+        productData.price = currency === 'USD' ? `$${ogPrice}` : `${currency} ${ogPrice}`;
+      } else {
+        // Try to find price in common e-commerce patterns
+        const pricePatterns = [
+          $('[data-price]').first().attr('data-price'),
+          $('[itemprop="price"]').first().attr('content'),
+          $('.price').first().text().trim(),
+          $('[class*="price"]').first().text().trim(),
+          $('[id*="price"]').first().text().trim(),
+        ];
+
+        for (const pattern of pricePatterns) {
+          if (pattern && /[\$£€¥]\s*\d+/.test(pattern)) {
+            productData.price = pattern.match(/([\$£€¥]\s*[\d,]+\.?\d*)/)?.[0] || '';
+            if (productData.price) break;
+          }
+        }
+      }
+
+      // Strategy 3: JSON-LD structured data
+      try {
+        $('script[type="application/ld+json"]').each((i, elem) => {
+          try {
+            const jsonLd = JSON.parse($(elem).html() || '{}');
+            if (jsonLd['@type'] === 'Product' || jsonLd['@type']?.includes?.('Product')) {
+              if (!productData.title && jsonLd.name) {
+                productData.title = jsonLd.name;
+              }
+              if (!productData.description && jsonLd.description) {
+                productData.description = jsonLd.description;
+              }
+              if (!productData.imageUrl && jsonLd.image) {
+                productData.imageUrl = Array.isArray(jsonLd.image) ? jsonLd.image[0] : jsonLd.image;
+              }
+              if (!productData.price && jsonLd.offers) {
+                const offer = Array.isArray(jsonLd.offers) ? jsonLd.offers[0] : jsonLd.offers;
+                if (offer.price) {
+                  const currency = offer.priceCurrency || 'USD';
+                  productData.price = currency === 'USD' ? `$${offer.price}` : `${currency} ${offer.price}`;
+                }
+              }
+            }
+          } catch (e) {
+            // Skip invalid JSON-LD
+          }
+        });
+      } catch (e) {
+        // Continue without JSON-LD data
+      }
+
+      // Clean up extracted data
+      productData.title = productData.title.substring(0, 200).trim();
+      productData.description = productData.description.substring(0, 500).trim();
+
+      // Make relative image URLs absolute
+      if (productData.imageUrl && !productData.imageUrl.startsWith('http')) {
+        productData.imageUrl = new URL(productData.imageUrl, url).href;
+      }
+
+      res.json(productData);
+    } catch (error: any) {
+      console.error("Error scraping URL:", error);
+      if (error.name === 'AbortError') {
+        return res.status(408).json({ message: "Request timeout - URL took too long to respond" });
+      }
+      res.status(500).json({ message: "Failed to scrape URL. Please check the URL and try again." });
+    }
+  });
+
 
   // Stats route
   app.get('/api/stats', isAuthenticated, async (req: any, res) => {
