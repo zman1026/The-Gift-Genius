@@ -117,6 +117,7 @@ export const wishlistItems = pgTable("wishlist_items", {
   priority: varchar("priority", { length: 20 }).default("medium"), // high, medium, low
   quantity: integer("quantity").default(1), // quantity desired
   category: varchar("category", { length: 50 }), // toys, clothes, electronics, books, home, other
+  itemType: varchar("item_type", { length: 20 }).default("product"), // product, experience, service, membership, other
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
   index("idx_wishlist_items_lookup").on(table.familyId, table.userId, table.priority),
