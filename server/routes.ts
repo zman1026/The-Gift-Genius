@@ -1016,7 +1016,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // URL scraping route - extract product data from any URL using SerpApi Product API
+  // URL scraping route - extract product data from any URL
+  // Uses secure Open Graph metadata extraction with cheerio
+  // TODO: Future enhancement - Convert URLs to Affiliate.com affiliate links for monetization
   app.post('/api/scrape-url', isAuthenticated, async (req: any, res) => {
     try {
       const { url } = req.body;
@@ -1026,76 +1028,269 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Validate URL format
+      let validUrl: URL;
       try {
-        new URL(url);
+        validUrl = new URL(url);
       } catch {
         return res.status(400).json({ message: "Invalid URL format" });
       }
 
-      const apiKey = process.env.SERPAPI_KEY;
-      if (!apiKey) {
-        console.error('SERPAPI_KEY not configured');
-        return res.status(500).json({ message: "Product URL extraction is not configured" });
+      // Security Layer 1: Only allow HTTPS
+      if (validUrl.protocol !== 'https:') {
+        return res.status(400).json({ message: "Only HTTPS URLs are allowed for security reasons" });
       }
 
-      // Use SerpApi Product API to extract product metadata from URL
-      const serpApiUrl = new URL('https://serpapi.com/search');
-      serpApiUrl.searchParams.set('engine', 'google_product');
-      serpApiUrl.searchParams.set('url', url);
-      serpApiUrl.searchParams.set('api_key', apiKey);
+      // Security Layer 2: Domain allowlist for trusted retailers
+      const allowedDomains = [
+        // Amazon
+        'amazon.com', 'amazon.co.uk', 'amazon.ca', 'amazon.de', 'amazon.fr', 
+        'amazon.it', 'amazon.es', 'amazon.co.jp', 'amazon.in', 'amazon.com.au',
+        // US Retailers
+        'walmart.com', 'target.com', 'bestbuy.com', 'costco.com',
+        'homedepot.com', 'lowes.com', 'wayfair.com',
+        // Department Stores
+        'macys.com', 'nordstrom.com', 'kohls.com', 'jcpenney.com',
+        // Specialty Retailers
+        'nike.com', 'adidas.com', 'gap.com', 'oldnavy.com',
+        'apple.com', 'microsoft.com', 'dell.com', 'hp.com',
+        'sephora.com', 'ulta.com', 'walgreens.com', 'cvs.com',
+        'chewy.com', 'petco.com', 'petsmart.com',
+        'williams-sonoma.com', 'crateandbarrel.com', 'potterybarn.com',
+        // Marketplaces
+        'ebay.com', 'etsy.com', 'overstock.com', 'zappos.com', 'newegg.com',
+      ];
 
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      const hostname = validUrl.hostname.toLowerCase().replace(/^www\./, '');
+      const isAllowed = allowedDomains.some(domain => 
+        hostname === domain || hostname.endsWith(`.${domain}`)
+      );
 
-      const response = await fetch(serpApiUrl.toString(), {
-        signal: controller.signal,
-      });
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        console.error(`SerpApi error: ${response.status} ${response.statusText}`);
+      if (!isAllowed) {
         return res.status(400).json({ 
-          message: "Could not extract product data from this URL. Please try a different product or enter details manually." 
+          message: "URL must be from a supported retailer (Amazon, Walmart, Target, Best Buy, etc.)" 
         });
       }
 
-      const data = await response.json();
+      // Security Layer 3: Follow redirects manually to validate each hop
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout (some retailers are slow)
 
-      // Extract product information from SerpApi response
+      let currentUrl = url;
+      let redirectCount = 0;
+      const maxRedirects = 5; // Prevent infinite redirect loops
+      let response: Response;
+
+      while (true) {
+        response = await fetch(currentUrl, {
+          signal: controller.signal,
+          redirect: 'manual', // Handle redirects manually for security
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (compatible; WishlistBot/1.0)',
+          },
+        });
+
+        // Security Layer 4: Handle redirects safely
+        if (response.status >= 300 && response.status < 400) {
+          redirectCount++;
+          if (redirectCount > maxRedirects) {
+            clearTimeout(timeoutId);
+            return res.status(400).json({ 
+              message: "Too many redirects (>5). Please use the final destination URL." 
+            });
+          }
+
+          const location = response.headers.get('location');
+          if (!location) {
+            clearTimeout(timeoutId);
+            return res.status(400).json({ 
+              message: "Invalid redirect - no location header" 
+            });
+          }
+
+          // Resolve relative URLs to absolute
+          try {
+            const redirectUrl = new URL(location, currentUrl);
+            
+            // CRITICAL: Validate redirect destination is in allowlist
+            const redirectHostname = redirectUrl.hostname.toLowerCase().replace(/^www\./, '');
+            const redirectIsAllowed = allowedDomains.some(domain => 
+              redirectHostname === domain || redirectHostname.endsWith(`.${domain}`)
+            );
+
+            if (!redirectIsAllowed) {
+              clearTimeout(timeoutId);
+              return res.status(400).json({ 
+                message: `Redirect to ${redirectHostname} is not allowed. Only redirects within trusted retailers are permitted.` 
+              });
+            }
+
+            // Redirect is safe, follow it
+            currentUrl = redirectUrl.href;
+            console.log(`Following safe redirect ${redirectCount}/${maxRedirects}: ${currentUrl}`);
+          } catch (e) {
+            clearTimeout(timeoutId);
+            return res.status(400).json({ message: "Invalid redirect URL" });
+          }
+        } else {
+          // Not a redirect, continue
+          break;
+        }
+      }
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        return res.status(400).json({ 
+          message: `Failed to fetch URL: ${response.statusText}` 
+        });
+      }
+
+      // Security Layer 5: Check content-length to prevent huge responses
+      const contentLength = response.headers.get('content-length');
+      if (contentLength && parseInt(contentLength) > 5 * 1024 * 1024) { // 5MB limit
+        return res.status(400).json({ 
+          message: "Page is too large to process (>5MB)" 
+        });
+      }
+
+      // Security Layer 6: Stream with byte budget to prevent memory exhaustion
+      const chunks: Uint8Array[] = [];
+      let totalBytes = 0;
+      const maxBytes = 5 * 1024 * 1024; // 5MB hard limit
+
+      const reader = response.body?.getReader();
+      if (!reader) {
+        return res.status(500).json({ message: "Failed to read response" });
+      }
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        
+        totalBytes += value.length;
+        if (totalBytes > maxBytes) {
+          reader.cancel();
+          return res.status(400).json({ 
+            message: "Page is too large to process (exceeded 5MB while downloading)" 
+          });
+        }
+        chunks.push(value);
+      }
+
+      const html = new TextDecoder().decode(Buffer.concat(chunks));
+      const $ = cheerio.load(html);
+
+      // Extract product data - Focus on Open Graph tags (most reliable and safe)
       const productData: any = {
-        url: url,
+        url: url, // Store original URL for future affiliate conversion
         title: '',
         description: '',
         price: '',
         imageUrl: '',
+        source: hostname,
       };
 
-      // SerpApi returns product data in the product_results object
-      if (data.product_results) {
-        const product = data.product_results;
-        
-        productData.title = product.title || '';
-        productData.price = product.extracted_price || product.price || '';
-        productData.description = product.description || '';
-        
-        // Get the first image if available
-        if (product.images && product.images.length > 0) {
-          productData.imageUrl = product.images[0];
-        } else if (product.thumbnail) {
-          productData.imageUrl = product.thumbnail;
+      // Strategy 1: Open Graph tags (most reliable for e-commerce)
+      productData.title = $('meta[property="og:title"]').attr('content') || 
+                         $('meta[name="twitter:title"]').attr('content') || 
+                         $('title').text().trim();
+
+      productData.description = $('meta[property="og:description"]').attr('content') || 
+                               $('meta[name="description"]').attr('content') || 
+                               $('meta[name="twitter:description"]').attr('content') || 
+                               '';
+
+      productData.imageUrl = $('meta[property="og:image"]').attr('content') || 
+                            $('meta[property="og:image:url"]').attr('content') ||
+                            $('meta[name="twitter:image"]').attr('content') || 
+                            '';
+
+      // Strategy 2: Price extraction from Open Graph or common patterns
+      const ogPrice = $('meta[property="og:price:amount"]').attr('content') ||
+                     $('meta[property="product:price:amount"]').attr('content');
+      
+      if (ogPrice) {
+        const currency = $('meta[property="og:price:currency"]').attr('content') || 
+                        $('meta[property="product:price:currency"]').attr('content') || 
+                        'USD';
+        productData.price = currency === 'USD' ? `$${ogPrice}` : `${currency} ${ogPrice}`;
+      } else {
+        // Try to find price in common e-commerce meta tags and structured data
+        const pricePatterns = [
+          $('[data-price]').first().attr('data-price'),
+          $('[itemprop="price"]').first().attr('content'),
+          $('.price').first().text().trim(),
+          $('[class*="price"]').first().text().trim(),
+        ];
+
+        for (const pattern of pricePatterns) {
+          if (pattern && /[\$£€¥]\s*\d+/.test(pattern)) {
+            productData.price = pattern.match(/([\$£€¥]\s*[\d,]+\.?\d*)/)?.[0] || '';
+            if (productData.price) break;
+          }
         }
       }
 
-      // Log for debugging
-      console.log(`SerpApi product extraction: ${productData.title ? 'success' : 'no data found'}`);
+      // Strategy 3: JSON-LD structured data (secondary approach)
+      try {
+        $('script[type="application/ld+json"]').each((i, elem) => {
+          try {
+            const jsonLd = JSON.parse($(elem).html() || '{}');
+            if (jsonLd['@type'] === 'Product' || jsonLd['@type']?.includes?.('Product')) {
+              if (!productData.title && jsonLd.name) {
+                productData.title = jsonLd.name;
+              }
+              if (!productData.description && jsonLd.description) {
+                productData.description = jsonLd.description;
+              }
+              if (!productData.imageUrl && jsonLd.image) {
+                productData.imageUrl = Array.isArray(jsonLd.image) ? jsonLd.image[0] : jsonLd.image;
+              }
+              if (!productData.price && jsonLd.offers) {
+                const offer = Array.isArray(jsonLd.offers) ? jsonLd.offers[0] : jsonLd.offers;
+                if (offer.price) {
+                  const currency = offer.priceCurrency || 'USD';
+                  productData.price = currency === 'USD' ? `$${offer.price}` : `${currency} ${offer.price}`;
+                }
+              }
+            }
+          } catch (e) {
+            // Skip invalid JSON-LD
+          }
+        });
+      } catch (e) {
+        // Continue without JSON-LD data
+      }
+
+      // Clean up extracted data
+      productData.title = productData.title.substring(0, 200).trim();
+      productData.description = productData.description.substring(0, 500).trim();
+
+      // Make relative image URLs absolute
+      if (productData.imageUrl && !productData.imageUrl.startsWith('http')) {
+        try {
+          productData.imageUrl = new URL(productData.imageUrl, url).href;
+        } catch {
+          productData.imageUrl = '';
+        }
+      }
+
+      // TODO: Future Affiliate.com API Integration
+      // When ready to monetize:
+      // 1. Call Affiliate.com API to convert productData.url to affiliate link
+      // 2. Store both original URL and affiliate URL
+      // 3. Use affiliate URL when displaying "View Product" links
+      // 4. Track clicks and conversions for revenue reporting
+
+      console.log(`Product extraction: ${productData.title ? 'success' : 'partial data'} from ${hostname}`);
 
       res.json(productData);
     } catch (error: any) {
-      console.error(`URL scraping error: ${error.message}`);
+      console.error("Error scraping URL:", error);
       if (error.name === 'AbortError') {
-        return res.status(408).json({ message: "Request timeout" });
+        return res.status(408).json({ message: "Request timeout - URL took too long to respond" });
       }
-      res.status(500).json({ message: "Failed to extract product data" });
+      res.status(500).json({ message: "Failed to scrape URL. Please check the URL and try again." });
     }
   });
 
