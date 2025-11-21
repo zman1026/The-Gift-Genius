@@ -18,6 +18,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { apiRequest } from "@/lib/queryClient";
+import { ChristmasCountdown } from "@/components/christmas-countdown";
 
 const inviteEmailSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
@@ -148,6 +149,9 @@ export default function Home() {
           Manage your wishlists and coordinate gifts with your family.
         </p>
       </div>
+
+      {/* Christmas Countdown */}
+      <ChristmasCountdown />
 
       {/* Quick Actions */}
       {hasFamilies && selectedFamilyId && (
