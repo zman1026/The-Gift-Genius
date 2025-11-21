@@ -683,6 +683,245 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Intent to buy routes (mark items as intended before purchasing)
+  app.post('/api/wishlist/:id/intent', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { id } = req.params;
+      const { budgetAllocated, notes } = req.body;
+
+      const item = await storage.getWishlistItem(id);
+      if (!item) {
+        return res.status(404).json({ message: "Item not found" });
+      }
+
+      if (item.userId === userId) {
+        return res.status(400).json({ message: "You cannot mark intent on your own items" });
+      }
+
+      // Check if already purchased or intended by anyone
+      const existingPurchase = await storage.getItemPurchase(id);
+      if (existingPurchase) {
+        return res.status(400).json({ 
+          message: existingPurchase.status === 'purchased' 
+            ? "This item is already purchased" 
+            : "Someone else is already planning to buy this item" 
+        });
+      }
+
+      const intent = await storage.markItemIntent({
+        itemId: id,
+        purchasedById: userId,
+        status: 'intended',
+        budgetAllocated: budgetAllocated || item.price || '0',
+        notes: notes || null,
+      });
+
+      res.json(intent);
+    } catch (error) {
+      console.error("Error marking item intent:", error);
+      res.status(500).json({ message: "Failed to mark intent to buy" });
+    }
+  });
+
+  app.delete('/api/wishlist/:id/intent', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { id } = req.params;
+
+      const intent = await storage.getItemPurchase(id);
+      if (!intent) {
+        return res.status(404).json({ message: "Intent record not found" });
+      }
+
+      if (intent.purchasedById !== userId) {
+        return res.status(403).json({ message: "You can only cancel your own intents" });
+      }
+
+      if (intent.status !== 'intended') {
+        return res.status(400).json({ message: "This item is already purchased" });
+      }
+
+      await storage.unmarkItemPurchased(id, userId);
+      res.json({ message: "Intent to buy cancelled" });
+    } catch (error) {
+      console.error("Error cancelling intent:", error);
+      res.status(500).json({ message: "Failed to cancel intent" });
+    }
+  });
+
+  app.put('/api/wishlist/:id/confirm-purchase', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { id } = req.params;
+
+      const intent = await storage.getItemPurchase(id);
+      if (!intent) {
+        return res.status(404).json({ message: "Intent record not found" });
+      }
+
+      if (intent.purchasedById !== userId) {
+        return res.status(403).json({ message: "You can only confirm your own intents" });
+      }
+
+      if (intent.status !== 'intended') {
+        return res.status(400).json({ message: "This item is already purchased" });
+      }
+
+      const purchase = await storage.confirmItemPurchase(id, userId);
+      res.json(purchase);
+    } catch (error) {
+      console.error("Error confirming purchase:", error);
+      res.status(500).json({ message: "Failed to confirm purchase" });
+    }
+  });
+
+  // Budget routes
+  app.get('/api/budgets/family/:familyId', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { familyId } = req.params;
+
+      const isMember = await storage.getFamilyMember(familyId, userId);
+      if (!isMember) {
+        return res.status(403).json({ message: "You are not a member of this family" });
+      }
+
+      const budget = await storage.getFamilyBudget(familyId);
+      res.json(budget || null);
+    } catch (error) {
+      console.error("Error fetching family budget:", error);
+      res.status(500).json({ message: "Failed to fetch family budget" });
+    }
+  });
+
+  app.put('/api/budgets/family/:familyId', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { familyId } = req.params;
+      const { totalBudget } = req.body;
+
+      const isMember = await storage.getFamilyMember(familyId, userId);
+      if (!isMember) {
+        return res.status(403).json({ message: "You are not a member of this family" });
+      }
+
+      const family = await storage.getFamily(familyId);
+      if (!family) {
+        return res.status(404).json({ message: "Family not found" });
+      }
+      
+      if (family.createdById !== userId) {
+        return res.status(403).json({ message: "Only the family organizer can set the family budget" });
+      }
+
+      if (!totalBudget || isNaN(parseFloat(totalBudget)) || parseFloat(totalBudget) < 0) {
+        return res.status(400).json({ message: "Valid total budget is required" });
+      }
+
+      const budget = await storage.setFamilyBudget(familyId, totalBudget);
+      res.json(budget);
+    } catch (error) {
+      console.error("Error setting family budget:", error);
+      res.status(500).json({ message: "Failed to set family budget" });
+    }
+  });
+
+  app.get('/api/budgets/members/:familyId', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { familyId } = req.params;
+
+      const isMember = await storage.getFamilyMember(familyId, userId);
+      if (!isMember) {
+        return res.status(403).json({ message: "You are not a member of this family" });
+      }
+
+      const budgets = await storage.getMemberBudgets(familyId, userId);
+      res.json(budgets);
+    } catch (error) {
+      console.error("Error fetching member budgets:", error);
+      res.status(500).json({ message: "Failed to fetch member budgets" });
+    }
+  });
+
+  app.post('/api/budgets/members', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { familyId, targetMemberId, amount } = req.body;
+
+      if (!familyId || !targetMemberId || !amount) {
+        return res.status(400).json({ message: "familyId, targetMemberId, and amount are required" });
+      }
+
+      const isMember = await storage.getFamilyMember(familyId, userId);
+      if (!isMember) {
+        return res.status(403).json({ message: "You are not a member of this family" });
+      }
+
+      const targetMember = await storage.getFamilyMember(familyId, targetMemberId);
+      if (!targetMember) {
+        return res.status(400).json({ message: "Target member is not in this family" });
+      }
+
+      if (targetMemberId === userId) {
+        return res.status(400).json({ message: "You cannot set a budget for yourself" });
+      }
+
+      const budget = await storage.setMemberBudget({
+        familyId,
+        userId,
+        targetMemberId,
+        amount,
+      });
+
+      res.json(budget);
+    } catch (error) {
+      console.error("Error setting member budget:", error);
+      res.status(500).json({ message: "Failed to set member budget" });
+    }
+  });
+
+  app.delete('/api/budgets/members/:budgetId', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { budgetId } = req.params;
+
+      const budget = await storage.getMemberBudget(budgetId);
+      if (!budget) {
+        return res.status(404).json({ message: "Budget not found" });
+      }
+
+      if (budget.userId !== userId) {
+        return res.status(403).json({ message: "You can only delete your own budgets" });
+      }
+
+      await storage.deleteMemberBudget(budgetId);
+      res.json({ message: "Budget deleted" });
+    } catch (error) {
+      console.error("Error deleting member budget:", error);
+      res.status(500).json({ message: "Failed to delete budget" });
+    }
+  });
+
+  app.get('/api/budgets/summary/:familyId', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { familyId } = req.params;
+
+      const isMember = await storage.getFamilyMember(familyId, userId);
+      if (!isMember) {
+        return res.status(403).json({ message: "You are not a member of this family" });
+      }
+
+      const summary = await storage.getBudgetSummary(familyId, userId);
+      res.json(summary);
+    } catch (error) {
+      console.error("Error fetching budget summary:", error);
+      res.status(500).json({ message: "Failed to fetch budget summary" });
+    }
+  });
+
   // Object storage routes (for wishlist item image uploads)
   // Get presigned URL for uploading image
   app.post('/api/objects/upload', isAuthenticated, async (req: any, res) => {
