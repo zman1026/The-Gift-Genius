@@ -117,6 +117,24 @@ Preferred communication style: Simple, everyday language.
 - Safe area viewport support for iOS devices
 - Adaptive navigation: sidebar accessible on all screens, bottom nav for mobile
 
+**Family Organizer Controls:**
+- **Edit Family Name:** Organizers can rename the family group via edit button next to family name on members page
+- **Edit Member Display Names:** Organizers can set family-specific nicknames (e.g., "Mom", "Dad", "Uncle John") for any member
+  - Display name shown prominently in member cards with actual name as secondary text
+  - Only visible within that specific family group
+  - Stored in `familyMembers.displayName` field
+- **Edit Member Profiles:** Organizers can update any member's firstName and lastName
+  - Changes affect the user everywhere in the app (global profile update)
+  - Separate from family-specific display names
+- **Remove Members:** Organizers can remove any member from the family (existing feature)
+- **Invite Members:** Organizers and members can invite new family members via email or invite code (existing feature)
+- **Security Implementation:**
+  - Family organizer identified via `families.createdById` field
+  - All organizer-only endpoints verify requester is family creator before allowing modifications
+  - Backend authorization on PUT /api/families/:familyId, PUT /api/families/:familyId/members/:userId, PUT /api/families/:familyId/members/:userId/profile
+  - Frontend shows edit controls only to organizers based on createdById comparison
+- **Advanced API (not exposed in UI):** POST /api/families/:familyId/members/:targetUserId/wishlist allows organizers to add items to any member's wishlist
+
 ### Backend Architecture
 
 **Technology Stack:**
