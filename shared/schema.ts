@@ -144,10 +144,8 @@ export type WishlistItem = typeof wishlistItems.$inferSelect;
 // Item purchases tracking table (for marking items as purchased with notes)
 export const itemPurchases = pgTable("item_purchases", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  itemId: varchar("item_id").notNull().unique().references(() => wishlistItems.id, { onDelete: 'cascade' }),
+  itemId: varchar("item_id").notNull().references(() => wishlistItems.id, { onDelete: 'cascade' }),
   purchasedById: varchar("purchased_by_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
-  status: varchar("status", { length: 20 }).notNull().default("intended"), // 'intended' or 'purchased'
-  budgetAllocated: decimal("budget_allocated", { precision: 10, scale: 2 }), // Amount allocated from budget
   notes: text("notes"), // Private notes about the purchase
   purchasedAt: timestamp("purchased_at").defaultNow(),
 });
@@ -170,65 +168,3 @@ export const insertItemPurchaseSchema = createInsertSchema(itemPurchases).omit({
 
 export type InsertItemPurchase = z.infer<typeof insertItemPurchaseSchema>;
 export type ItemPurchase = typeof itemPurchases.$inferSelect;
-
-// Family budgets table (overall family Christmas budget)
-export const familyBudgets = pgTable("family_budgets", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  familyId: varchar("family_id").notNull().unique().references(() => families.id, { onDelete: 'cascade' }),
-  totalBudget: decimal("total_budget", { precision: 10, scale: 2 }).notNull(),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-});
-
-export const familyBudgetsRelations = relations(familyBudgets, ({ one }) => ({
-  family: one(families, {
-    fields: [familyBudgets.familyId],
-    references: [families.id],
-  }),
-}));
-
-export const insertFamilyBudgetSchema = createInsertSchema(familyBudgets).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-
-export type InsertFamilyBudget = z.infer<typeof insertFamilyBudgetSchema>;
-export type FamilyBudget = typeof familyBudgets.$inferSelect;
-
-// Member budgets table (per-person budget allocations: "I'm spending $X on this person")
-export const memberBudgets = pgTable("member_budgets", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  familyId: varchar("family_id").notNull().references(() => families.id, { onDelete: 'cascade' }),
-  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }), // Who set the budget
-  targetMemberId: varchar("target_member_id").notNull().references(() => users.id, { onDelete: 'cascade' }), // Who they're budgeting for
-  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-}, (table) => [
-  index("idx_member_budgets_lookup").on(table.familyId, table.userId),
-]);
-
-export const memberBudgetsRelations = relations(memberBudgets, ({ one }) => ({
-  family: one(families, {
-    fields: [memberBudgets.familyId],
-    references: [families.id],
-  }),
-  user: one(users, {
-    fields: [memberBudgets.userId],
-    references: [users.id],
-  }),
-  targetMember: one(users, {
-    fields: [memberBudgets.targetMemberId],
-    references: [users.id],
-  }),
-}));
-
-export const insertMemberBudgetSchema = createInsertSchema(memberBudgets).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-
-export type InsertMemberBudget = z.infer<typeof insertMemberBudgetSchema>;
-export type MemberBudget = typeof memberBudgets.$inferSelect;

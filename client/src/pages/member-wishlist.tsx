@@ -12,7 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Gift, ArrowLeft, CheckCircle2, ExternalLink, MessageSquare, AlertCircle, Circle, ArrowUp, Clock } from "lucide-react";
+import { Gift, ArrowLeft, CheckCircle2, ExternalLink, MessageSquare, AlertCircle, Circle, ArrowUp } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ShoppingOptionsDialog } from "@/components/shopping-options-dialog";
 
@@ -20,7 +20,7 @@ const CATEGORIES = ["toys", "clothes", "electronics", "books", "home", "other"] 
 
 export default function MemberWishlist() {
   const { toast } = useToast();
-  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { selectedFamilyId } = useFamily();
   const [, params] = useRoute("/members/:userId");
   const [, setLocation] = useLocation();
@@ -89,11 +89,8 @@ export default function MemberWishlist() {
     },
     onSuccess: () => {
       const currentFamilyId = selectedFamilyIdRef.current;
-      queryClient.invalidateQueries({ queryKey: ["/api/members"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
-      queryClient.invalidateQueries({ queryKey: ['/api/budgets'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/purchases'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/wishlist'] });
+      queryClient.invalidateQueries({ queryKey: ["/api/members", userId, "wishlist", currentFamilyId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats", currentFamilyId] });
       toast({
         title: "Success",
         description: "Item marked as purchased!",
@@ -127,11 +124,8 @@ export default function MemberWishlist() {
     },
     onSuccess: () => {
       const currentFamilyId = selectedFamilyIdRef.current;
-      queryClient.invalidateQueries({ queryKey: ["/api/members"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
-      queryClient.invalidateQueries({ queryKey: ['/api/budgets'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/purchases'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/wishlist'] });
+      queryClient.invalidateQueries({ queryKey: ["/api/members", userId, "wishlist", currentFamilyId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats", currentFamilyId] });
       toast({
         title: "Success",
         description: "Purchase marking removed",
@@ -154,78 +148,6 @@ export default function MemberWishlist() {
         description: error.message || "Failed to remove purchase marking",
         variant: "destructive",
       });
-    },
-  });
-
-  const markIntentMutation = useMutation({
-    mutationFn: async (itemId: string) => {
-      return await apiRequest("POST", `/api/item-purchases/intent`, { itemId });
-    },
-    onSuccess: () => {
-      const currentFamilyId = selectedFamilyIdRef.current;
-      queryClient.invalidateQueries({ queryKey: ["/api/members"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
-      queryClient.invalidateQueries({ queryKey: ['/api/budgets'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/purchases'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/wishlist'] });
-      toast({
-        title: "Success",
-        description: "Item added to your planned purchases!",
-      });
-    },
-    onError: (error: Error) => {
-      if (isUnauthorizedError(error)) {
-        toast({
-          title: "Unauthorized",
-          description: "You are logged out. Logging in again...",
-          variant: "destructive",
-        });
-        setTimeout(() => {
-          window.location.href = "/api/login";
-        }, 500);
-        return;
-      }
-      toast({
-        title: "Error",
-        description: error.message || "Failed to mark item as intended",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const unmarkIntentMutation = useMutation({
-    mutationFn: async (itemId: string) => {
-      return await apiRequest("DELETE", `/api/item-purchases/intent/${itemId}`, {});
-    },
-    onSuccess: () => {
-      const currentFamilyId = selectedFamilyIdRef.current;
-      queryClient.invalidateQueries({ queryKey: ["/api/members"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
-      queryClient.invalidateQueries({ queryKey: ['/api/budgets'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/purchases'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/wishlist'] });
-      toast({
-        title: "Success",
-        description: "Item removed from planned purchases",
-      });
-    },
-    onError: (error: Error) => {
-      if (isUnauthorizedError(error)) {
-        toast({
-          title: "Unauthorized",
-          description: "You are logged out. Logging in again...",
-          variant: "destructive",
-        });
-        setTimeout(() => {
-          window.location.href = "/api/login";
-        }, 500);
-        return;
-      }
-      toast({
-        title: "Error",
-        description: error.message || "Failed to remove intent",
-        variant: "destructive",
-        });
     },
   });
 
@@ -347,10 +269,8 @@ export default function MemberWishlist() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {filteredItems.map((item: any) => {
-            const isPurchased = !!item.purchase && item.purchase?.status === 'purchased';
-            const isIntended = !!item.purchase && item.purchase?.status === 'intended';
-            const isPurchasedByMe = isPurchased && item.purchase?.purchasedById === (user as any)?.id;
-            const isIntendedByMe = isIntended && item.purchase?.purchasedById === (user as any)?.id;
+            const isPurchased = !!item.purchase;
+            const isPurchasedByMe = item.purchase?.purchasedById === memberData?.userId;
 
             return (
               <Card
@@ -440,44 +360,19 @@ export default function MemberWishlist() {
                       </Button>
                     )}
                     
-                    {!isPurchased && !isIntended ? (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => markIntentMutation.mutate(item.id)}
-                        disabled={markIntentMutation.isPending}
-                        data-testid={`button-intent-${item.id}`}
-                      >
-                        <Clock className="w-4 h-4 mr-1" />
-                        Intend to Buy
-                      </Button>
-                    ) : isIntendedByMe ? (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => unmarkIntentMutation.mutate(item.id)}
-                        disabled={unmarkIntentMutation.isPending}
-                        data-testid={`button-remove-intent-${item.id}`}
-                      >
-                        <Clock className="w-4 h-4 mr-1" />
-                        Remove Intent
-                      </Button>
-                    ) : null}
-                    
-                    {((!isPurchased && !isIntended) || isIntendedByMe) ? (
-                        
-                        <Dialog open={openNoteDialog === item.id} onOpenChange={(open) => setOpenNoteDialog(open ? item.id : null)}>
-                          <DialogTrigger asChild>
-                            <Button
-                              variant="default"
-                              size="sm"
-                              className={item.url ? "" : "flex-1"}
-                              data-testid={`button-mark-purchased-${item.id}`}
-                            >
-                              <CheckCircle2 className="w-4 h-4 mr-1" />
-                              Mark Purchased
-                            </Button>
-                          </DialogTrigger>
+                    {!isPurchased ? (
+                      <Dialog open={openNoteDialog === item.id} onOpenChange={(open) => setOpenNoteDialog(open ? item.id : null)}>
+                        <DialogTrigger asChild>
+                          <Button
+                            variant="default"
+                            size="sm"
+                            className={item.url ? "" : "flex-1"}
+                            data-testid={`button-mark-purchased-${item.id}`}
+                          >
+                            <CheckCircle2 className="w-4 h-4 mr-1" />
+                            Mark Purchased
+                          </Button>
+                        </DialogTrigger>
                         <DialogContent>
                           <DialogHeader>
                             <DialogTitle>Mark as Purchased</DialogTitle>

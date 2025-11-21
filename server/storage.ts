@@ -4,8 +4,6 @@ import {
   familyMembers,
   wishlistItems,
   itemPurchases,
-  familyBudgets,
-  memberBudgets,
   type User,
   type UpsertUser,
   type Family,
@@ -16,10 +14,6 @@ import {
   type InsertWishlistItem,
   type ItemPurchase,
   type InsertItemPurchase,
-  type FamilyBudget,
-  type InsertFamilyBudget,
-  type MemberBudget,
-  type InsertMemberBudget,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, sql } from "drizzle-orm";
@@ -55,21 +49,9 @@ export interface IStorage {
   
   // Purchase operations
   markItemPurchased(purchase: InsertItemPurchase): Promise<ItemPurchase>;
-  markItemIntent(purchase: InsertItemPurchase): Promise<ItemPurchase>;
-  confirmItemPurchase(itemId: string, userId: string, notes?: string | null): Promise<ItemPurchase>;
   unmarkItemPurchased(itemId: string, userId: string): Promise<void>;
   getItemPurchase(itemId: string): Promise<ItemPurchase | undefined>;
-  getItemPurchaseByUser(itemId: string, userId: string): Promise<ItemPurchase | undefined>;
   getPurchasedItemsByUser(userId: string, familyId: string): Promise<any[]>;
-  
-  // Budget operations
-  getFamilyBudget(familyId: string): Promise<FamilyBudget | undefined>;
-  setFamilyBudget(familyId: string, totalBudget: string): Promise<FamilyBudget>;
-  getMemberBudgets(familyId: string, userId: string): Promise<MemberBudget[]>;
-  getMemberBudget(budgetId: string): Promise<MemberBudget | undefined>;
-  setMemberBudget(budget: InsertMemberBudget): Promise<MemberBudget>;
-  deleteMemberBudget(budgetId: string): Promise<void>;
-  getBudgetSummary(familyId: string, userId: string): Promise<any>;
   
   // Stats operations
   getUserStats(userId: string): Promise<any>;
@@ -505,14 +487,6 @@ export class DatabaseStorage implements IStorage {
     return purchase;
   }
 
-  async getItemPurchaseByUser(itemId: string, userId: string): Promise<ItemPurchase | undefined> {
-    const [purchase] = await db
-      .select()
-      .from(itemPurchases)
-      .where(and(eq(itemPurchases.itemId, itemId), eq(itemPurchases.purchasedById, userId)));
-    return purchase;
-  }
-
   async getPurchasedItemsByUser(userId: string, familyId: string): Promise<any[]> {
     const purchases = await db
       .select({
@@ -560,195 +534,6 @@ export class DatabaseStorage implements IStorage {
       .orderBy(sql`${itemPurchases.purchasedAt} desc`);
 
     return purchases;
-  }
-
-  async markItemIntent(purchaseData: InsertItemPurchase): Promise<ItemPurchase> {
-    const [intent] = await db.insert(itemPurchases).values({
-      ...purchaseData,
-      status: 'intended',
-    }).returning();
-    return intent;
-  }
-
-  async confirmItemPurchase(itemId: string, userId: string, notes?: string | null): Promise<ItemPurchase> {
-    const updateData: any = {
-      status: 'purchased',
-      purchasedAt: new Date(),
-    };
-    
-    if (notes !== undefined) {
-      updateData.notes = notes;
-    }
-    
-    const [purchase] = await db
-      .update(itemPurchases)
-      .set(updateData)
-      .where(and(eq(itemPurchases.itemId, itemId), eq(itemPurchases.purchasedById, userId)))
-      .returning();
-    return purchase;
-  }
-
-  // Budget operations
-  async getFamilyBudget(familyId: string): Promise<FamilyBudget | undefined> {
-    const [budget] = await db
-      .select()
-      .from(familyBudgets)
-      .where(eq(familyBudgets.familyId, familyId));
-    return budget;
-  }
-
-  async setFamilyBudget(familyId: string, totalBudget: string): Promise<FamilyBudget> {
-    const [budget] = await db
-      .insert(familyBudgets)
-      .values({ familyId, totalBudget })
-      .onConflictDoUpdate({
-        target: familyBudgets.familyId,
-        set: {
-          totalBudget,
-          updatedAt: new Date(),
-        },
-      })
-      .returning();
-    return budget;
-  }
-
-  async getMemberBudgets(familyId: string, userId: string): Promise<MemberBudget[]> {
-    const budgets = await db
-      .select()
-      .from(memberBudgets)
-      .where(and(eq(memberBudgets.familyId, familyId), eq(memberBudgets.userId, userId)))
-      .orderBy(memberBudgets.createdAt);
-    return budgets;
-  }
-
-  async getMemberBudget(budgetId: string): Promise<MemberBudget | undefined> {
-    const [budget] = await db
-      .select()
-      .from(memberBudgets)
-      .where(eq(memberBudgets.id, budgetId));
-    return budget;
-  }
-
-  async setMemberBudget(budgetData: InsertMemberBudget): Promise<MemberBudget> {
-    // Check if budget already exists for this user and target
-    const existing = await db
-      .select()
-      .from(memberBudgets)
-      .where(
-        and(
-          eq(memberBudgets.familyId, budgetData.familyId),
-          eq(memberBudgets.userId, budgetData.userId),
-          eq(memberBudgets.targetMemberId, budgetData.targetMemberId)
-        )
-      );
-
-    if (existing.length > 0) {
-      // Update existing budget
-      const [updated] = await db
-        .update(memberBudgets)
-        .set({
-          amount: budgetData.amount,
-          updatedAt: new Date(),
-        })
-        .where(eq(memberBudgets.id, existing[0].id))
-        .returning();
-      return updated;
-    }
-
-    // Create new budget
-    const [budget] = await db
-      .insert(memberBudgets)
-      .values(budgetData)
-      .returning();
-    return budget;
-  }
-
-  async deleteMemberBudget(budgetId: string): Promise<void> {
-    await db.delete(memberBudgets).where(eq(memberBudgets.id, budgetId));
-  }
-
-  async getBudgetSummary(familyId: string, userId: string): Promise<any> {
-    // Get family budget
-    const familyBudget = await this.getFamilyBudget(familyId);
-
-    // Get user's member budgets (how much they're spending on each person)
-    const userBudgets = await this.getMemberBudgets(familyId, userId);
-
-    // Get all purchases and intents by this user in this family
-    const purchasesAndIntents = await db
-      .select({
-        id: itemPurchases.id,
-        itemId: itemPurchases.itemId,
-        status: itemPurchases.status,
-        budgetAllocated: itemPurchases.budgetAllocated,
-        targetUserId: wishlistItems.userId,
-        itemName: wishlistItems.name,
-        itemPrice: wishlistItems.price,
-      })
-      .from(itemPurchases)
-      .innerJoin(wishlistItems, eq(itemPurchases.itemId, wishlistItems.id))
-      .where(
-        and(
-          eq(wishlistItems.familyId, familyId),
-          eq(itemPurchases.purchasedById, userId)
-        )
-      );
-
-    // Calculate totals by person
-    const spendingByPerson: Record<string, { allocated: number; spent: number }> = {};
-    
-    purchasesAndIntents.forEach((p) => {
-      if (!spendingByPerson[p.targetUserId]) {
-        spendingByPerson[p.targetUserId] = { allocated: 0, spent: 0 };
-      }
-      
-      const amount = parseFloat(p.budgetAllocated || p.itemPrice || '0');
-      
-      if (p.status === 'intended') {
-        spendingByPerson[p.targetUserId].allocated += amount;
-      } else if (p.status === 'purchased') {
-        spendingByPerson[p.targetUserId].spent += amount;
-      }
-    });
-
-    // Calculate totals
-    let totalBudgeted = 0;
-    let totalAllocated = 0;
-    let totalSpent = 0;
-
-    userBudgets.forEach(b => {
-      totalBudgeted += parseFloat(b.amount || '0');
-    });
-
-    Object.values(spendingByPerson).forEach(({ allocated, spent }) => {
-      totalAllocated += allocated;
-      totalSpent += spent;
-    });
-
-    return {
-      familyBudget: familyBudget ? parseFloat(familyBudget.totalBudget) : null,
-      memberBudgets: userBudgets.map(b => ({
-        id: b.id,
-        targetMemberId: b.targetMemberId,
-        amount: parseFloat(b.amount),
-        allocated: spendingByPerson[b.targetMemberId]?.allocated || 0,
-        spent: spendingByPerson[b.targetMemberId]?.spent || 0,
-      })),
-      totals: {
-        budgeted: totalBudgeted,
-        allocated: totalAllocated,
-        spent: totalSpent,
-        remaining: totalBudgeted - (totalAllocated + totalSpent),
-      },
-      purchasesAndIntents: purchasesAndIntents.map(p => ({
-        id: p.id,
-        itemId: p.itemId,
-        itemName: p.itemName,
-        targetUserId: p.targetUserId,
-        status: p.status,
-        amount: parseFloat(p.budgetAllocated || p.itemPrice || '0'),
-      })),
-    };
   }
 
   // Stats operations
