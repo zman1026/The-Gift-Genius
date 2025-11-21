@@ -23,7 +23,7 @@ The backend uses **Express.js** with **TypeScript**, **Drizzle ORM** for databas
 - **Wishlist Image Upload:** Integrates **Uppy v5** for image uploads to Replit Object Storage, with a 10MB file limit.
 - **Wishlist Organization:** Items are filterable and sortable by priority (Must-Have, Would Love, Just a Thought).
 - **Family Management:**
-    - **Invite System:** Users can invite family members via email or shareable codes. Unauthenticated users are seamlessly redirected through login to join.
+    - **Invite System:** Users can invite family members via email or shareable codes. First-time users see a welcoming screen with "Create Account" and "Already have an account? Login" options. Cookie-based redirect preservation ensures invite codes persist through the OIDC authentication flow.
     - **Organizer Controls:** Family organizers can rename the family, set member-specific display names, update member profiles, and remove members.
 - **Purchased Items:** A dedicated, privacy-focused section where users can view only their own marked purchases, including private notes. Purchases are secured with multi-layered backend and frontend checks.
 
@@ -33,7 +33,7 @@ The backend uses **Express.js** with **TypeScript**, **Drizzle ORM** for databas
 - **Authentication:** Replit Auth provides secure OIDC authentication with session storage in PostgreSQL.
 - **Data Access:** Drizzle ORM ensures type-safe database operations with a clear separation of concerns.
 - **Database Schema:** Core tables include `users`, `families`, `family_members`, `wishlist_items`, `item_purchases`, and `sessions`, with well-defined relationships and UUID primary keys.
-- **Security:** Open redirect prevention for invite links, and robust authorization checks for organizer actions.
+- **Security:** Open redirect prevention for invite links, and robust authorization checks for organizer actions. Cookie-based redirect preservation with multi-layer validation: (1) redirect parameters validated on `/api/login` before cookie storage, (2) cookie values revalidated on `/api/callback` before redirect, (3) conditional secure cookies work in both development (HTTP) and production (HTTPS) environments.
 - **Performance:** Client-side caching for product searches and efficient image upload mechanisms.
 
 ## External Dependencies
