@@ -22,7 +22,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { Users, Gift, Eye, UserPlus, Copy, Check, Lightbulb, Mail, Send, UserMinus } from "lucide-react";
+import { Users, Gift, Eye, UserPlus, Copy, Check, Lightbulb, Mail, Send, UserMinus, Edit, Settings } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -35,6 +35,20 @@ const inviteEmailSchema = z.object({
 
 type InviteEmailForm = z.infer<typeof inviteEmailSchema>;
 
+const editMemberSchema = z.object({
+  displayName: z.string().nullable().optional(),
+  firstName: z.string().trim().min(1, "First name cannot be empty").optional(),
+  lastName: z.string().trim().min(1, "Last name cannot be empty").optional(),
+});
+
+type EditMemberForm = z.infer<typeof editMemberSchema>;
+
+const editFamilyNameSchema = z.object({
+  name: z.string().trim().min(1, "Family name cannot be empty"),
+});
+
+type EditFamilyNameForm = z.infer<typeof editFamilyNameSchema>;
+
 export default function Members() {
   const { toast } = useToast();
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
@@ -45,6 +59,9 @@ export default function Members() {
   const [copiedLink, setCopiedLink] = useState(false);
   const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
   const [memberToRemove, setMemberToRemove] = useState<any>(null);
+  const [isEditMemberDialogOpen, setIsEditMemberDialogOpen] = useState(false);
+  const [memberToEdit, setMemberToEdit] = useState<any>(null);
+  const [isEditFamilyNameDialogOpen, setIsEditFamilyNameDialogOpen] = useState(false);
   
   const selectedFamily = families?.find((f: any) => f.id === selectedFamilyId);
   const isOrganizer = selectedFamily?.createdById === (user as any)?.id;
@@ -53,6 +70,22 @@ export default function Members() {
     resolver: zodResolver(inviteEmailSchema),
     defaultValues: {
       email: "",
+    },
+  });
+
+  const editMemberForm = useForm<EditMemberForm>({
+    resolver: zodResolver(editMemberSchema),
+    defaultValues: {
+      displayName: "",
+      firstName: "",
+      lastName: "",
+    },
+  });
+
+  const editFamilyNameForm = useForm<EditFamilyNameForm>({
+    resolver: zodResolver(editFamilyNameSchema),
+    defaultValues: {
+      name: selectedFamily?.name || "",
     },
   });
 
@@ -100,6 +133,69 @@ export default function Members() {
         variant: "destructive",
       });
       setShowRemoveConfirm(false);
+    },
+  });
+
+  const editMemberMutation = useMutation({
+    mutationFn: async (data: { userId: string; updates: EditMemberForm }) => {
+      if (!selectedFamilyId) throw new Error("No family selected");
+      
+      // Update display name if provided
+      if (data.updates.displayName !== undefined) {
+        await apiRequest("PUT", `/api/families/${selectedFamilyId}/members/${data.userId}`, {
+          displayName: data.updates.displayName || null,
+        });
+      }
+      
+      // Update profile name if first/last name provided
+      if (data.updates.firstName !== undefined || data.updates.lastName !== undefined) {
+        const profileUpdates: any = {};
+        if (data.updates.firstName !== undefined) profileUpdates.firstName = data.updates.firstName;
+        if (data.updates.lastName !== undefined) profileUpdates.lastName = data.updates.lastName;
+        
+        if (Object.keys(profileUpdates).length > 0) {
+          await apiRequest("PUT", `/api/families/${selectedFamilyId}/members/${data.userId}/profile`, profileUpdates);
+        }
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/members", selectedFamilyId] });
+      toast({
+        title: "Member updated",
+        description: "The member's information has been updated successfully",
+      });
+      setIsEditMemberDialogOpen(false);
+      setMemberToEdit(null);
+      editMemberForm.reset();
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to update member",
+        description: error.message || "There was a problem updating the member",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const editFamilyNameMutation = useMutation({
+    mutationFn: async (data: EditFamilyNameForm) => {
+      if (!selectedFamilyId) throw new Error("No family selected");
+      return apiRequest("PUT", `/api/families/${selectedFamilyId}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/families"] });
+      toast({
+        title: "Family name updated",
+        description: "The family name has been updated successfully",
+      });
+      setIsEditFamilyNameDialogOpen(false);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to update family name",
+        description: error.message || "There was a problem updating the family name",
+        variant: "destructive",
+      });
     },
   });
 
@@ -179,13 +275,29 @@ export default function Members() {
   return (
     <div className="p-6 md:p-8 lg:p-12 space-y-6">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="font-serif text-3xl md:text-4xl font-semibold text-foreground">
-            Family Members
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            View wishlists from all your family members
-          </p>
+        <div className="flex items-center gap-3">
+          <div>
+            <h1 className="font-serif text-3xl md:text-4xl font-semibold text-foreground">
+              {selectedFamily?.name || "Family Members"}
+            </h1>
+            <p className="text-muted-foreground mt-1">
+              View wishlists from all your family members
+            </p>
+          </div>
+          {isOrganizer && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => {
+                editFamilyNameForm.reset({ name: selectedFamily?.name || "" });
+                setIsEditFamilyNameDialogOpen(true);
+              }}
+              data-testid="button-edit-family-name"
+              className="ml-2"
+            >
+              <Edit className="w-4 h-4" />
+            </Button>
+          )}
         </div>
         <Dialog open={isInviteDialogOpen} onOpenChange={setIsInviteDialogOpen}>
           <DialogTrigger asChild>
@@ -349,10 +461,15 @@ export default function Members() {
                   </Avatar>
                   <div className="space-y-1 w-full">
                     <h3 className="font-semibold text-foreground truncate" data-testid={`member-name-${member.userId}`}>
-                      {member.firstName || member.lastName
+                      {member.displayName || (member.firstName || member.lastName
                         ? `${member.firstName || ""} ${member.lastName || ""}`.trim()
-                        : member.email || "Family Member"}
+                        : member.email || "Family Member")}
                     </h3>
+                    {member.displayName && (member.firstName || member.lastName) && (
+                      <p className="text-xs text-muted-foreground truncate">
+                        {`${member.firstName || ""} ${member.lastName || ""}`.trim()}
+                      </p>
+                    )}
                     {isCurrentUser && (
                       <p className="text-xs text-primary font-medium">(You)</p>
                     )}
@@ -376,19 +493,39 @@ export default function Members() {
                         View Wishlist
                       </Button>
                       {isOrganizer && (
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          className="w-full"
-                          onClick={() => {
-                            setMemberToRemove(member);
-                            setShowRemoveConfirm(true);
-                          }}
-                          data-testid={`button-remove-member-${member.userId}`}
-                        >
-                          <UserMinus className="w-4 h-4 mr-2" />
-                          Remove
-                        </Button>
+                        <div className="flex gap-2 w-full">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="flex-1"
+                            onClick={() => {
+                              setMemberToEdit(member);
+                              editMemberForm.reset({
+                                displayName: member.displayName || "",
+                                firstName: member.firstName || "",
+                                lastName: member.lastName || "",
+                              });
+                              setIsEditMemberDialogOpen(true);
+                            }}
+                            data-testid={`button-edit-member-${member.userId}`}
+                          >
+                            <Edit className="w-4 h-4 mr-2" />
+                            Edit
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            className="flex-1"
+                            onClick={() => {
+                              setMemberToRemove(member);
+                              setShowRemoveConfirm(true);
+                            }}
+                            data-testid={`button-remove-member-${member.userId}`}
+                          >
+                            <UserMinus className="w-4 h-4 mr-2" />
+                            Remove
+                          </Button>
+                        </div>
                       )}
                     </>
                   )}
@@ -432,6 +569,154 @@ export default function Members() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Edit Member Dialog */}
+      <Dialog open={isEditMemberDialogOpen} onOpenChange={setIsEditMemberDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Edit Member Information</DialogTitle>
+            <DialogDescription>
+              Update the display name (family-specific nickname) or actual profile name
+            </DialogDescription>
+          </DialogHeader>
+          <Form {...editMemberForm}>
+            <form onSubmit={editMemberForm.handleSubmit((data) => {
+              if (memberToEdit) {
+                editMemberMutation.mutate({ userId: memberToEdit.userId, updates: data });
+              }
+            })} className="space-y-4">
+              <FormField
+                control={editMemberForm.control}
+                name="displayName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Display Name (Family Nickname)</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        value={field.value || ""}
+                        placeholder="e.g., Mom, Dad, Grandma"
+                        data-testid="input-display-name"
+                      />
+                    </FormControl>
+                    <p className="text-xs text-muted-foreground">
+                      This name only shows within this family group
+                    </p>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <Separator />
+              <FormField
+                control={editMemberForm.control}
+                name="firstName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>First Name (Profile)</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        value={field.value || ""}
+                        placeholder="First name"
+                        data-testid="input-first-name"
+                      />
+                    </FormControl>
+                    <p className="text-xs text-muted-foreground">
+                      This changes their name everywhere in the app
+                    </p>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editMemberForm.control}
+                name="lastName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Last Name (Profile)</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        value={field.value || ""}
+                        placeholder="Last name"
+                        data-testid="input-last-name"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <div className="flex gap-2 justify-end pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsEditMemberDialogOpen(false)}
+                  data-testid="button-cancel-edit"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={editMemberMutation.isPending}
+                  data-testid="button-save-member"
+                >
+                  {editMemberMutation.isPending ? "Saving..." : "Save Changes"}
+                </Button>
+              </div>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Family Name Dialog */}
+      <Dialog open={isEditFamilyNameDialogOpen} onOpenChange={setIsEditFamilyNameDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Family Name</DialogTitle>
+            <DialogDescription>
+              Change the name of your family group
+            </DialogDescription>
+          </DialogHeader>
+          <Form {...editFamilyNameForm}>
+            <form onSubmit={editFamilyNameForm.handleSubmit((data) => editFamilyNameMutation.mutate(data))} className="space-y-4">
+              <FormField
+                control={editFamilyNameForm.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Family Name</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        placeholder="Enter family name"
+                        data-testid="input-family-name"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <div className="flex gap-2 justify-end pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsEditFamilyNameDialogOpen(false)}
+                  data-testid="button-cancel-edit-family"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={editFamilyNameMutation.isPending}
+                  data-testid="button-save-family-name"
+                >
+                  {editFamilyNameMutation.isPending ? "Saving..." : "Save Changes"}
+                </Button>
+              </div>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

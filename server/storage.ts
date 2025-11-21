@@ -206,6 +206,7 @@ export class DatabaseStorage implements IStorage {
         firstName: users.firstName,
         lastName: users.lastName,
         profileImageUrl: users.profileImageUrl,
+        displayName: familyMembers.displayName,
         itemCount: sql<number>`count(distinct ${wishlistItems.id})::int`,
       })
       .from(familyMembers)
@@ -218,7 +219,7 @@ export class DatabaseStorage implements IStorage {
         )
       )
       .where(eq(familyMembers.familyId, familyId))
-      .groupBy(users.id);
+      .groupBy(users.id, familyMembers.displayName);
     
     return result;
   }
