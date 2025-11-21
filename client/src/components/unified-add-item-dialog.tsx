@@ -10,6 +10,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -75,6 +85,10 @@ export function UnifiedAddItemDialog({
   const [detectedType, setDetectedType] = useState<"experience" | "service" | "membership" | null>(null);
   const [suggestionDismissed, setSuggestionDismissed] = useState(false);
   const [lastDismissedQuery, setLastDismissedQuery] = useState("");
+  const [showDuplicateDialog, setShowDuplicateDialog] = useState(false);
+  const [duplicateItem, setDuplicateItem] = useState<any>(null);
+  const [pendingItem, setPendingItem] = useState<any>(null);
+  const [pendingItemType, setPendingItemType] = useState<'search' | 'custom' | null>(null);
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const { toast } = useToast();
 
@@ -222,7 +236,7 @@ export function UnifiedAddItemDialog({
 
   // Add product from search results
   const addFromSearchMutation = useMutation({
-    mutationFn: async (product: any) => {
+    mutationFn: async ({ product, override = false }: { product: any; override?: boolean }) => {
       const payload = {
         name: product.title,
         description: product.snippet || "",
@@ -237,6 +251,7 @@ export function UnifiedAddItemDialog({
         category: null,
         itemType: "product",
         familyId,
+        override, // Pass override flag to bypass duplicate check if needed
       };
 
       const response = await fetch("/api/wishlist/from-search", {
@@ -248,25 +263,38 @@ export function UnifiedAddItemDialog({
 
       if (!response.ok) {
         const error = await response.json();
+        
+        // Handle duplicate detection (409 Conflict)
+        if (response.status === 409 && !override) {
+          setDuplicateItem(error.duplicateItem);
+          setPendingItem(product);
+          setPendingItemType('search');
+          setShowDuplicateDialog(true);
+          return null; // Don't throw error, just show dialog
+        }
+        
         throw new Error(error.message || "Failed to add item");
       }
 
       return response.json();
     },
-    onSuccess: () => {
-      onSuccess();
-      handleClose();
+    onSuccess: (data) => {
+      if (data) { // Only close if actually added (not duplicate dialog)
+        onSuccess();
+        handleClose();
+      }
     },
   });
 
   // Add custom item
   const addCustomItemMutation = useMutation({
-    mutationFn: async (data: CustomItemFormData) => {
+    mutationFn: async ({ data, override = false }: { data: CustomItemFormData; override?: boolean }) => {
       const payload = {
         ...data,
         // Backend expects price as a string or null, not a number
         price: data.price || null,
         familyId,
+        override, // Pass override flag to bypass duplicate check if needed
       };
 
       const response = await fetch("/api/wishlist", {
@@ -278,14 +306,26 @@ export function UnifiedAddItemDialog({
 
       if (!response.ok) {
         const error = await response.json();
+        
+        // Handle duplicate detection (409 Conflict)
+        if (response.status === 409 && !override) {
+          setDuplicateItem(error.duplicateItem);
+          setPendingItem(data);
+          setPendingItemType('custom');
+          setShowDuplicateDialog(true);
+          return null; // Don't throw error, just show dialog
+        }
+        
         throw new Error(error.message || "Failed to add item");
       }
 
       return response.json();
     },
-    onSuccess: () => {
-      onSuccess();
-      handleClose();
+    onSuccess: (data) => {
+      if (data) { // Only close if actually added (not duplicate dialog)
+        onSuccess();
+        handleClose();
+      }
     },
   });
 
@@ -364,7 +404,27 @@ export function UnifiedAddItemDialog({
   };
 
   const onSubmitCustom = (data: CustomItemFormData) => {
-    addCustomItemMutation.mutate(data);
+    addCustomItemMutation.mutate({ data });
+  };
+
+  // Handle confirming to add duplicate item anyway
+  const handleConfirmDuplicate = () => {
+    if (pendingItemType === 'search' && pendingItem) {
+      addFromSearchMutation.mutate({ product: pendingItem, override: true });
+    } else if (pendingItemType === 'custom' && pendingItem) {
+      addCustomItemMutation.mutate({ data: pendingItem, override: true });
+    }
+    setShowDuplicateDialog(false);
+    setDuplicateItem(null);
+    setPendingItem(null);
+    setPendingItemType(null);
+  };
+
+  const handleCancelDuplicate = () => {
+    setShowDuplicateDialog(false);
+    setDuplicateItem(null);
+    setPendingItem(null);
+    setPendingItemType(null);
   };
 
   const getItemTypeIcon = (type: string) => {
@@ -383,14 +443,15 @@ export function UnifiedAddItemDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Add to Wishlist</DialogTitle>
-          <DialogDescription>
-            Search for a product or create a custom item
-          </DialogDescription>
-        </DialogHeader>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Add to Wishlist</DialogTitle>
+            <DialogDescription>
+              Search for a product or create a custom item
+            </DialogDescription>
+          </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-2">
@@ -508,7 +569,7 @@ export function UnifiedAddItemDialog({
                           <div className="flex flex-col gap-2">
                             <Button
                               size="sm"
-                              onClick={() => addFromSearchMutation.mutate(result)}
+                              onClick={() => addFromSearchMutation.mutate({ product: result })}
                               disabled={addFromSearchMutation.isPending}
                               data-testid={`button-add-result-${index}`}
                             >
@@ -808,7 +869,42 @@ export function UnifiedAddItemDialog({
             </Form>
           </TabsContent>
         </Tabs>
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
+
+      {/* Duplicate item warning dialog */}
+      <AlertDialog open={showDuplicateDialog} onOpenChange={setShowDuplicateDialog}>
+        <AlertDialogContent data-testid="alert-duplicate-item">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Item Already on Your Wishlist</AlertDialogTitle>
+            <AlertDialogDescription>
+              You already have "{duplicateItem?.name}" on your wishlist. 
+              {duplicateItem?.url && (
+                <span className="block mt-2 text-xs text-muted-foreground truncate">
+                  {duplicateItem.url}
+                </span>
+              )}
+              <span className="block mt-3">
+                Do you want to add it again anyway?
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel 
+              onClick={handleCancelDuplicate}
+              data-testid="button-cancel-duplicate"
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDuplicate}
+              data-testid="button-confirm-duplicate"
+            >
+              Add Anyway
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }

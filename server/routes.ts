@@ -449,7 +449,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/wishlist', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const { name, description, price, url, imageUrl, priority, quantity, category, itemType, familyId } = req.body;
+      const { name, description, price, url, imageUrl, priority, quantity, category, itemType, familyId, override } = req.body;
 
       if (!name || typeof name !== 'string') {
         return res.status(400).json({ message: "Item name is required" });
@@ -469,6 +469,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const membership = await storage.getFamilyMember(targetFamilyId, userId);
       if (!membership) {
         return res.status(403).json({ message: "You are not a member of this family" });
+      }
+
+      // Check for duplicate items by URL (if provided and not overriding)
+      if (url && !override) {
+        const duplicate = await storage.findDuplicateWishlistItem(userId, targetFamilyId, url);
+        if (duplicate) {
+          return res.status(409).json({ 
+            message: "This item is already on your wishlist",
+            duplicateItem: {
+              id: duplicate.id,
+              name: duplicate.name,
+              url: duplicate.url,
+            }
+          });
+        }
       }
 
       const item = await storage.createWishlistItem({
@@ -510,7 +525,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/wishlist/from-search', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const { name, description, price, url, imageUrl, productId, source, priority, quantity, category, itemType, familyId } = req.body;
+      const { name, description, price, url, imageUrl, productId, source, priority, quantity, category, itemType, familyId, override } = req.body;
 
       if (!name || typeof name !== 'string') {
         return res.status(400).json({ message: "Item name is required" });
@@ -530,6 +545,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const membership = await storage.getFamilyMember(targetFamilyId, userId);
       if (!membership) {
         return res.status(403).json({ message: "You are not a member of this family" });
+      }
+
+      // Check for duplicate items by URL or productId (if provided and not overriding)
+      if ((url || productId) && !override) {
+        const duplicate = await storage.findDuplicateWishlistItem(userId, targetFamilyId, url, productId);
+        if (duplicate) {
+          return res.status(409).json({ 
+            message: "This item is already on your wishlist",
+            duplicateItem: {
+              id: duplicate.id,
+              name: duplicate.name,
+              url: duplicate.url,
+              productId: duplicate.productId,
+            }
+          });
+        }
       }
 
       const item = await storage.createWishlistItem({

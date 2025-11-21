@@ -49,6 +49,7 @@ export interface IStorage {
   getUserWishlistItems(userId: string): Promise<WishlistItem[]>;
   getMemberWishlistItems(userId: string, viewerId: string, familyId?: string): Promise<any[]>;
   getWishlistItem(id: string): Promise<WishlistItem | undefined>;
+  findDuplicateWishlistItem(userId: string, familyId: string, url?: string, productId?: string): Promise<WishlistItem | undefined>;
   
   // Purchase operations
   markItemPurchased(purchase: InsertItemPurchase): Promise<ItemPurchase>;
@@ -492,6 +493,50 @@ export class DatabaseStorage implements IStorage {
 
   async getWishlistItem(id: string): Promise<WishlistItem | undefined> {
     const [item] = await db.select().from(wishlistItems).where(eq(wishlistItems.id, id));
+    return item;
+  }
+
+  async findDuplicateWishlistItem(
+    userId: string,
+    familyId: string,
+    url?: string,
+    productId?: string
+  ): Promise<WishlistItem | undefined> {
+    // Check for duplicate by URL or productId
+    if (!url && !productId) {
+      return undefined;
+    }
+
+    // Base conditions (user and family must match)
+    const baseConditions = and(
+      eq(wishlistItems.userId, userId),
+      eq(wishlistItems.familyId, familyId)
+    );
+
+    // Build OR condition for URL and/or productId
+    const matchConditions = [];
+    
+    if (url) {
+      // Case-insensitive URL comparison
+      matchConditions.push(sql`LOWER(${wishlistItems.url}) = LOWER(${url})`);
+    }
+    
+    if (productId) {
+      // Exact productId match
+      matchConditions.push(eq(wishlistItems.productId, productId));
+    }
+
+    // Combine: must match user+family AND (URL OR productId)
+    const whereClause = matchConditions.length === 1
+      ? and(baseConditions, matchConditions[0])
+      : and(baseConditions, sql`(${matchConditions[0]} OR ${matchConditions[1]})`);
+
+    const [item] = await db
+      .select()
+      .from(wishlistItems)
+      .where(whereClause)
+      .limit(1);
+
     return item;
   }
 
