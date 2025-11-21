@@ -538,52 +538,43 @@ export class DatabaseStorage implements IStorage {
 
   // Stats operations
   async getUserStats(userId: string): Promise<any> {
-    // Get user's family IDs
-    const userFamilies = await db
-      .select({ familyId: familyMembers.familyId })
-      .from(familyMembers)
-      .where(eq(familyMembers.userId, userId));
-    
-    const familyIds = userFamilies.map(f => f.familyId);
-    
-    if (familyIds.length === 0) {
-      return {
-        myItemsCount: 0,
-        familyMembersCount: 0,
-        itemsToPurchaseCount: 0,
-      };
-    }
+    // Single optimized query using raw SQL for maximum performance
+    const result = await db.execute(sql`
+      SELECT 
+        (
+          SELECT COUNT(*)::int
+          FROM ${wishlistItems}
+          WHERE user_id = ${userId}
+        ) as my_items_count,
+        (
+          SELECT COUNT(DISTINCT user_id)::int
+          FROM ${familyMembers}
+          WHERE family_id IN (
+            SELECT family_id
+            FROM ${familyMembers}
+            WHERE user_id = ${userId}
+          )
+        ) as family_members_count,
+        (
+          SELECT COUNT(*)::int
+          FROM ${wishlistItems} wi
+          LEFT JOIN ${itemPurchases} ip ON wi.id = ip.item_id
+          WHERE wi.family_id IN (
+            SELECT family_id
+            FROM ${familyMembers}
+            WHERE user_id = ${userId}
+          )
+          AND wi.user_id != ${userId}
+          AND ip.id IS NULL
+          AND wi.priority = 'high'
+        ) as items_to_purchase_count
+    `);
 
-    // Count user's own items
-    const [myItemsResult] = await db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(wishlistItems)
-      .where(eq(wishlistItems.userId, userId));
-
-    // Count unique family members (excluding self)
-    const [membersResult] = await db
-      .select({ count: sql<number>`count(distinct ${familyMembers.userId})::int` })
-      .from(familyMembers)
-      .where(sql`${familyMembers.familyId} = ANY(${familyIds})`);
-
-    // Count unpurchased high priority items from all family members except self
-    const [unpurchasedResult] = await db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(wishlistItems)
-      .leftJoin(itemPurchases, eq(wishlistItems.id, itemPurchases.itemId))
-      .where(
-        and(
-          sql`${wishlistItems.familyId} = ANY(${familyIds})`,
-          sql`${wishlistItems.userId} != ${userId}`,
-          sql`${itemPurchases.id} IS NULL`,
-          eq(wishlistItems.priority, 'high')
-        )
-      );
-
+    const row = result.rows[0] as any;
     return {
-      myItemsCount: myItemsResult.count,
-      familyMembersCount: membersResult.count,
-      itemsToPurchaseCount: unpurchasedResult.count,
+      myItemsCount: row?.my_items_count || 0,
+      familyMembersCount: row?.family_members_count || 0,
+      itemsToPurchaseCount: row?.items_to_purchase_count || 0,
     };
   }
 
@@ -594,36 +585,36 @@ export class DatabaseStorage implements IStorage {
       throw new Error("You are not a member of this family");
     }
 
-    // Count user's own items in this family
-    const [myItemsResult] = await db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(wishlistItems)
-      .where(and(eq(wishlistItems.userId, userId), eq(wishlistItems.familyId, familyId)));
+    // Single optimized query using raw SQL for maximum performance
+    const result = await db.execute(sql`
+      SELECT 
+        (
+          SELECT COUNT(*)::int
+          FROM ${wishlistItems}
+          WHERE user_id = ${userId}
+          AND family_id = ${familyId}
+        ) as my_items_count,
+        (
+          SELECT COUNT(DISTINCT user_id)::int
+          FROM ${familyMembers}
+          WHERE family_id = ${familyId}
+        ) as family_members_count,
+        (
+          SELECT COUNT(*)::int
+          FROM ${wishlistItems} wi
+          LEFT JOIN ${itemPurchases} ip ON wi.id = ip.item_id
+          WHERE wi.family_id = ${familyId}
+          AND wi.user_id != ${userId}
+          AND ip.id IS NULL
+          AND wi.priority = 'high'
+        ) as items_to_purchase_count
+    `);
 
-    // Count family members in this family
-    const [membersResult] = await db
-      .select({ count: sql<number>`count(distinct ${familyMembers.userId})::int` })
-      .from(familyMembers)
-      .where(eq(familyMembers.familyId, familyId));
-
-    // Count unpurchased high priority items from family members except self in this family
-    const [unpurchasedResult] = await db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(wishlistItems)
-      .leftJoin(itemPurchases, eq(wishlistItems.id, itemPurchases.itemId))
-      .where(
-        and(
-          eq(wishlistItems.familyId, familyId),
-          sql`${wishlistItems.userId} != ${userId}`,
-          sql`${itemPurchases.id} IS NULL`,
-          eq(wishlistItems.priority, 'high')
-        )
-      );
-
+    const row = result.rows[0] as any;
     return {
-      myItemsCount: myItemsResult.count,
-      familyMembersCount: membersResult.count,
-      itemsToPurchaseCount: unpurchasedResult.count,
+      myItemsCount: row?.my_items_count || 0,
+      familyMembersCount: row?.family_members_count || 0,
+      itemsToPurchaseCount: row?.items_to_purchase_count || 0,
     };
   }
 }

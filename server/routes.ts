@@ -8,6 +8,7 @@ import { sendInviteEmail } from "./emailService";
 import * as cheerio from "cheerio";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { ObjectPermission } from "./objectAcl";
+import memoize from "memoizee";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
@@ -748,23 +749,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Product search route (SerpApi integration)
-  app.get('/api/search', isAuthenticated, async (req: any, res) => {
-    try {
-      const { q } = req.query;
-
-      if (!q || typeof q !== 'string') {
-        return res.status(400).json({ message: "Search query is required" });
-      }
-
-      const apiKey = process.env.SERPAPI_KEY;
-      if (!apiKey) {
-        return res.status(500).json({ message: "Search service not configured" });
-      }
-
+  // Cached product search function (memoized for 10 minutes)
+  const cachedProductSearch = memoize(
+    async (query: string, apiKey: string) => {
       const searchUrl = new URL('https://serpapi.com/search');
       searchUrl.searchParams.set('engine', 'google_shopping');
-      searchUrl.searchParams.set('q', q);
+      searchUrl.searchParams.set('q', query);
       searchUrl.searchParams.set('api_key', apiKey);
       
       // Add location and language parameters for better, faster results
@@ -773,10 +763,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       searchUrl.searchParams.set('hl', 'en');
       searchUrl.searchParams.set('gl', 'us');
       
-      // Request more results for better selection
-      searchUrl.searchParams.set('num', '20');
+      // Reduced from 20 to 10 for faster response
+      searchUrl.searchParams.set('num', '10');
 
-      const response = await fetch(searchUrl.toString());
+      const response = await fetch(searchUrl.toString(), { signal: AbortSignal.timeout(10000) });
       if (!response.ok) {
         const errorText = await response.text();
         console.error("SerpApi error:", response.status, errorText);
@@ -786,10 +776,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const data = await response.json();
       const results = data.shopping_results || [];
       
-      console.log(`[Product Search] Query: "${q}" - Found ${results.length} results`);
-      if (results.length > 0) {
-        console.log(`[Product Search] First result full data:`, JSON.stringify(results[0], null, 2));
-      }
+      console.log(`[Product Search] Query: "${query}" - Found ${results.length} results (cached)`);
       
       // Helper to parse review counts
       const parseReviewCount = (reviews: any) => {
@@ -943,7 +930,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           let retailerTier = 2; // Default: unknown retailer
           
           // Check if this is the brand's own website (highest priority)
-          const queryBrand = extractBrandFromQuery(q);
+          const queryBrand = extractBrandFromQuery(query);
           if (queryBrand && matchesRetailer(source, merchantUrl, queryBrand)) {
             retailerTier = 0; // Brand website (e.g., apple.com for "apple iphone")
           }
@@ -981,7 +968,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
         })
         .map(({ _popularity, _position, _retailerTier, _isExcluded, ...result }: any) => result); // Remove temp fields
       
-      res.json(sortedResults);
+      // Return only essential fields to reduce payload size
+      return sortedResults.map((result: any) => ({
+        position: result.position,
+        title: result.title,
+        link: result.link,
+        product_link: result.product_link,
+        product_id: result.product_id,
+        serpapi_product_api: result.serpapi_product_api,
+        source: result.source,
+        price: result.price,
+        extracted_price: result.extracted_price,
+        thumbnail: result.thumbnail,
+        delivery: result.delivery,
+        snippet: result.snippet,
+        rating: result.rating,
+        reviews: result.reviews,
+      }));
+    },
+    {
+      promise: true,
+      maxAge: 10 * 60 * 1000, // Cache for 10 minutes
+      preFetch: true, // Background refresh before expiry
+      normalizer: ([query]: [string, string]) => query.toLowerCase().trim(), // Normalize cache key
+    }
+  );
+
+  // Product search route (SerpApi integration)
+  app.get('/api/search', isAuthenticated, async (req: any, res) => {
+    try {
+      const { q } = req.query;
+
+      if (!q || typeof q !== 'string') {
+        return res.status(400).json({ message: "Search query is required" });
+      }
+
+      const apiKey = process.env.SERPAPI_KEY;
+      if (!apiKey) {
+        return res.status(500).json({ message: "Search service not configured" });
+      }
+
+      const results = await cachedProductSearch(q, apiKey);
+      res.json(results);
     } catch (error) {
       console.error("Error searching products:", error);
       res.status(500).json({ message: "Failed to search products" });

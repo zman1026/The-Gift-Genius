@@ -77,7 +77,10 @@ export const familyMembers = pgTable("family_members", {
   userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
   displayName: varchar("display_name", { length: 100 }), // Family-specific nickname
   joinedAt: timestamp("joined_at").defaultNow(),
-});
+}, (table) => [
+  index("idx_family_members_user_lookup").on(table.userId, table.familyId),
+  index("idx_family_members_family_lookup").on(table.familyId, table.userId),
+]);
 
 export const familyMembersRelations = relations(familyMembers, ({ one }) => ({
   family: one(families, {
@@ -114,7 +117,9 @@ export const wishlistItems = pgTable("wishlist_items", {
   quantity: integer("quantity").default(1), // quantity desired
   category: varchar("category", { length: 50 }), // toys, clothes, electronics, books, home, other
   createdAt: timestamp("created_at").defaultNow(),
-});
+}, (table) => [
+  index("idx_wishlist_items_lookup").on(table.familyId, table.userId, table.priority),
+]);
 
 export const wishlistItemsRelations = relations(wishlistItems, ({ one, many }) => ({
   user: one(users, {
