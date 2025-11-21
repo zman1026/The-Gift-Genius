@@ -110,7 +110,12 @@ export async function setupAuth(app: Express) {
     if (req.query.redirect && typeof req.query.redirect === 'string') {
       const redirect = req.query.redirect;
       if (redirect.startsWith('/') && !redirect.startsWith('//')) {
-        (req.session as any).returnTo = redirect;
+        res.cookie('auth_redirect', redirect, {
+          httpOnly: true,
+          secure: true,
+          maxAge: 5 * 60 * 1000,
+          sameSite: 'lax'
+        });
       }
     }
     
@@ -122,9 +127,22 @@ export async function setupAuth(app: Express) {
 
   app.get("/api/callback", (req, res, next) => {
     ensureStrategy(req.hostname);
-    passport.authenticate(`replitauth:${req.hostname}`, {
-      successReturnToOrRedirect: "/",
-      failureRedirect: "/api/login",
+    
+    passport.authenticate(`replitauth:${req.hostname}`, async (err: any, user: any) => {
+      if (err || !user) {
+        return res.redirect("/api/login");
+      }
+      
+      req.logIn(user, async (loginErr) => {
+        if (loginErr) {
+          return res.redirect("/api/login");
+        }
+        
+        const returnTo = req.cookies.auth_redirect || "/";
+        res.clearCookie('auth_redirect');
+        
+        res.redirect(returnTo);
+      });
     })(req, res, next);
   });
 
