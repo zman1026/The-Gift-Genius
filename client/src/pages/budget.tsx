@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { DollarSign, TrendingUp, TrendingDown, AlertCircle, Users, Wallet, Target, Edit2, Trash2 } from "lucide-react";
+import { DollarSign, TrendingUp, TrendingDown, AlertCircle, Users, Wallet, Target, Edit2, Trash2, Clock } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
