@@ -21,6 +21,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { ChristmasCountdown } from "@/components/christmas-countdown";
 import { BudgetTracker } from "@/components/budget-tracker";
 import { BudgetDialog } from "@/components/budget-dialog";
+import { ActivityFeed } from "@/components/activity-feed";
 
 const inviteEmailSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
@@ -287,6 +288,11 @@ export default function Home() {
           totalPurchased={stats?.totalPurchased || 0}
           onSetBudget={() => setIsBudgetDialogOpen(true)}
         />
+      )}
+
+      {/* Activity Feed */}
+      {hasFamilies && selectedFamilyId && (
+        <ActivityFeed familyId={selectedFamilyId} limit={10} />
       )}
 
       {/* Family Groups */}

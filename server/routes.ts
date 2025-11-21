@@ -169,6 +169,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         userId,
       });
 
+      // Log activity
+      await storage.createActivityLog({
+        familyId: family.id,
+        actorId: userId,
+        action: "member_joined",
+        metadata: {
+          familyName: family.name,
+        },
+      });
+
       res.json({ message: "Successfully joined family", family });
     } catch (error) {
       console.error("Error joining family:", error);
@@ -477,6 +487,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         itemType: itemType || "product",
       });
 
+      // Log activity
+      await storage.createActivityLog({
+        familyId: targetFamilyId,
+        actorId: userId,
+        action: "item_added",
+        itemId: item.id,
+        metadata: {
+          itemName: name,
+          priority: priority || "medium",
+          itemType: itemType || "product",
+        },
+      });
+
       res.json(item);
     } catch (error) {
       console.error("Error creating wishlist item:", error);
@@ -523,6 +546,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         quantity: quantity || 1,
         category: category || null,
         itemType: itemType || "product",
+      });
+
+      // Log activity
+      await storage.createActivityLog({
+        familyId: targetFamilyId,
+        actorId: userId,
+        action: "item_added",
+        itemId: item.id,
+        metadata: {
+          itemName: name,
+          priority: priority || "medium",
+          itemType: itemType || "product",
+          source: source || "google_shopping",
+        },
       });
 
       res.json(item);
@@ -625,6 +662,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "You can only delete your own items" });
       }
 
+      // Log activity before deletion
+      await storage.createActivityLog({
+        familyId: item.familyId,
+        actorId: userId,
+        action: "item_deleted",
+        metadata: {
+          itemName: item.name,
+          itemType: item.itemType,
+        },
+      });
+
       await storage.deleteWishlistItem(id);
       res.json({ message: "Item deleted" });
     } catch (error) {
@@ -661,6 +709,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         notes: notes || null,
       });
 
+      // Log activity
+      await storage.createActivityLog({
+        familyId: item.familyId,
+        actorId: userId,
+        targetUserId: item.userId,
+        itemId: id,
+        action: "item_purchased",
+        metadata: {
+          itemName: item.name,
+          price: item.price,
+        },
+      });
+
       res.json(purchase);
     } catch (error) {
       console.error("Error marking item purchased:", error);
@@ -680,6 +741,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (purchase.purchasedById !== userId) {
         return res.status(403).json({ message: "You can only unmark items you marked" });
+      }
+
+      // Get item data for activity log before unmarking
+      const item = await storage.getWishlistItem(id);
+      if (item) {
+        await storage.createActivityLog({
+          familyId: item.familyId,
+          actorId: userId,
+          targetUserId: item.userId,
+          itemId: id,
+          action: "item_unpurchased",
+          metadata: {
+            itemName: item.name,
+          },
+        });
       }
 
       await storage.unmarkItemPurchased(id, userId);
@@ -1078,6 +1154,94 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "You are not a member of this family" });
       }
       res.status(500).json({ message: "Failed to fetch purchase totals" });
+    }
+  });
+
+  // Error logging endpoint (authenticated to prevent spam and log injection)
+  app.post('/api/logs/errors', isAuthenticated, async (req: any, res) => {
+    try {
+      const errorLogSchema = z.object({
+        message: z.string().max(1000), // Limit message length to prevent abuse
+        stack: z.string().max(5000).optional(), // Limit stack trace length
+        componentStack: z.string().max(5000).optional(),
+        timestamp: z.string(),
+      });
+
+      const validatedData = errorLogSchema.parse(req.body);
+      const userId = req.user.claims.sub;
+      
+      // Log to console (in production this could go to a logging service)
+      console.error('[Frontend Error]', {
+        timestamp: validatedData.timestamp,
+        message: validatedData.message,
+        stack: validatedData.stack,
+        componentStack: validatedData.componentStack,
+        userId,
+      });
+
+      res.json({ success: true });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid error log data", errors: error.errors });
+      }
+      console.error("Error logging frontend error:", error);
+      res.status(500).json({ message: "Failed to log error" });
+    }
+  });
+
+  // Activity log routes
+  app.post('/api/activities', isAuthenticated, async (req: any, res) => {
+    try {
+      const activitySchema = z.object({
+        familyId: z.string(),
+        action: z.string(),
+        targetUserId: z.string().optional(),
+        itemId: z.string().optional(),
+        metadata: z.any().optional(),
+      });
+
+      const validatedData = activitySchema.parse(req.body);
+      const userId = req.user.claims.sub;
+
+      const activity = await storage.createActivityLog({
+        ...validatedData,
+        actorId: userId,
+      });
+
+      res.json(activity);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid activity data", errors: error.errors });
+      }
+      console.error("Error creating activity log:", error);
+      res.status(500).json({ message: "Failed to log activity" });
+    }
+  });
+
+  app.get('/api/activities', isAuthenticated, async (req: any, res) => {
+    try {
+      const { familyId, limit } = req.query;
+      const userId = req.user.claims.sub;
+
+      if (!familyId || typeof familyId !== 'string') {
+        return res.status(400).json({ message: "Family ID is required" });
+      }
+
+      // Verify user is a member of this family
+      const membership = await storage.getFamilyMember(familyId, userId);
+      if (!membership) {
+        return res.status(403).json({ message: "You are not a member of this family" });
+      }
+
+      const activities = await storage.getRecentActivities(
+        familyId, 
+        limit ? parseInt(limit as string) : 10
+      );
+
+      res.json(activities);
+    } catch (error) {
+      console.error("Error fetching activities:", error);
+      res.status(500).json({ message: "Failed to fetch activities" });
     }
   });
 

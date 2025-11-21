@@ -4,6 +4,7 @@ import {
   familyMembers,
   wishlistItems,
   itemPurchases,
+  activityLogs,
   type User,
   type UpsertUser,
   type Family,
@@ -14,9 +15,11 @@ import {
   type InsertWishlistItem,
   type ItemPurchase,
   type InsertItemPurchase,
+  type ActivityLog,
+  type InsertActivityLog,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, sql, desc } from "drizzle-orm";
 
 export interface IStorage {
   // User operations (required for Replit Auth)
@@ -55,6 +58,10 @@ export interface IStorage {
   
   // Stats operations
   getUserStats(userId: string): Promise<any>;
+  
+  // Activity log operations
+  createActivityLog(log: InsertActivityLog): Promise<ActivityLog>;
+  getRecentActivities(familyId: string, limit?: number): Promise<any[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -695,6 +702,39 @@ export class DatabaseStorage implements IStorage {
       totalSpent: parseFloat(row.total_spent || '0'),
       itemsPurchased: row.items_purchased || 0,
     }));
+  }
+
+  // Activity log operations
+  async createActivityLog(log: InsertActivityLog): Promise<ActivityLog> {
+    const [activity] = await db
+      .insert(activityLogs)
+      .values(log)
+      .returning();
+    return activity;
+  }
+
+  async getRecentActivities(familyId: string, limit: number = 10): Promise<any[]> {
+    const activities = await db
+      .select({
+        id: activityLogs.id,
+        action: activityLogs.action,
+        metadata: activityLogs.metadata,
+        createdAt: activityLogs.createdAt,
+        actor: {
+          id: users.id,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          email: users.email,
+          profileImageUrl: users.profileImageUrl,
+        },
+      })
+      .from(activityLogs)
+      .leftJoin(users, eq(activityLogs.actorId, users.id))
+      .where(eq(activityLogs.familyId, familyId))
+      .orderBy(desc(activityLogs.createdAt))
+      .limit(limit);
+
+    return activities;
   }
 }
 

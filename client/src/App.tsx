@@ -23,6 +23,7 @@ import Members from "@/pages/members";
 import MemberWishlist from "@/pages/member-wishlist";
 import Search from "@/pages/search";
 import Purchased from "@/pages/purchased";
+import { AppErrorBoundary } from "@/components/error-boundary";
 
 function AppContent() {
   const { isAuthenticated, isLoading, user } = useAuth();
@@ -78,7 +79,7 @@ function AppContent() {
                 </Avatar>
               </Button>
             </header>
-            <main className="flex-1 overflow-y-auto pb-24 md:pb-0">
+            <main className="flex-1 overflow-y-auto pb-20 md:pb-0">
               <Switch>
                 <Route path="/" component={Home} />
                 <Route path="/families/create" component={CreateFamily} />
@@ -103,10 +104,12 @@ function AppContent() {
 
 export default function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <AppContent />
-      </TooltipProvider>
-    </QueryClientProvider>
+    <AppErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <AppContent />
+        </TooltipProvider>
+      </QueryClientProvider>
+    </AppErrorBoundary>
   );
 }

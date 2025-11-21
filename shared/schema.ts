@@ -170,3 +170,44 @@ export const insertItemPurchaseSchema = createInsertSchema(itemPurchases).omit({
 
 export type InsertItemPurchase = z.infer<typeof insertItemPurchaseSchema>;
 export type ItemPurchase = typeof itemPurchases.$inferSelect;
+
+// Activity logs table
+export const activityLogs = pgTable("activity_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  familyId: varchar("family_id").notNull().references(() => families.id, { onDelete: 'cascade' }),
+  actorId: varchar("actor_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  targetUserId: varchar("target_user_id").references(() => users.id, { onDelete: 'cascade' }), // Optional: user affected by action
+  itemId: varchar("item_id").references(() => wishlistItems.id, { onDelete: 'cascade' }), // Optional: related wishlist item
+  action: varchar("action", { length: 50 }).notNull(), // item_added, item_purchased, item_deleted, member_joined, etc.
+  metadata: jsonb("metadata"), // Additional data (e.g., item name, price, etc.)
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_activity_logs_family_created").on(table.familyId, table.createdAt),
+]);
+
+export const activityLogsRelations = relations(activityLogs, ({ one }) => ({
+  family: one(families, {
+    fields: [activityLogs.familyId],
+    references: [families.id],
+  }),
+  actor: one(users, {
+    fields: [activityLogs.actorId],
+    references: [users.id],
+  }),
+  targetUser: one(users, {
+    fields: [activityLogs.targetUserId],
+    references: [users.id],
+  }),
+  item: one(wishlistItems, {
+    fields: [activityLogs.itemId],
+    references: [wishlistItems.id],
+  }),
+}));
+
+export const insertActivityLogSchema = createInsertSchema(activityLogs).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertActivityLog = z.infer<typeof insertActivityLogSchema>;
+export type ActivityLog = typeof activityLogs.$inferSelect;
