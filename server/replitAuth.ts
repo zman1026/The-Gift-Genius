@@ -112,10 +112,12 @@ export async function setupAuth(app: Express) {
       if (redirect.startsWith('/') && !redirect.startsWith('//')) {
         res.cookie('auth_redirect', redirect, {
           httpOnly: true,
-          secure: true,
+          secure: req.secure || process.env.NODE_ENV === 'production',
           maxAge: 5 * 60 * 1000,
           sameSite: 'lax'
         });
+      } else {
+        console.warn('[AUTH] Invalid redirect parameter rejected:', redirect);
       }
     }
     
@@ -129,18 +131,33 @@ export async function setupAuth(app: Express) {
     ensureStrategy(req.hostname);
     
     passport.authenticate(`replitauth:${req.hostname}`, async (err: any, user: any) => {
-      if (err || !user) {
+      if (err) {
+        console.error('[AUTH] Callback authentication error:', err);
+        return res.redirect("/api/login");
+      }
+      if (!user) {
+        console.warn('[AUTH] Callback received no user');
         return res.redirect("/api/login");
       }
       
       req.logIn(user, async (loginErr) => {
         if (loginErr) {
+          console.error('[AUTH] Login error after callback:', loginErr);
           return res.redirect("/api/login");
         }
         
-        const returnTo = req.cookies.auth_redirect || "/";
-        res.clearCookie('auth_redirect');
+        let returnTo = "/";
+        const cookieRedirect = req.cookies.auth_redirect;
         
+        if (cookieRedirect && typeof cookieRedirect === 'string') {
+          if (cookieRedirect.startsWith('/') && !cookieRedirect.startsWith('//')) {
+            returnTo = cookieRedirect;
+          } else {
+            console.warn('[AUTH] Invalid redirect from cookie rejected:', cookieRedirect);
+          }
+        }
+        
+        res.clearCookie('auth_redirect');
         res.redirect(returnTo);
       });
     })(req, res, next);
