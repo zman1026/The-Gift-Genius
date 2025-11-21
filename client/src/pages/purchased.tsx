@@ -144,8 +144,8 @@ export default function Purchased() {
     return (
       <div className="p-4 md:p-8 lg:p-12 space-y-6">
         <Skeleton className="h-10 w-64" />
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {[...Array(6)].map((_, i) => (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3">
+          {[...Array(12)].map((_, i) => (
             <Skeleton key={i} className="h-64" />
           ))}
         </div>
@@ -239,7 +239,7 @@ export default function Purchased() {
           </div>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3">
           {purchases.map((purchase) => (
             <Card
               key={purchase.id}
@@ -247,7 +247,7 @@ export default function Purchased() {
               data-testid={`purchased-card-${purchase.id}`}
             >
               {purchase.item.imageUrl && (
-                <div className="aspect-video w-full overflow-hidden bg-muted">
+                <div className="aspect-square w-full overflow-hidden bg-muted">
                   <img
                     src={purchase.item.imageUrl}
                     alt={purchase.item.name}
@@ -256,40 +256,40 @@ export default function Purchased() {
                   />
                 </div>
               )}
-              <CardHeader className="space-y-3">
-                <CardTitle className="flex items-start justify-between gap-2">
+              <CardHeader className="space-y-2 p-3">
+                <CardTitle className="flex items-start justify-between gap-1 text-sm">
                   <span className="line-clamp-2" data-testid={`text-item-name-${purchase.id}`}>
                     {purchase.item.name}
                   </span>
                   {purchase.item.price && (
-                    <Badge variant="secondary" className="shrink-0">
+                    <Badge variant="secondary" className="shrink-0 text-xs h-5">
                       ${parseFloat(purchase.item.price).toFixed(2)}
                     </Badge>
                   )}
                 </CardTitle>
-                <div className="flex items-center gap-2 text-sm">
+                <div className="flex items-center gap-1 text-xs">
                   <span className={getPriorityColor(purchase.item.priority)}>
                     {getPriorityLabel(purchase.item.priority)}
                   </span>
                   {purchase.item.quantity > 1 && (
-                    <Badge variant="outline" className="text-xs">
+                    <Badge variant="outline" className="text-xs h-5">
                       Qty: {purchase.item.quantity}
                     </Badge>
                   )}
                 </div>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-2 p-3 pt-0">
                 {purchase.item.description && (
-                  <p className="text-sm text-muted-foreground line-clamp-2">
+                  <p className="text-xs text-muted-foreground line-clamp-2">
                     {purchase.item.description}
                   </p>
                 )}
 
-                <div className="space-y-3 pt-3 border-t">
-                  <div className="flex items-center gap-2">
-                    <Gift className="w-4 h-4 text-muted-foreground" />
-                    <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <Avatar className="h-6 w-6">
+                <div className="space-y-2 pt-2 border-t">
+                  <div className="flex items-center gap-1.5">
+                    <Gift className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+                    <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                      <Avatar className="h-5 w-5">
                         <AvatarImage
                           src={purchase.owner.profileImageUrl || undefined}
                           alt={purchase.owner.firstName || "User"}
@@ -298,7 +298,7 @@ export default function Purchased() {
                           {getInitials(purchase.owner.firstName, purchase.owner.lastName)}
                         </AvatarFallback>
                       </Avatar>
-                      <span className="text-sm text-muted-foreground truncate">
+                      <span className="text-xs text-muted-foreground truncate">
                         {purchase.owner.firstName || purchase.owner.lastName
                           ? `${purchase.owner.firstName || ""} ${purchase.owner.lastName || ""}`.trim()
                           : purchase.owner.email}
@@ -306,16 +306,16 @@ export default function Purchased() {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
-                    <Calendar className="w-4 h-4 text-muted-foreground" />
-                    <span className="text-sm text-muted-foreground">
-                      {format(new Date(purchase.purchasedAt), "MMM d, yyyy")}
+                  <div className="flex items-center gap-1.5">
+                    <Calendar className="w-3 h-3 text-muted-foreground" />
+                    <span className="text-xs text-muted-foreground">
+                      {format(new Date(purchase.purchasedAt), "MMM d")}
                     </span>
                   </div>
 
                   {purchase.notes && user && purchase.purchaser.id === (user as any).id && (
-                    <div className="bg-muted/50 p-3 rounded-md">
-                      <p className="text-sm text-foreground italic">{purchase.notes}</p>
+                    <div className="bg-muted/50 p-2 rounded-md">
+                      <p className="text-xs text-foreground italic line-clamp-2">{purchase.notes}</p>
                     </div>
                   )}
                 </div>
@@ -324,13 +324,13 @@ export default function Purchased() {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="w-full"
+                    className="w-full text-xs h-7"
                     asChild
                     data-testid={`button-view-product-${purchase.id}`}
                   >
                     <a href={purchase.item.url} target="_blank" rel="noopener noreferrer">
-                      <ExternalLink className="w-4 h-4 mr-2" />
-                      View Product
+                      <ExternalLink className="w-3 h-3 mr-1" />
+                      View
                     </a>
                   </Button>
                 )}

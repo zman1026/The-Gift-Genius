@@ -309,9 +309,9 @@ export default function Wishlist() {
     return (
       <div className="p-6 md:p-8 lg:p-12 space-y-6">
         <Skeleton className="h-10 w-64" />
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
-          {[...Array(4)].map((_, i) => (
-            <Skeleton key={i} className="h-80" />
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3">
+          {[...Array(12)].map((_, i) => (
+            <Skeleton key={i} className="h-64" />
           ))}
         </div>
       </div>
@@ -647,10 +647,10 @@ export default function Wishlist() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3">
           {filteredItems.map((item: any) => (
             <Card key={item.id} className="overflow-hidden hover-elevate" data-testid={`wishlist-item-${item.id}`}>
-              <div className="aspect-[4/3] bg-muted relative overflow-hidden">
+              <div className="aspect-square bg-muted relative overflow-hidden">
                 {item.imageUrl ? (
                   <img
                     src={item.imageUrl}
@@ -659,75 +659,77 @@ export default function Wishlist() {
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center">
-                    <Gift className="w-16 h-16 text-muted-foreground" />
+                    <Gift className="w-12 h-12 text-muted-foreground" />
                   </div>
                 )}
               </div>
-              <CardContent className="p-4 space-y-3">
+              <CardContent className="p-3 space-y-2">
                 <div>
-                  <div className="flex items-start justify-between gap-2 mb-2">
-                    <h3 className="font-semibold text-foreground line-clamp-2 flex-1">{item.name}</h3>
+                  <div className="flex items-start justify-between gap-1 mb-1">
+                    <h3 className="font-semibold text-sm text-foreground line-clamp-2 flex-1">{item.name}</h3>
                     {item.priority && (
                       <Badge 
                         variant={item.priority === "high" ? "destructive" : item.priority === "medium" ? "default" : "secondary"} 
-                        className="shrink-0"
+                        className="shrink-0 text-xs h-5"
                         data-testid={`badge-priority-${item.id}`}
                       >
-                        {item.priority === "high" && <ArrowUp className="w-3 h-3 mr-1" />}
-                        {item.priority === "medium" && <Circle className="w-3 h-3 mr-1" />}
-                        {item.priority === "low" && <AlertCircle className="w-3 h-3 mr-1" />}
-                        {item.priority === "high" ? "Must-Have!" : item.priority === "medium" ? "Would Love" : "Just a Thought"}
+                        {item.priority === "high" && <ArrowUp className="w-2.5 h-2.5 mr-0.5" />}
+                        {item.priority === "medium" && <Circle className="w-2.5 h-2.5 mr-0.5" />}
+                        {item.priority === "low" && <AlertCircle className="w-2.5 h-2.5 mr-0.5" />}
+                        {item.priority === "high" ? "Must" : item.priority === "medium" ? "Love" : "Maybe"}
                       </Badge>
                     )}
                   </div>
                   {item.price && (
-                    <p className="text-lg font-bold text-primary">${parseFloat(item.price).toFixed(2)}</p>
+                    <p className="text-base font-bold text-primary">${parseFloat(item.price).toFixed(2)}</p>
                   )}
-                  <div className="flex flex-wrap gap-2 mt-2">
+                  <div className="flex flex-wrap gap-1 mt-1">
                     {item.category && (
-                      <Badge variant="outline" data-testid={`badge-category-${item.id}`}>
+                      <Badge variant="outline" className="text-xs h-5" data-testid={`badge-category-${item.id}`}>
                         {item.category}
                       </Badge>
                     )}
                     {item.quantity && item.quantity !== 1 && (
-                      <Badge variant="outline" data-testid={`badge-quantity-${item.id}`}>
+                      <Badge variant="outline" className="text-xs h-5" data-testid={`badge-quantity-${item.id}`}>
                         Qty: {item.quantity}
                       </Badge>
                     )}
                   </div>
                   {item.description && (
-                    <p className="text-sm text-muted-foreground line-clamp-3 mt-2">{item.description}</p>
+                    <p className="text-xs text-muted-foreground line-clamp-2 mt-1">{item.description}</p>
                   )}
                 </div>
-                <div className="flex gap-2 pt-2">
+                <div className="flex gap-1.5 pt-1">
                   {item.url && (
                     <Button
                       variant="outline"
                       size="sm"
-                      className="flex-1"
+                      className="flex-1 text-xs h-7"
                       onClick={() => window.open(item.url, '_blank')}
                       data-testid={`button-view-${item.id}`}
                     >
-                      <ExternalLink className="w-4 h-4 mr-1" />
+                      <ExternalLink className="w-3 h-3 mr-1" />
                       View
                     </Button>
                   )}
                   <Button
                     variant="outline"
-                    size="sm"
+                    size="icon"
+                    className="h-7 w-7"
                     onClick={() => handleEdit(item)}
                     data-testid={`button-edit-${item.id}`}
                   >
-                    <Edit className="w-4 h-4" />
+                    <Edit className="w-3 h-3" />
                   </Button>
                   <Button
                     variant="destructive"
-                    size="sm"
+                    size="icon"
+                    className="h-7 w-7"
                     onClick={() => deleteItemMutation.mutate(item.id)}
                     disabled={deleteItemMutation.isPending}
                     data-testid={`button-delete-${item.id}`}
                   >
-                    <Trash2 className="w-4 h-4" />
+                    <Trash2 className="w-3 h-3" />
                   </Button>
                 </div>
               </CardContent>

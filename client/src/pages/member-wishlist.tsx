@@ -164,9 +164,9 @@ export default function MemberWishlist() {
     return (
       <div className="p-4 md:p-8 lg:p-12 space-y-6">
         <Skeleton className="h-10 w-64" />
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {[...Array(4)].map((_, i) => (
-            <Skeleton key={i} className="h-80" />
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3">
+          {[...Array(12)].map((_, i) => (
+            <Skeleton key={i} className="h-64" />
           ))}
         </div>
       </div>
@@ -267,7 +267,7 @@ export default function MemberWishlist() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3">
           {filteredItems.map((item: any) => {
             const isPurchased = !!item.purchase;
             const isPurchasedByMe = item.purchase?.purchasedById === memberData?.userId;
@@ -279,7 +279,7 @@ export default function MemberWishlist() {
                 onClick={() => !isPurchased && setSelectedItemForShopping(item)}
                 data-testid={`wishlist-item-${item.id}`}
               >
-                <div className="aspect-[4/3] bg-muted relative overflow-hidden">
+                <div className="aspect-square bg-muted relative overflow-hidden">
                   {item.imageUrl ? (
                     <img
                       src={item.imageUrl}
@@ -288,74 +288,74 @@ export default function MemberWishlist() {
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">
-                      <Gift className="w-16 h-16 text-muted-foreground" />
+                      <Gift className="w-12 h-12 text-muted-foreground" />
                     </div>
                   )}
                   {isPurchased && (
                     <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                      <Badge variant="secondary" className="text-sm">
-                        <CheckCircle2 className="w-4 h-4 mr-1" />
+                      <Badge variant="secondary" className="text-xs">
+                        <CheckCircle2 className="w-3 h-3 mr-1" />
                         Purchased
                       </Badge>
                     </div>
                   )}
                 </div>
-                <CardContent className="p-4 space-y-3">
+                <CardContent className="p-3 space-y-2">
                   <div>
-                    <div className="flex items-start justify-between gap-2 mb-2">
-                      <h3 className="font-semibold text-foreground line-clamp-2 flex-1">{item.name}</h3>
+                    <div className="flex items-start justify-between gap-1 mb-1">
+                      <h3 className="font-semibold text-sm text-foreground line-clamp-2 flex-1">{item.name}</h3>
                       {item.priority && (
                         <Badge 
                           variant={item.priority === "high" ? "destructive" : item.priority === "medium" ? "default" : "secondary"} 
-                          className="shrink-0"
+                          className="shrink-0 text-xs h-5"
                           data-testid={`badge-priority-${item.id}`}
                         >
-                          {item.priority === "high" && <ArrowUp className="w-3 h-3 mr-1" />}
-                          {item.priority === "medium" && <Circle className="w-3 h-3 mr-1" />}
-                          {item.priority === "low" && <AlertCircle className="w-3 h-3 mr-1" />}
-                          {item.priority === "high" ? "Must-Have!" : item.priority === "medium" ? "Would Love" : "Just a Thought"}
+                          {item.priority === "high" && <ArrowUp className="w-2.5 h-2.5 mr-0.5" />}
+                          {item.priority === "medium" && <Circle className="w-2.5 h-2.5 mr-0.5" />}
+                          {item.priority === "low" && <AlertCircle className="w-2.5 h-2.5 mr-0.5" />}
+                          {item.priority === "high" ? "Must" : item.priority === "medium" ? "Love" : "Maybe"}
                         </Badge>
                       )}
                     </div>
                     {item.price && (
-                      <p className="text-lg font-bold text-primary">${parseFloat(item.price).toFixed(2)}</p>
+                      <p className="text-base font-bold text-primary">${parseFloat(item.price).toFixed(2)}</p>
                     )}
-                    <div className="flex flex-wrap gap-2 mt-2">
+                    <div className="flex flex-wrap gap-1 mt-1">
                       {item.category && (
-                        <Badge variant="outline" data-testid={`badge-category-${item.id}`}>
+                        <Badge variant="outline" className="text-xs h-5" data-testid={`badge-category-${item.id}`}>
                           {item.category}
                         </Badge>
                       )}
                       {item.quantity && item.quantity !== 1 && (
-                        <Badge variant="outline" data-testid={`badge-quantity-${item.id}`}>
+                        <Badge variant="outline" className="text-xs h-5" data-testid={`badge-quantity-${item.id}`}>
                           Qty: {item.quantity}
                         </Badge>
                       )}
                     </div>
                     {item.description && (
-                      <p className="text-sm text-muted-foreground line-clamp-3 mt-2">{item.description}</p>
+                      <p className="text-xs text-muted-foreground line-clamp-2 mt-1">{item.description}</p>
                     )}
                   </div>
                   
                   {isPurchased && item.purchase?.notes && (
                     <div className="bg-muted p-2 rounded-md">
                       <p className="text-xs text-muted-foreground flex items-start gap-1">
-                        <MessageSquare className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                        <MessageSquare className="w-2.5 h-2.5 mt-0.5 flex-shrink-0" />
                         <span className="line-clamp-2">{item.purchase.notes}</span>
                       </p>
                     </div>
                   )}
 
-                  <div className="flex gap-2 pt-2" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex gap-1.5 pt-1" onClick={(e) => e.stopPropagation()}>
                     {item.url && (
                       <Button
                         variant="outline"
                         size="sm"
-                        className="flex-1"
+                        className="flex-1 text-xs h-7"
                         onClick={() => window.open(item.url, '_blank')}
                         data-testid={`button-view-${item.id}`}
                       >
-                        <ExternalLink className="w-4 h-4 mr-1" />
+                        <ExternalLink className="w-3 h-3 mr-1" />
                         View
                       </Button>
                     )}
@@ -366,11 +366,11 @@ export default function MemberWishlist() {
                           <Button
                             variant="default"
                             size="sm"
-                            className={item.url ? "" : "flex-1"}
+                            className={item.url ? "text-xs h-7" : "flex-1 text-xs h-7"}
                             data-testid={`button-mark-purchased-${item.id}`}
                           >
-                            <CheckCircle2 className="w-4 h-4 mr-1" />
-                            Mark Purchased
+                            <CheckCircle2 className="w-3 h-3 mr-1" />
+                            Mark
                           </Button>
                         </DialogTrigger>
                         <DialogContent>
@@ -411,6 +411,7 @@ export default function MemberWishlist() {
                       <Button
                         variant="outline"
                         size="sm"
+                        className="text-xs h-7"
                         onClick={() => unmarkPurchasedMutation.mutate(item.id)}
                         disabled={unmarkPurchasedMutation.isPending}
                         data-testid={`button-unmark-purchased-${item.id}`}
