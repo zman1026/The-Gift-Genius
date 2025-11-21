@@ -1,10 +1,20 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
+interface Family {
+  id: string;
+  name: string;
+  inviteCode: string;
+  createdById: string;
+  budget: string | null;
+  createdAt: Date;
+  memberCount: number;
+}
+
 interface FamilyContextType {
   selectedFamilyId: string | null;
   setSelectedFamilyId: (familyId: string | null) => void;
-  families: any[];
+  families: Family[];
   isLoading: boolean;
 }
 
@@ -15,7 +25,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     return localStorage.getItem('selectedFamilyId');
   });
 
-  const { data: families = [], isLoading } = useQuery<any[]>({
+  const { data: families = [], isLoading } = useQuery<Family[]>({
     queryKey: ['/api/families'],
   });
 

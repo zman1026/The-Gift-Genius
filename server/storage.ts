@@ -119,6 +119,7 @@ export class DatabaseStorage implements IStorage {
         name: families.name,
         inviteCode: families.inviteCode,
         createdById: families.createdById,
+        budget: families.budget,
         createdAt: families.createdAt,
         memberCount: sql<number>`count(distinct ${familyMembers.userId})::int`,
       })
@@ -607,7 +608,13 @@ export class DatabaseStorage implements IStorage {
           AND wi.user_id != ${userId}
           AND ip.id IS NULL
           AND wi.priority = 'high'
-        ) as items_to_purchase_count
+        ) as items_to_purchase_count,
+        (
+          SELECT COALESCE(SUM(price::numeric), 0)::text
+          FROM ${wishlistItems}
+          WHERE family_id = ${familyId}
+          AND price IS NOT NULL
+        ) as total_wishlist_value
     `);
 
     const row = result.rows[0] as any;
@@ -615,6 +622,7 @@ export class DatabaseStorage implements IStorage {
       myItemsCount: row?.my_items_count || 0,
       familyMembersCount: row?.family_members_count || 0,
       itemsToPurchaseCount: row?.items_to_purchase_count || 0,
+      totalWishlistValue: parseFloat(row?.total_wishlist_value || '0'),
     };
   }
 }

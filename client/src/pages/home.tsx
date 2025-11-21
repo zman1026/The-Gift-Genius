@@ -17,8 +17,10 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { ChristmasCountdown } from "@/components/christmas-countdown";
+import { BudgetTracker } from "@/components/budget-tracker";
+import { BudgetDialog } from "@/components/budget-dialog";
 
 const inviteEmailSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
@@ -32,6 +34,7 @@ export default function Home() {
   const { selectedFamilyId, families } = useFamily();
   const [, setLocation] = useLocation();
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
+  const [isBudgetDialogOpen, setIsBudgetDialogOpen] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   
@@ -60,6 +63,29 @@ export default function Home() {
       toast({
         title: "Failed to send invitation",
         description: error.message || "There was a problem sending the invite email.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateBudgetMutation = useMutation({
+    mutationFn: async (budget: number | null) => {
+      if (!selectedFamilyId) throw new Error("No family selected");
+      return apiRequest("PUT", `/api/families/${selectedFamilyId}`, { budget });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Budget updated!",
+        description: "Your family budget has been updated successfully.",
+      });
+      setIsBudgetDialogOpen(false);
+      queryClient.invalidateQueries({ queryKey: ["/api/families"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats", selectedFamilyId] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to update budget",
+        description: error.message || "There was a problem updating the budget.",
         variant: "destructive",
       });
     },
@@ -253,6 +279,15 @@ export default function Home() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Budget Tracker */}
+      {hasFamilies && selectedFamilyId && (
+        <BudgetTracker
+          budget={selectedFamily?.budget ? parseFloat(selectedFamily.budget) : null}
+          totalWishlistValue={stats?.totalWishlistValue || 0}
+          onSetBudget={() => setIsBudgetDialogOpen(true)}
+        />
+      )}
 
       {/* Family Groups */}
       <div>
@@ -455,6 +490,15 @@ export default function Home() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Budget Dialog */}
+      <BudgetDialog
+        open={isBudgetDialogOpen}
+        onOpenChange={setIsBudgetDialogOpen}
+        currentBudget={selectedFamily?.budget ? parseFloat(selectedFamily.budget) : null}
+        onSave={(budget) => updateBudgetMutation.mutate(budget)}
+        isSaving={updateBudgetMutation.isPending}
+      />
     </div>
   );
 }

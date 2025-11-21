@@ -199,10 +199,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const validatedData = updateFamilySchema.parse(req.body);
       
-      // Convert budget to string for database storage
+      // Convert budget to string for database storage (with 2 decimal places)
       const updates: any = { ...validatedData };
       if (validatedData.budget !== undefined) {
-        updates.budget = validatedData.budget !== null ? String(validatedData.budget) : null;
+        updates.budget = validatedData.budget !== null ? validatedData.budget.toFixed(2) : null;
       }
 
       const family = await storage.updateFamily(familyId, updates, userId);
