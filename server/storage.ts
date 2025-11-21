@@ -28,11 +28,14 @@ export interface IStorage {
   createFamily(family: InsertFamily): Promise<Family>;
   getFamilyByInviteCode(inviteCode: string): Promise<Family | undefined>;
   getUserFamilies(userId: string): Promise<any[]>;
+  getFamily(id: string): Promise<Family | undefined>;
+  updateFamily(id: string, updates: Partial<InsertFamily>, requesterId: string): Promise<Family>;
   
   // Family member operations
   addFamilyMember(member: InsertFamilyMember): Promise<FamilyMember>;
   getFamilyMembers(userId: string): Promise<any[]>;
   getFamilyMember(familyId: string, userId: string): Promise<FamilyMember | undefined>;
+  updateFamilyMemberDisplayName(familyId: string, userId: string, displayName: string | null, requesterId: string): Promise<FamilyMember>;
   removeFamilyMember(familyId: string, userIdToRemove: string, requesterId: string): Promise<void>;
   leaveFamily(familyId: string, userId: string): Promise<void>;
   
@@ -127,6 +130,32 @@ export class DatabaseStorage implements IStorage {
     return result;
   }
 
+  async getFamily(id: string): Promise<Family | undefined> {
+    const [family] = await db.select().from(families).where(eq(families.id, id));
+    return family;
+  }
+
+  async updateFamily(id: string, updates: Partial<InsertFamily>, requesterId: string): Promise<Family> {
+    // Get family to check if requester is the organizer
+    const [family] = await db.select().from(families).where(eq(families.id, id));
+    
+    if (!family) {
+      throw new Error("Family not found");
+    }
+    
+    if (family.createdById !== requesterId) {
+      throw new Error("Only the family organizer can update the family");
+    }
+    
+    const [updatedFamily] = await db
+      .update(families)
+      .set(updates)
+      .where(eq(families.id, id))
+      .returning();
+    
+    return updatedFamily;
+  }
+
   // Family member operations
   async addFamilyMember(memberData: InsertFamilyMember): Promise<FamilyMember> {
     const [member] = await db.insert(familyMembers).values(memberData).returning();
@@ -199,6 +228,31 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(familyMembers)
       .where(and(eq(familyMembers.familyId, familyId), eq(familyMembers.userId, userId)));
+    return member;
+  }
+
+  async updateFamilyMemberDisplayName(familyId: string, userId: string, displayName: string | null, requesterId: string): Promise<FamilyMember> {
+    // Check if requester is the family organizer
+    const [family] = await db.select().from(families).where(eq(families.id, familyId));
+    
+    if (!family) {
+      throw new Error("Family not found");
+    }
+    
+    if (family.createdById !== requesterId) {
+      throw new Error("Only the family organizer can update member display names");
+    }
+    
+    const [member] = await db
+      .update(familyMembers)
+      .set({ displayName })
+      .where(and(eq(familyMembers.familyId, familyId), eq(familyMembers.userId, userId)))
+      .returning();
+    
+    if (!member) {
+      throw new Error("Family member not found");
+    }
+    
     return member;
   }
 

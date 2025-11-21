@@ -73,6 +73,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Organizer can update any member's profile (global name change)
+  app.put('/api/families/:familyId/members/:userId/profile', isAuthenticated, async (req: any, res) => {
+    try {
+      const requesterId = req.user.claims.sub;
+      const { familyId, userId } = req.params;
+
+      // Verify requester is the family organizer
+      const family = await storage.getFamily(familyId);
+      if (!family) {
+        return res.status(404).json({ message: "Family not found" });
+      }
+      if (family.createdById !== requesterId) {
+        return res.status(403).json({ message: "Only the family organizer can update member profiles" });
+      }
+
+      // Validate input
+      const updateUserSchema = z.object({
+        firstName: z.string().trim().min(1, "First name cannot be empty").optional(),
+        lastName: z.string().trim().min(1, "Last name cannot be empty").optional(),
+      });
+
+      const validatedData = updateUserSchema.parse(req.body);
+
+      // Only include defined fields in the update
+      const updates: any = {};
+      if (validatedData.firstName !== undefined) updates.firstName = validatedData.firstName;
+      if (validatedData.lastName !== undefined) updates.lastName = validatedData.lastName;
+
+      if (Object.keys(updates).length === 0) {
+        const user = await storage.getUser(userId);
+        return res.json(user);
+      }
+
+      const user = await storage.updateUser(userId, updates);
+      res.json(user);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid input data", errors: error.errors });
+      }
+      console.error("Error updating member profile:", error);
+      res.status(500).json({ message: "Failed to update member profile" });
+    }
+  });
+
   // Family routes
   app.post('/api/families', isAuthenticated, async (req: any, res) => {
     try {
@@ -139,6 +183,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching families:", error);
       res.status(500).json({ message: "Failed to fetch families" });
+    }
+  });
+
+  app.put('/api/families/:familyId', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { familyId } = req.params;
+
+      const updateFamilySchema = z.object({
+        name: z.string().trim().min(1, "Family name cannot be empty"),
+      });
+
+      const validatedData = updateFamilySchema.parse(req.body);
+
+      const family = await storage.updateFamily(familyId, validatedData, userId);
+      res.json(family);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid input data", errors: error.errors });
+      }
+      if (error instanceof Error && error.message.includes("Only the family organizer")) {
+        return res.status(403).json({ message: error.message });
+      }
+      if (error instanceof Error && error.message === "Family not found") {
+        return res.status(404).json({ message: error.message });
+      }
+      console.error("Error updating family:", error);
+      res.status(500).json({ message: "Failed to update family" });
     }
   });
 
@@ -218,6 +290,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Remove member from family (organizer only)
+  app.put('/api/families/:familyId/members/:userId', isAuthenticated, async (req: any, res) => {
+    try {
+      const requesterId = req.user.claims.sub;
+      const { familyId, userId } = req.params;
+
+      const updateMemberSchema = z.object({
+        displayName: z.string().trim().nullable().optional(),
+      });
+
+      const validatedData = updateMemberSchema.parse(req.body);
+
+      const member = await storage.updateFamilyMemberDisplayName(
+        familyId,
+        userId,
+        validatedData.displayName ?? null,
+        requesterId
+      );
+      res.json(member);
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid input data", errors: error.errors });
+      }
+      if (error.message.includes("Only the family organizer")) {
+        return res.status(403).json({ message: error.message });
+      }
+      if (error.message === "Family not found" || error.message === "Family member not found") {
+        return res.status(404).json({ message: error.message });
+      }
+      console.error("Error updating member display name:", error);
+      res.status(500).json({ message: "Failed to update member display name" });
+    }
+  });
+
   app.delete('/api/families/:familyId/members/:userId', isAuthenticated, async (req: any, res) => {
     try {
       const requesterId = req.user.claims.sub;

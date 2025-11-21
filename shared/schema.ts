@@ -75,6 +75,7 @@ export const familyMembers = pgTable("family_members", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   familyId: varchar("family_id").notNull().references(() => families.id, { onDelete: 'cascade' }),
   userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  displayName: varchar("display_name", { length: 100 }), // Family-specific nickname
   joinedAt: timestamp("joined_at").defaultNow(),
 });
 
