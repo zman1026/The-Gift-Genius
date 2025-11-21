@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Gift, Users } from "lucide-react";
 
 const joinFamilySchema = z.object({
   inviteCode: z.string().min(1, "Invite code is required"),
@@ -33,34 +33,32 @@ export default function JoinFamily() {
   });
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const codeFromUrl = params.get('code');
-    
-    if (codeFromUrl) {
-      form.setValue('inviteCode', codeFromUrl);
-    }
-  }, [form]);
-
-  useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
+    if (isAuthenticated) {
       const params = new URLSearchParams(window.location.search);
-      const code = params.get('code');
+      const codeFromUrl = params.get('code');
       
-      const redirectUrl = code 
-        ? `/api/login?redirect=${encodeURIComponent(`/families/join?code=${code}`)}`
-        : "/api/login";
-      
-      toast({
-        title: "Login Required",
-        description: "Please log in to join the family group",
-        variant: "destructive",
-      });
-      setTimeout(() => {
-        window.location.href = redirectUrl;
-      }, 1000);
-      return;
+      if (codeFromUrl) {
+        form.setValue('inviteCode', codeFromUrl);
+      }
     }
-  }, [isAuthenticated, authLoading, toast]);
+  }, [form, isAuthenticated]);
+
+  const getLoginUrl = () => {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('code');
+    
+    return code 
+      ? `/api/login?redirect=${encodeURIComponent(`/families/join?code=${code}`)}`
+      : "/api/login";
+  };
+
+  const handleCreateAccount = () => {
+    window.location.href = getLoginUrl();
+  };
+
+  const handleLogin = () => {
+    window.location.href = getLoginUrl();
+  };
 
   const joinFamilyMutation = useMutation({
     mutationFn: async (data: JoinFamilyFormData) => {
@@ -98,6 +96,65 @@ export default function JoinFamily() {
   const onSubmit = (data: JoinFamilyFormData) => {
     joinFamilyMutation.mutate(data);
   };
+
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-muted-foreground">Loading...</div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-primary/5 via-background to-accent/5">
+        <div className="max-w-lg w-full">
+          <Card className="border-2">
+            <CardHeader className="text-center space-y-4">
+              <div className="mx-auto w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center">
+                <Gift className="w-8 h-8 text-primary" />
+              </div>
+              <CardTitle className="font-serif text-3xl">You're Invited!</CardTitle>
+              <CardDescription className="text-base">
+                A family member has invited you to join their Christmas wishlist group. 
+                Create an account or log in to start sharing your holiday wishes!
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="bg-muted/50 rounded-lg p-4 flex items-start gap-3">
+                <Users className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
+                <div className="space-y-1">
+                  <p className="font-medium text-sm">Join your family group</p>
+                  <p className="text-sm text-muted-foreground">
+                    View wishlists, add your own items, and coordinate gift-giving together
+                  </p>
+                </div>
+              </div>
+
+              <Button
+                onClick={handleCreateAccount}
+                className="w-full"
+                size="lg"
+                data-testid="button-create-account"
+              >
+                Create Account
+              </Button>
+
+              <div className="text-center">
+                <button
+                  onClick={handleLogin}
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors underline"
+                  data-testid="button-login-link"
+                >
+                  Already have an account? Login here
+                </button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 md:p-8 lg:p-12">
