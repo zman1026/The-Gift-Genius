@@ -502,6 +502,74 @@ export default function BudgetPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* My Planned Purchases */}
+      <Card>
+        <CardHeader>
+          <CardTitle>My Planned Purchases</CardTitle>
+          <CardDescription>Items you've marked as intend to buy</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {purchasesAndIntents && purchasesAndIntents.filter((p: any) => p.status === 'intended').length > 0 ? (
+            <div className="space-y-4">
+              {purchasesAndIntents
+                .filter((p: any) => p.status === 'intended')
+                .map((intent: any) => {
+                  const targetMember = (familyMembers as any)?.find((m: any) => m.userId === intent.item?.userId);
+                  const memberBudget = memberBudgets.find((b: any) => b.targetMemberId === targetMember?.id);
+                  
+                  return (
+                    <div
+                      key={intent.id}
+                      className="flex items-center justify-between p-4 rounded-lg border hover-elevate"
+                      data-testid={`planned-item-${intent.id}`}
+                    >
+                      <div className="flex items-center gap-4 flex-1 min-w-0">
+                        {intent.item?.imageUrl && (
+                          <div className="w-16 h-16 rounded-md overflow-hidden flex-shrink-0 bg-muted">
+                            <img
+                              src={intent.item.imageUrl}
+                              alt={intent.item.name}
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium truncate">{intent.item?.name || "Unknown Item"}</p>
+                          <p className="text-sm text-muted-foreground">
+                            For: {targetMember?.displayName || targetMember?.firstName || targetMember?.email || "Unknown"}
+                          </p>
+                          {intent.item?.price && (
+                            <p className="text-sm font-semibold text-primary mt-1">
+                              ${parseFloat(intent.item.price).toFixed(2)}
+                            </p>
+                          )}
+                          {memberBudget && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Budget: ${memberBudget.amount.toFixed(2)} (${memberBudget.allocated.toFixed(2)} allocated)
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="text-yellow-600 border-yellow-600">
+                          <Clock className="w-3 h-3 mr-1" />
+                          Planned
+                        </Badge>
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">
+              <Clock className="w-12 h-12 mx-auto mb-3 opacity-50" />
+              <p>No planned purchases yet.</p>
+              <p className="text-sm mt-1">Visit family members' wishlists and click "Intend to Buy" to reserve items.</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
