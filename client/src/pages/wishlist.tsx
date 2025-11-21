@@ -681,18 +681,11 @@ export default function Wishlist() {
                   {item.price && (
                     <p className="text-base font-bold text-primary">${parseFloat(item.price).toFixed(2)}</p>
                   )}
-                  <div className="flex flex-wrap gap-1 mt-1">
-                    {item.category && (
-                      <Badge variant="outline" className="text-xs h-5" data-testid={`badge-category-${item.id}`}>
-                        {item.category}
-                      </Badge>
-                    )}
-                    {item.quantity && item.quantity !== 1 && (
-                      <Badge variant="outline" className="text-xs h-5" data-testid={`badge-quantity-${item.id}`}>
-                        Qty: {item.quantity}
-                      </Badge>
-                    )}
-                  </div>
+                  {item.quantity && item.quantity !== 1 && (
+                    <Badge variant="outline" className="text-xs h-5 mt-1" data-testid={`badge-quantity-${item.id}`}>
+                      Qty: {item.quantity}
+                    </Badge>
+                  )}
                   {item.description && (
                     <p className="text-xs text-muted-foreground line-clamp-2 mt-1">{item.description}</p>
                   )}
