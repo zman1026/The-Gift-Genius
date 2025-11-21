@@ -29,20 +29,23 @@ The backend uses **Express.js** with **TypeScript**, **Drizzle ORM** for databas
     - **Invite System:** Users can invite family members via email or shareable codes. First-time users see a welcoming screen with "Create Account" and "Already have an account? Login" options. Cookie-based redirect preservation ensures invite codes persist through the OIDC authentication flow.
     - **Organizer Controls:** Family organizers can rename the family, set member-specific display names, update member profiles, and remove members.
 - **Purchased Items:** A dedicated, privacy-focused section where users can view only their own marked purchases, including private notes. Purchases are secured with multi-layered backend and frontend checks.
+- **Activity Feed:** Real-time activity tracking shows recent family actions including items added/deleted, purchases made, and members joined. The feed appears on the dashboard with user avatars, action icons, and relative timestamps.
+- **Error Handling:** App-level error boundary catches and logs frontend errors with multiple recovery options (Try Again, Reload, Sign Out). All errors are logged to an authenticated endpoint with payload limits to prevent abuse.
 
 ### System Design Choices
 - **Frontend State:** React Query manages server state, while custom hooks encapsulate reusable logic.
 - **Backend API:** RESTful design with `/api/*` prefix, structured error handling, and robust input validation.
 - **Authentication:** Replit Auth provides secure OIDC authentication with session storage in PostgreSQL.
 - **Data Access:** Drizzle ORM ensures type-safe database operations with a clear separation of concerns.
-- **Database Schema:** Core tables include `users`, `families`, `family_members`, `wishlist_items`, `item_purchases`, and `sessions`, with well-defined relationships and UUID primary keys.
-- **Security:** Open redirect prevention for invite links, and robust authorization checks for organizer actions. Cookie-based redirect preservation with multi-layer validation: (1) redirect parameters validated on `/api/login` before cookie storage, (2) cookie values revalidated on `/api/callback` before redirect, (3) conditional secure cookies work in both development (HTTP) and production (HTTPS) environments.
+- **Database Schema:** Core tables include `users`, `families`, `family_members`, `wishlist_items`, `item_purchases`, `activity_logs`, and `sessions`, with well-defined relationships and UUID primary keys. Activity logs track user actions with JSONB metadata for flexible audit trails.
+- **Security:** Open redirect prevention for invite links, and robust authorization checks for organizer actions. Cookie-based redirect preservation with multi-layer validation: (1) redirect parameters validated on `/api/login` before cookie storage, (2) cookie values revalidated on `/api/callback` before redirect, (3) conditional secure cookies work in both development (HTTP) and production (HTTPS) environments. Error logging endpoint requires authentication with payload length limits (1000 chars for messages, 5000 for stack traces) to prevent spam and log injection attacks.
 - **Performance Optimizations:**
     - **Server-Side Caching:** SerpApi product search uses memoizee with 10-minute TTL, background refresh (preFetch), and normalized cache keys for faster repeat searches.
     - **Optimized Search:** Reduced SerpApi results from 20 to 10 items with streamlined payload fields and 10-second request timeout.
-    - **Database Indexes:** Dual covering indexes on `family_members(user_id, family_id)` and `family_members(family_id, user_id)` for efficient lookups. Covering index on `wishlist_items(family_id, user_id, priority)` for fast filtered queries.
+    - **Database Indexes:** Dual covering indexes on `family_members(user_id, family_id)` and `family_members(family_id, user_id)` for efficient lookups. Covering index on `wishlist_items(family_id, user_id, priority)` for fast filtered queries. Index on `activity_logs(family_id, created_at)` for efficient activity feed queries.
     - **Batched Queries:** Dashboard stats use single SQL queries with LEFT JOINs and subqueries instead of multiple round-trips.
     - **Smart Cache Invalidation:** React Query staleTime set to 3 minutes, balancing data freshness with reduced server load.
+    - **Validated Responses:** Activity feed uses Zod schema validation for API responses to prevent crashes from malformed data, with graceful error handling and retry logic.
 
 ## External Dependencies
 
