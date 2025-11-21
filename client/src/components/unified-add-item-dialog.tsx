@@ -71,8 +71,30 @@ export function UnifiedAddItemDialog({
   const [searchQuery, setSearchQuery] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [uploadedImageUrl, setUploadedImageUrl] = useState("");
+  const [showExperienceSuggestion, setShowExperienceSuggestion] = useState(false);
+  const [detectedType, setDetectedType] = useState<"experience" | "service" | "membership" | null>(null);
+  const [suggestionDismissed, setSuggestionDismissed] = useState(false);
+  const [lastDismissedQuery, setLastDismissedQuery] = useState("");
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const { toast } = useToast();
+
+  // Keywords for detecting non-product queries
+  const experienceKeywords = [
+    "trip", "vacation", "travel", "visit", "tour", "adventure", "cruise", "holiday",
+    "concert", "show", "event", "festival", "theater", "movie", "disney", "zoo",
+    "aquarium", "museum", "park", "theme park", "water park", "camping", "hiking"
+  ];
+  
+  const serviceKeywords = [
+    "lessons", "class", "classes", "training", "course", "tutoring", "coaching",
+    "massage", "spa", "salon", "haircut", "manicure", "pedicure", "facial",
+    "cleaning", "lawn", "repair", "installation", "consultation", "therapy"
+  ];
+  
+  const membershipKeywords = [
+    "membership", "subscription", "gym", "fitness", "club", "pass", "season ticket",
+    "annual pass", "monthly pass", "access", "premium", "pro account"
+  ];
 
   const form = useForm<CustomItemFormData>({
     resolver: zodResolver(customItemSchema),
@@ -128,6 +150,58 @@ export function UnifiedAddItemDialog({
       setSearchTerm(searchQuery.trim());
     }
   };
+
+  // Detect non-product queries and show suggestion
+  useEffect(() => {
+    const query = searchQuery.toLowerCase().trim();
+    
+    if (!query) {
+      setShowExperienceSuggestion(false);
+      setDetectedType(null);
+      setSuggestionDismissed(false);
+      setLastDismissedQuery("");
+      return;
+    }
+
+    // If query changed from last dismissed query, reset dismissed state
+    if (suggestionDismissed && query !== lastDismissedQuery) {
+      setSuggestionDismissed(false);
+      setLastDismissedQuery("");
+    }
+
+    // Don't show suggestion if user already dismissed it for this query
+    if (suggestionDismissed && query === lastDismissedQuery) {
+      return;
+    }
+
+    // Helper function to check for word boundary matches
+    const hasKeywordMatch = (keywords: string[]) => {
+      return keywords.some(keyword => {
+        // Create regex with word boundaries to avoid false positives
+        const regex = new RegExp(`\\b${keyword}\\b`, 'i');
+        return regex.test(query);
+      });
+    };
+
+    // Check for keyword matches with word boundaries
+    const hasExperienceKeyword = hasKeywordMatch(experienceKeywords);
+    const hasServiceKeyword = hasKeywordMatch(serviceKeywords);
+    const hasMembershipKeyword = hasKeywordMatch(membershipKeywords);
+
+    if (hasExperienceKeyword) {
+      setShowExperienceSuggestion(true);
+      setDetectedType("experience");
+    } else if (hasServiceKeyword) {
+      setShowExperienceSuggestion(true);
+      setDetectedType("service");
+    } else if (hasMembershipKeyword) {
+      setShowExperienceSuggestion(true);
+      setDetectedType("membership");
+    } else {
+      setShowExperienceSuggestion(false);
+      setDetectedType(null);
+    }
+  }, [searchQuery, suggestionDismissed, lastDismissedQuery]);
 
   // Auto-search when URL is pasted
   useEffect(() => {
@@ -258,9 +332,35 @@ export function UnifiedAddItemDialog({
     setSearchQuery("");
     setSearchTerm(""); // This will disable the query and clear results
     setUploadedImageUrl("");
+    setShowExperienceSuggestion(false);
+    setDetectedType(null);
+    setSuggestionDismissed(false);
+    setLastDismissedQuery("");
     form.reset();
     setActiveTab("quick");
     onOpenChange(false);
+  };
+
+  const handleDismissSuggestion = () => {
+    setSuggestionDismissed(true);
+    setLastDismissedQuery(searchQuery.toLowerCase().trim());
+    setShowExperienceSuggestion(false);
+  };
+
+  const handleSwitchToCustomItem = () => {
+    // Pre-fill the form with the search query
+    form.setValue("name", searchQuery);
+    
+    // Set the detected item type
+    if (detectedType) {
+      form.setValue("itemType", detectedType);
+    }
+    
+    // Switch to custom tab
+    setActiveTab("custom");
+    
+    // Clear the suggestion
+    setShowExperienceSuggestion(false);
   };
 
   const onSubmitCustom = (data: CustomItemFormData) => {
@@ -322,6 +422,51 @@ export function UnifiedAddItemDialog({
                 )}
               </Button>
             </form>
+
+            {/* Smart Suggestion Card */}
+            {showExperienceSuggestion && !searchTerm && (
+              <Card className="border-primary/20 bg-primary/5" data-testid="experience-suggestion-card">
+                <CardContent className="p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                      {detectedType === "experience" && <Sparkles className="w-5 h-5 text-primary" />}
+                      {detectedType === "service" && <Users className="w-5 h-5 text-primary" />}
+                      {detectedType === "membership" && <Ticket className="w-5 h-5 text-primary" />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-semibold text-sm mb-1">
+                        {detectedType === "experience" && "This looks like an experience!"}
+                        {detectedType === "service" && "This looks like a service!"}
+                        {detectedType === "membership" && "This looks like a membership!"}
+                      </h4>
+                      <p className="text-sm text-muted-foreground mb-3">
+                        {detectedType === "experience" && "Experiences like trips, concerts, or events work best as custom items."}
+                        {detectedType === "service" && "Services like lessons, classes, or appointments work best as custom items."}
+                        {detectedType === "membership" && "Memberships and subscriptions work best as custom items."}
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        <Button 
+                          size="sm" 
+                          onClick={handleSwitchToCustomItem}
+                          data-testid="button-switch-to-custom"
+                        >
+                          <Plus className="w-4 h-4 mr-1" />
+                          Create Custom Item
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="ghost"
+                          onClick={handleDismissSuggestion}
+                          data-testid="button-dismiss-suggestion"
+                        >
+                          Search Anyway
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {searchResults && searchResults.length > 0 && (
               <div className="space-y-3">
