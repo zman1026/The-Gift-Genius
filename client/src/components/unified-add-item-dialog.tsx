@@ -1,0 +1,669 @@
+import { useState, useEffect, useRef } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Loader2, Search, Plus, ExternalLink, Gift, Sparkles, Users, Ticket, Upload } from "lucide-react";
+import { ObjectUploader } from "@/components/ObjectUploader";
+import type { UploadResult } from "@uppy/core";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
+
+// Form schema for custom items
+const customItemSchema = z.object({
+  name: z.string().min(1, "Item name is required").max(255),
+  description: z.string().optional(),
+  price: z.string().optional(),
+  url: z.union([z.string().url("Must be a valid URL"), z.literal("")]).optional(),
+  // Allow both absolute URLs and relative paths for object storage
+  imageUrl: z.union([z.string().min(1), z.literal("")]).optional(),
+  priority: z.enum(["high", "medium", "low"]).optional(),
+  quantity: z.coerce.number().int().positive().optional(),
+  category: z.string().optional(),
+  itemType: z.enum(["product", "experience", "service", "membership", "other"]).optional(),
+});
+
+type CustomItemFormData = z.infer<typeof customItemSchema>;
+
+interface UnifiedAddItemDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  familyId: string;
+  onSuccess: () => void;
+}
+
+export function UnifiedAddItemDialog({
+  open,
+  onOpenChange,
+  familyId,
+  onSuccess,
+}: UnifiedAddItemDialogProps) {
+  const [activeTab, setActiveTab] = useState("quick");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [uploadedImageUrl, setUploadedImageUrl] = useState("");
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const { toast } = useToast();
+
+  const form = useForm<CustomItemFormData>({
+    resolver: zodResolver(customItemSchema),
+    defaultValues: {
+      name: "",
+      description: "",
+      price: "",
+      url: "",
+      imageUrl: "",
+      priority: "medium",
+      quantity: 1,
+      category: undefined,
+      itemType: "product",
+    },
+  });
+
+  // Search query for Quick Add
+  const { data: searchResults, isLoading: isSearching, isFetching, error: searchError } = useQuery({
+    queryKey: ["/api/search", searchTerm],
+    queryFn: async () => {
+      const response = await fetch(`/api/search?q=${encodeURIComponent(searchTerm)}`, {
+        credentials: "include",
+      });
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ message: "Failed to search products" }));
+        throw new Error(error.message || "Failed to search products");
+      }
+      return response.json();
+    },
+    enabled: searchTerm.length > 0,
+    retry: 1,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Show error toast if search fails
+  useEffect(() => {
+    if (searchError) {
+      toast({
+        title: "Search Failed",
+        description: (searchError as Error).message || "Unable to search products. Please try again.",
+        variant: "destructive",
+      });
+    }
+  }, [searchError, toast]);
+
+  // Handle search with debouncing
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+      setSearchTerm(searchQuery.trim());
+    }
+  };
+
+  // Auto-search when URL is pasted
+  useEffect(() => {
+    if (searchQuery.trim() && searchQuery.includes("http")) {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+      debounceTimerRef.current = setTimeout(() => {
+        setSearchTerm(searchQuery.trim());
+      }, 500);
+    }
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
+  }, [searchQuery]);
+
+  // Add product from search results
+  const addFromSearchMutation = useMutation({
+    mutationFn: async (product: any) => {
+      const payload = {
+        name: product.title,
+        description: product.snippet || "",
+        // Backend expects price as string or null, not number
+        price: product.extracted_price !== undefined && product.extracted_price !== null ? String(product.extracted_price) : null,
+        url: product.link || "",
+        imageUrl: product.thumbnail || "",
+        productId: product.product_id || null,
+        source: "google_shopping",
+        priority: "medium",
+        quantity: 1,
+        category: null,
+        itemType: "product",
+        familyId,
+      };
+
+      const response = await fetch("/api/wishlist/from-search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "Failed to add item");
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      onSuccess();
+      handleClose();
+    },
+  });
+
+  // Add custom item
+  const addCustomItemMutation = useMutation({
+    mutationFn: async (data: CustomItemFormData) => {
+      const payload = {
+        ...data,
+        // Backend expects price as a string or null, not a number
+        price: data.price || null,
+        familyId,
+      };
+
+      const response = await fetch("/api/wishlist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "Failed to add item");
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      onSuccess();
+      handleClose();
+    },
+  });
+
+  const handleGetUploadParameters = async () => {
+    const res = await apiRequest("POST", "/api/objects/upload", {});
+    const data = await res.json();
+    return {
+      method: "PUT" as const,
+      url: data.uploadURL,
+    };
+  };
+
+  const handleUploadComplete = async (result: UploadResult<Record<string, unknown>, Record<string, unknown>>) => {
+    if (result.successful && result.successful.length > 0) {
+      const uploadedFileUrl = result.successful[0].uploadURL;
+      
+      try {
+        // Set ACL policy for the uploaded image
+        const res = await apiRequest("PUT", "/api/wishlist-images", {
+          imageUrl: uploadedFileUrl,
+        });
+        const data = await res.json();
+        
+        // Update form with the normalized object path
+        setUploadedImageUrl(data.objectPath);
+        form.setValue("imageUrl", data.objectPath);
+        
+        toast({
+          title: "Success",
+          description: "Image uploaded successfully!",
+        });
+      } catch (error: any) {
+        toast({
+          title: "Error",
+          description: error.message || "Failed to set image permissions",
+          variant: "destructive",
+        });
+      }
+    }
+  };
+
+  const handleClose = () => {
+    // Reset all dialog state
+    setSearchQuery("");
+    setSearchTerm(""); // This will disable the query and clear results
+    setUploadedImageUrl("");
+    form.reset();
+    setActiveTab("quick");
+    onOpenChange(false);
+  };
+
+  const onSubmitCustom = (data: CustomItemFormData) => {
+    addCustomItemMutation.mutate(data);
+  };
+
+  const getItemTypeIcon = (type: string) => {
+    switch (type) {
+      case "product":
+        return <Gift className="w-4 h-4" />;
+      case "experience":
+        return <Sparkles className="w-4 h-4" />;
+      case "service":
+        return <Users className="w-4 h-4" />;
+      case "membership":
+        return <Ticket className="w-4 h-4" />;
+      default:
+        return <Plus className="w-4 h-4" />;
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Add to Wishlist</DialogTitle>
+          <DialogDescription>
+            Search for a product or create a custom item
+          </DialogDescription>
+        </DialogHeader>
+
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="quick" data-testid="tab-quick-add">
+              <Search className="w-4 h-4 mr-2" />
+              Quick Add
+            </TabsTrigger>
+            <TabsTrigger value="custom" data-testid="tab-custom-item">
+              <Plus className="w-4 h-4 mr-2" />
+              Custom Item
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Quick Add Tab */}
+          <TabsContent value="quick" className="space-y-4 mt-4">
+            <form onSubmit={handleSearch} className="flex gap-2">
+              <Input
+                placeholder="Paste a URL or search for anything..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                data-testid="input-quick-search"
+                className="flex-1"
+              />
+              <Button type="submit" disabled={isSearching || isFetching} data-testid="button-search">
+                {isSearching || isFetching ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Search className="w-4 h-4" />
+                )}
+              </Button>
+            </form>
+
+            {searchResults && searchResults.length > 0 && (
+              <div className="space-y-3">
+                <p className="text-sm text-muted-foreground">
+                  Found {searchResults.length} result{searchResults.length !== 1 ? "s" : ""}
+                </p>
+                <div className="grid grid-cols-1 gap-3 max-h-96 overflow-y-auto">
+                  {searchResults.map((result: any, index: number) => (
+                    <Card key={index} className="hover-elevate" data-testid={`search-result-${index}`}>
+                      <CardContent className="p-4">
+                        <div className="flex gap-4">
+                          {result.thumbnail && (
+                            <img
+                              src={result.thumbnail}
+                              alt={result.title}
+                              className="w-20 h-20 object-cover rounded-md"
+                            />
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-medium line-clamp-2 mb-1">{result.title}</h4>
+                            {result.snippet && (
+                              <p className="text-sm text-muted-foreground line-clamp-2 mb-2">
+                                {result.snippet}
+                              </p>
+                            )}
+                            <div className="flex items-center gap-2 flex-wrap">
+                              {result.extracted_price !== null && result.extracted_price !== undefined && (
+                                <Badge variant="secondary">
+                                  ${result.extracted_price.toFixed(2)}
+                                </Badge>
+                              )}
+                              {result.source && (
+                                <span className="text-xs text-muted-foreground">
+                                  {result.source}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex flex-col gap-2">
+                            <Button
+                              size="sm"
+                              onClick={() => addFromSearchMutation.mutate(result)}
+                              disabled={addFromSearchMutation.isPending}
+                              data-testid={`button-add-result-${index}`}
+                            >
+                              {addFromSearchMutation.isPending ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <>
+                                  <Plus className="w-4 h-4 mr-1" />
+                                  Add
+                                </>
+                              )}
+                            </Button>
+                            {result.link && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => window.open(result.link, "_blank")}
+                                data-testid={`button-view-result-${index}`}
+                              >
+                                <ExternalLink className="w-4 h-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {searchError && searchTerm && (
+              <div className="text-center py-8" data-testid="search-error-state">
+                <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center mx-auto mb-3">
+                  <Search className="w-8 h-8 text-destructive" />
+                </div>
+                <p className="text-destructive font-medium mb-1">Search Error</p>
+                <p className="text-sm text-muted-foreground max-w-sm mx-auto">
+                  {(searchError as Error).message}
+                </p>
+                <p className="text-sm text-muted-foreground mt-2">
+                  Try again or use the "Custom Item" tab
+                </p>
+              </div>
+            )}
+
+            {!searchError && searchTerm && searchResults && searchResults.length === 0 && (
+              <div className="text-center py-8 text-muted-foreground" data-testid="search-empty-state">
+                <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-3">
+                  <Search className="w-8 h-8 text-muted-foreground" />
+                </div>
+                <p className="font-medium mb-1">No Results Found</p>
+                <p className="text-sm">Try the "Custom Item" tab to add manually</p>
+              </div>
+            )}
+
+            {!searchTerm && !searchError && (
+              <div className="text-center py-8 text-muted-foreground" data-testid="search-initial-state">
+                <Search className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                <p>Paste a product URL or search for anything</p>
+              </div>
+            )}
+          </TabsContent>
+
+          {/* Custom Item Tab */}
+          <TabsContent value="custom" className="mt-4">
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmitCustom)} className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="itemType"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Item Type</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-item-type">
+                            <SelectValue placeholder="Select type" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="product" data-testid="option-product">
+                            <div className="flex items-center gap-2">
+                              <Gift className="w-4 h-4" />
+                              Product
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="experience" data-testid="option-experience">
+                            <div className="flex items-center gap-2">
+                              <Sparkles className="w-4 h-4" />
+                              Experience
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="service" data-testid="option-service">
+                            <div className="flex items-center gap-2">
+                              <Users className="w-4 h-4" />
+                              Service
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="membership" data-testid="option-membership">
+                            <div className="flex items-center gap-2">
+                              <Ticket className="w-4 h-4" />
+                              Membership
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="other" data-testid="option-other">
+                            <div className="flex items-center gap-2">
+                              <Plus className="w-4 h-4" />
+                              Other
+                            </div>
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Name *</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="e.g., Trip to the Zoo, Music Lessons, Wireless Headphones"
+                          {...field}
+                          data-testid="input-item-name"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Description</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Tell your family more about this..."
+                          className="resize-none h-24"
+                          {...field}
+                          data-testid="input-item-description"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="price"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Price</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            placeholder="29.99"
+                            {...field}
+                            data-testid="input-item-price"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="quantity"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Quantity</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            min="1"
+                            {...field}
+                            data-testid="input-item-quantity"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <FormField
+                  control={form.control}
+                  name="url"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>URL (Optional)</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="url"
+                          placeholder="https://example.com/product"
+                          {...field}
+                          data-testid="input-item-url"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="priority"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Priority</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-priority">
+                            <SelectValue placeholder="Select priority" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="high" data-testid="option-high">Must-Have</SelectItem>
+                          <SelectItem value="medium" data-testid="option-medium">Would Love</SelectItem>
+                          <SelectItem value="low" data-testid="option-low">Just a Thought</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <div className="space-y-2">
+                  <Label>Image (Optional)</Label>
+                  <div className="flex items-center gap-4">
+                    <ObjectUploader
+                      maxNumberOfFiles={1}
+                      maxFileSize={10485760}
+                      onGetUploadParameters={handleGetUploadParameters}
+                      onComplete={handleUploadComplete}
+                      buttonVariant="outline"
+                    >
+                      <Upload className="w-4 h-4 mr-2" />
+                      Upload Image
+                    </ObjectUploader>
+                    {uploadedImageUrl && (
+                      <span className="text-sm text-muted-foreground">Image uploaded</span>
+                    )}
+                  </div>
+                  {uploadedImageUrl && (
+                    <div className="relative w-32 h-32 border rounded-md overflow-hidden">
+                      <img
+                        src={uploadedImageUrl}
+                        alt="Uploaded preview"
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex gap-2 pt-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleClose}
+                    disabled={addCustomItemMutation.isPending}
+                    data-testid="button-cancel"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={addCustomItemMutation.isPending}
+                    data-testid="button-add-custom"
+                    className="flex-1"
+                  >
+                    {addCustomItemMutation.isPending ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Adding...
+                      </>
+                    ) : (
+                      <>
+                        {getItemTypeIcon(form.watch("itemType") || "product")}
+                        <span className="ml-2">Add to Wishlist</span>
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </form>
+            </Form>
+          </TabsContent>
+        </Tabs>
+      </DialogContent>
+    </Dialog>
+  );
+}

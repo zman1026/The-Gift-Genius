@@ -18,10 +18,12 @@ The backend uses **Express.js** with **TypeScript**, **Drizzle ORM** for databas
 
 ### Feature Specifications
 - **User Profiles:** Users can update their firstName, lastName, and profileImageUrl.
-- **Product Search & Add:** Allows searching for products via SerpApi, editing details, and adding them to wishlists.
+- **Unified Add Item Dialog:** Streamlined interface with two modes:
+    - **Quick Add:** Search for products or paste URLs to find items via SerpApi with inline results display, error handling, and empty state feedback
+    - **Custom Item:** Manually create items with support for different types (product, experience, service, membership, other) including experiences like "trip to the zoo" or services like "music lessons"
 - **Shopping Options:** Provides a simplified interface to view products via Google Shopping.
 - **Wishlist Image Upload:** Integrates **Uppy v5** for image uploads to Replit Object Storage, with a 10MB file limit.
-- **Wishlist Organization:** Items are filterable and sortable by priority (Must-Have, Would Love, Just a Thought).
+- **Wishlist Organization:** Items are filterable and sortable by priority (Must-Have, Would Love, Just a Thought). Items support multiple types beyond physical products.
 - **Family Management:**
     - **Invite System:** Users can invite family members via email or shareable codes. First-time users see a welcoming screen with "Create Account" and "Already have an account? Login" options. Cookie-based redirect preservation ensures invite codes persist through the OIDC authentication flow.
     - **Organizer Controls:** Family organizers can rename the family, set member-specific display names, update member profiles, and remove members.

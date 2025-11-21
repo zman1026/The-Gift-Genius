@@ -20,6 +20,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Link } from "wouter";
 import { ObjectUploader } from "@/components/ObjectUploader";
+import { UnifiedAddItemDialog } from "@/components/unified-add-item-dialog";
 import type { UploadResult } from "@uppy/core";
 
 const addItemSchema = z.object({
@@ -27,10 +28,12 @@ const addItemSchema = z.object({
   description: z.string().optional(),
   price: z.string().optional(),
   url: z.union([z.string().url("Must be a valid URL"), z.literal("")]).optional(),
-  imageUrl: z.union([z.string().url("Must be a valid URL"), z.literal("")]).optional(),
+  // Allow both absolute URLs and relative paths for object storage images
+  imageUrl: z.union([z.string().min(1), z.literal("")]).optional(),
   priority: z.enum(["high", "medium", "low"]).optional(),
   quantity: z.coerce.number().int().positive().optional(),
   category: z.string().optional(),
+  itemType: z.enum(["product", "experience", "service", "membership", "other"]).optional(),
 });
 
 type AddItemFormData = z.infer<typeof addItemSchema>;
@@ -61,6 +64,7 @@ export default function Wishlist() {
       priority: "medium",
       quantity: 1,
       category: undefined,
+      itemType: "product",
     },
   });
   
@@ -108,7 +112,8 @@ export default function Wishlist() {
     mutationFn: async (data: AddItemFormData) => {
       return await apiRequest("POST", "/api/wishlist", {
         ...data,
-        price: data.price ? parseFloat(data.price) : null,
+        // Backend expects price as string or null, not number
+        price: data.price || null,
         familyId: selectedFamilyIdRef.current,
       });
     },
@@ -146,14 +151,29 @@ export default function Wishlist() {
 
   const updateItemMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: AddItemFormData }) => {
-      return await apiRequest("PATCH", `/api/wishlist/${id}`, {
-        ...data,
-        price: data.price ? parseFloat(data.price) : null,
-      });
+      // Build payload, preserving existing values when form fields are empty
+      const payload: any = {
+        name: data.name,
+        description: data.description || null,
+        price: data.price || null,
+        url: data.url || null,
+        priority: data.priority,
+        quantity: data.quantity,
+        category: data.category || null,
+        itemType: data.itemType,
+      };
+      
+      // Only include imageUrl if it has a value (preserve existing if empty)
+      if (data.imageUrl) {
+        payload.imageUrl = data.imageUrl;
+      }
+      
+      return await apiRequest("PATCH", `/api/wishlist/${id}`, payload);
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       const currentFamilyId = selectedFamilyIdRef.current;
-      queryClient.invalidateQueries({ queryKey: ["/api/wishlist", currentFamilyId] });
+      // Wait for refetch to complete before closing dialog
+      await queryClient.invalidateQueries({ queryKey: ["/api/wishlist", currentFamilyId] });
       toast({
         title: "Success",
         description: "Item updated successfully!",
@@ -225,7 +245,8 @@ export default function Wishlist() {
 
   const handleEdit = (item: any) => {
     setEditingItem(item);
-    setUploadedImageUrl("");
+    // Preserve the original imageUrl for comparison
+    setUploadedImageUrl(item.imageUrl || "");
     form.reset({
       name: item.name,
       description: item.description || "",
@@ -235,6 +256,7 @@ export default function Wishlist() {
       priority: item.priority || "medium",
       quantity: item.quantity || 1,
       category: item.category || undefined,
+      itemType: item.itemType || "product",
     });
   };
 
@@ -326,19 +348,30 @@ export default function Wishlist() {
           </p>
         </div>
         <div className="flex gap-2 md:gap-3">
-          <Link href="/search" className="flex-1 md:flex-initial">
-            <Button variant="outline" className="w-full" data-testid="button-search-products">
-              <Search className="w-4 h-4 md:mr-2" />
-              <span className="hidden md:inline">Search Products</span>
-            </Button>
-          </Link>
-          <Dialog open={isAddDialogOpen || !!editingItem} onOpenChange={(open) => !open && handleCloseDialog()}>
-            <DialogTrigger asChild>
-              <Button onClick={() => setIsAddDialogOpen(true)} className="flex-1 md:flex-initial" data-testid="button-add-manually">
-                <Plus className="w-4 h-4 md:mr-2" />
-                <span className="md:inline">Add Manually</span>
-              </Button>
-            </DialogTrigger>
+          <Button onClick={() => setIsAddDialogOpen(true)} className="flex-1 md:flex-initial" data-testid="button-add-manually">
+            <Plus className="w-4 h-4 md:mr-2" />
+            <span className="md:inline">Add Item</span>
+          </Button>
+        </div>
+      </div>
+
+      {/* Unified Add Item Dialog */}
+      <UnifiedAddItemDialog
+        open={isAddDialogOpen}
+        onOpenChange={setIsAddDialogOpen}
+        familyId={selectedFamilyId || ""}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ["/api/wishlist", selectedFamilyId] });
+          queryClient.invalidateQueries({ queryKey: ["/api/stats", selectedFamilyId] });
+          toast({
+            title: "Success",
+            description: "Item added to your wishlist!",
+          });
+        }}
+      />
+
+      {/* Edit Item Dialog */}
+      <Dialog open={!!editingItem} onOpenChange={(open) => { if (!open) handleCloseDialog(); }}>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{editingItem ? "Edit Item" : "Add New Item"}</DialogTitle>
@@ -447,6 +480,30 @@ export default function Wishlist() {
                     render={({ field }) => <input type="hidden" {...field} data-testid="input-item-image-url" />}
                   />
                 </div>
+                <FormField
+                  control={form.control}
+                  name="itemType"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Item Type</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-item-type-edit">
+                            <SelectValue placeholder="Select type" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="product" data-testid="option-product-edit">Product</SelectItem>
+                          <SelectItem value="experience" data-testid="option-experience-edit">Experience</SelectItem>
+                          <SelectItem value="service" data-testid="option-service-edit">Service</SelectItem>
+                          <SelectItem value="membership" data-testid="option-membership-edit">Membership</SelectItem>
+                          <SelectItem value="other" data-testid="option-other-edit">Other</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
                 <div className="grid grid-cols-3 gap-4">
                   <FormField
                     control={form.control}
@@ -521,8 +578,6 @@ export default function Wishlist() {
             </Form>
           </DialogContent>
         </Dialog>
-      </div>
-      </div>
 
       {hasItems && (
         <div className="flex flex-wrap gap-2">

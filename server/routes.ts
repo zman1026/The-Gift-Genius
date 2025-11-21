@@ -420,7 +420,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/wishlist', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const { name, description, price, url, imageUrl, priority, quantity, category, familyId } = req.body;
+      const { name, description, price, url, imageUrl, priority, quantity, category, itemType, familyId } = req.body;
 
       if (!name || typeof name !== 'string') {
         return res.status(400).json({ message: "Item name is required" });
@@ -455,6 +455,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         priority: priority || "medium",
         quantity: quantity || 1,
         category: category || null,
+        itemType: itemType || "product",
       });
 
       res.json(item);
@@ -467,7 +468,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/wishlist/from-search', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const { name, description, price, url, imageUrl, productId, source, priority, quantity, category, familyId } = req.body;
+      const { name, description, price, url, imageUrl, productId, source, priority, quantity, category, itemType, familyId } = req.body;
 
       if (!name || typeof name !== 'string') {
         return res.status(400).json({ message: "Item name is required" });
@@ -502,6 +503,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         priority: priority || "medium",
         quantity: quantity || 1,
         category: category || null,
+        itemType: itemType || "product",
       });
 
       res.json(item);
@@ -560,7 +562,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.claims.sub;
       const { id } = req.params;
-      const { name, description, price, url, imageUrl, priority, quantity, category } = req.body;
+      const { name, description, price, url, imageUrl, priority, quantity, category, itemType } = req.body;
 
       const item = await storage.getWishlistItem(id);
       if (!item) {
@@ -580,6 +582,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         priority: priority !== undefined ? priority : item.priority,
         quantity: quantity !== undefined ? quantity : item.quantity,
         category: category !== undefined ? category : item.category,
+        itemType: itemType !== undefined ? itemType : item.itemType,
       });
 
       res.json(updated);

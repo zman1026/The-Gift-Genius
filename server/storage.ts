@@ -353,6 +353,7 @@ export class DatabaseStorage implements IStorage {
         priority: wishlistItems.priority,
         quantity: wishlistItems.quantity,
         category: wishlistItems.category,
+        itemType: wishlistItems.itemType,
         createdAt: wishlistItems.createdAt,
       })
       .from(wishlistItems)
@@ -383,6 +384,7 @@ export class DatabaseStorage implements IStorage {
         priority: wishlistItems.priority,
         quantity: wishlistItems.quantity,
         category: wishlistItems.category,
+        itemType: wishlistItems.itemType,
         createdAt: wishlistItems.createdAt,
       })
       .from(wishlistItems)
@@ -441,6 +443,7 @@ export class DatabaseStorage implements IStorage {
         priority: wishlistItems.priority,
         quantity: wishlistItems.quantity,
         category: wishlistItems.category,
+        itemType: wishlistItems.itemType,
         createdAt: wishlistItems.createdAt,
         purchase: sql<any>`
           CASE 
