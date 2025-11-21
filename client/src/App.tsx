@@ -46,6 +46,7 @@ function AppContent() {
       <>
         <Switch>
           <Route path="/" component={Landing} />
+          <Route path="/families/join" component={JoinFamily} />
           <Route component={NotFound} />
         </Switch>
         <Toaster />

@@ -33,15 +33,31 @@ export default function JoinFamily() {
   });
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const codeFromUrl = params.get('code');
+    
+    if (codeFromUrl) {
+      form.setValue('inviteCode', codeFromUrl);
+    }
+  }, [form]);
+
+  useEffect(() => {
     if (!authLoading && !isAuthenticated) {
+      const params = new URLSearchParams(window.location.search);
+      const code = params.get('code');
+      
+      const redirectUrl = code 
+        ? `/api/login?redirect=${encodeURIComponent(`/families/join?code=${code}`)}`
+        : "/api/login";
+      
       toast({
-        title: "Unauthorized",
-        description: "You are logged out. Logging in again...",
+        title: "Login Required",
+        description: "Please log in to join the family group",
         variant: "destructive",
       });
       setTimeout(() => {
-        window.location.href = "/api/login";
-      }, 500);
+        window.location.href = redirectUrl;
+      }, 1000);
       return;
     }
   }, [isAuthenticated, authLoading, toast]);
