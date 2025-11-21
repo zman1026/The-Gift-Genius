@@ -649,7 +649,7 @@ export default function Wishlist() {
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3">
           {filteredItems.map((item: any) => (
-            <Card key={item.id} className="overflow-hidden hover-elevate" data-testid={`wishlist-item-${item.id}`}>
+            <Card key={item.id} className="flex flex-col h-full overflow-hidden hover-elevate" data-testid={`wishlist-item-${item.id}`}>
               <div className="aspect-square bg-muted relative overflow-hidden">
                 {item.imageUrl ? (
                   <img
@@ -675,8 +675,8 @@ export default function Wishlist() {
                   </Badge>
                 )}
               </div>
-              <CardContent className="p-3 space-y-2">
-                <div>
+              <CardContent className="flex flex-col gap-2 grow p-3">
+                <div className="flex-1 min-h-0">
                   <h3 className="font-semibold text-sm text-foreground line-clamp-2">{item.name}</h3>
                   {item.price && (
                     <p className="text-base font-bold text-primary">${parseFloat(item.price).toFixed(2)}</p>
@@ -690,7 +690,7 @@ export default function Wishlist() {
                     <p className="text-xs text-muted-foreground line-clamp-2 mt-1">{item.description}</p>
                   )}
                 </div>
-                <div className="flex gap-1.5 pt-1">
+                <div className="flex gap-1.5 mt-auto">
                   {item.url && (
                     <Button
                       variant="outline"

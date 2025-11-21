@@ -275,7 +275,7 @@ export default function MemberWishlist() {
             return (
               <Card
                 key={item.id}
-                className={`overflow-hidden hover-elevate cursor-pointer ${isPurchased ? 'opacity-75' : ''}`}
+                className={`flex flex-col h-full overflow-hidden hover-elevate cursor-pointer ${isPurchased ? 'opacity-75' : ''}`}
                 onClick={() => !isPurchased && setSelectedItemForShopping(item)}
                 data-testid={`wishlist-item-${item.id}`}
               >
@@ -312,8 +312,8 @@ export default function MemberWishlist() {
                     </div>
                   )}
                 </div>
-                <CardContent className="p-3 space-y-2">
-                  <div>
+                <CardContent className="flex flex-col gap-2 grow p-3">
+                  <div className="flex-1 min-h-0">
                     <h3 className="font-semibold text-sm text-foreground line-clamp-2">{item.name}</h3>
                     {item.price && (
                       <p className="text-base font-bold text-primary">${parseFloat(item.price).toFixed(2)}</p>
@@ -337,12 +337,12 @@ export default function MemberWishlist() {
                     </div>
                   )}
 
-                  <div className="flex gap-1.5 pt-1" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex flex-wrap gap-1.5 mt-auto" onClick={(e) => e.stopPropagation()}>
                     {item.url && (
                       <Button
                         variant="outline"
                         size="sm"
-                        className="flex-1"
+                        className="flex-1 min-w-[70px]"
                         onClick={() => window.open(item.url, '_blank')}
                         data-testid={`button-view-${item.id}`}
                       >
@@ -357,11 +357,13 @@ export default function MemberWishlist() {
                           <Button
                             variant="default"
                             size="sm"
-                            className={item.url ? "" : "flex-1"}
+                            className={item.url ? "flex-1 min-w-[70px]" : "flex-1"}
                             data-testid={`button-mark-purchased-${item.id}`}
                           >
                             <CheckCircle2 className="w-3 h-3 mr-1" />
-                            Mark Purchased
+                            <span className="hidden xs:inline">Mark </span>
+                            <span className="xs:hidden">✓ </span>
+                            Purchased
                           </Button>
                         </DialogTrigger>
                         <DialogContent>
