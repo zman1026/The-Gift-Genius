@@ -144,7 +144,7 @@ export type WishlistItem = typeof wishlistItems.$inferSelect;
 // Item purchases tracking table (for marking items as purchased with notes)
 export const itemPurchases = pgTable("item_purchases", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  itemId: varchar("item_id").notNull().references(() => wishlistItems.id, { onDelete: 'cascade' }),
+  itemId: varchar("item_id").notNull().unique().references(() => wishlistItems.id, { onDelete: 'cascade' }),
   purchasedById: varchar("purchased_by_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
   status: varchar("status", { length: 20 }).notNull().default("intended"), // 'intended' or 'purchased'
   budgetAllocated: decimal("budget_allocated", { precision: 10, scale: 2 }), // Amount allocated from budget

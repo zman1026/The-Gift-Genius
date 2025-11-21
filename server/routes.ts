@@ -620,12 +620,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "You cannot mark your own items as purchased" });
       }
 
-      // Check if already purchased
-      const existingPurchase = await storage.getItemPurchase(id);
-      if (existingPurchase) {
-        return res.status(400).json({ message: "This item is already marked as purchased" });
+      // Check if current user has an existing record (intent or purchase)
+      const userRecord = await storage.getItemPurchaseByUser(id, userId);
+      
+      if (userRecord) {
+        // If current user already purchased, return error
+        if (userRecord.status === 'purchased') {
+          return res.status(400).json({ message: "You have already marked this item as purchased" });
+        }
+        
+        // If current user has intent, upgrade to purchased
+        if (userRecord.status === 'intended') {
+          const purchase = await storage.confirmItemPurchase(id, userId, notes || null);
+          return res.json(purchase);
+        }
       }
 
+      // Check if anyone else has an active record (intent or purchase)
+      const anyRecord = await storage.getItemPurchase(id);
+      if (anyRecord) {
+        if (anyRecord.status === 'purchased') {
+          return res.status(400).json({ message: "This item has already been purchased by someone else" });
+        }
+        if (anyRecord.status === 'intended') {
+          return res.status(400).json({ message: "Someone else is already planning to buy this item" });
+        }
+      }
+
+      // No existing record, create new purchase
       const purchase = await storage.markItemPurchased({
         itemId: id,
         purchasedById: userId,
@@ -633,8 +655,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       res.json(purchase);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error marking item purchased:", error);
+      
+      // Handle unique constraint violation (concurrent purchase attempts)
+      if (error.code === '23505' || error.message?.includes('unique constraint')) {
+        return res.status(409).json({ 
+          message: "Someone else just marked this item - please refresh to see the latest status" 
+        });
+      }
+      
       res.status(500).json({ message: "Failed to mark item as purchased" });
     }
   });
@@ -699,14 +729,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "You cannot mark intent on your own items" });
       }
 
-      // Check if already purchased or intended by anyone
-      const existingPurchase = await storage.getItemPurchase(id);
-      if (existingPurchase) {
-        return res.status(400).json({ 
-          message: existingPurchase.status === 'purchased' 
-            ? "This item is already purchased" 
-            : "Someone else is already planning to buy this item" 
-        });
+      // Check if current user already has a record
+      const userRecord = await storage.getItemPurchaseByUser(id, userId);
+      if (userRecord) {
+        if (userRecord.status === 'purchased') {
+          return res.status(400).json({ message: "You have already marked this item as purchased" });
+        }
+        if (userRecord.status === 'intended') {
+          return res.status(400).json({ message: "You have already marked your intent to buy this item" });
+        }
+      }
+
+      // Check if anyone else has an active record (intent or purchase)
+      const anyRecord = await storage.getItemPurchase(id);
+      if (anyRecord) {
+        if (anyRecord.status === 'purchased') {
+          return res.status(400).json({ message: "This item has already been purchased by someone else" });
+        }
+        if (anyRecord.status === 'intended') {
+          return res.status(400).json({ message: "Someone else is already planning to buy this item" });
+        }
       }
 
       const intent = await storage.markItemIntent({
@@ -718,8 +760,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       res.json(intent);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error marking item intent:", error);
+      
+      // Handle unique constraint violation (concurrent intent attempts)
+      if (error.code === '23505' || error.message?.includes('unique constraint')) {
+        return res.status(409).json({ 
+          message: "Someone else just marked their intent to buy this item" 
+        });
+      }
+      
       res.status(500).json({ message: "Failed to mark intent to buy" });
     }
   });
@@ -729,13 +779,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
       const { id } = req.params;
 
-      const intent = await storage.getItemPurchase(id);
+      const intent = await storage.getItemPurchaseByUser(id, userId);
       if (!intent) {
         return res.status(404).json({ message: "Intent record not found" });
-      }
-
-      if (intent.purchasedById !== userId) {
-        return res.status(403).json({ message: "You can only cancel your own intents" });
       }
 
       if (intent.status !== 'intended') {
@@ -755,13 +801,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
       const { id } = req.params;
 
-      const intent = await storage.getItemPurchase(id);
+      const intent = await storage.getItemPurchaseByUser(id, userId);
       if (!intent) {
         return res.status(404).json({ message: "Intent record not found" });
-      }
-
-      if (intent.purchasedById !== userId) {
-        return res.status(403).json({ message: "You can only confirm your own intents" });
       }
 
       if (intent.status !== 'intended') {

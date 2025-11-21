@@ -56,9 +56,10 @@ export interface IStorage {
   // Purchase operations
   markItemPurchased(purchase: InsertItemPurchase): Promise<ItemPurchase>;
   markItemIntent(purchase: InsertItemPurchase): Promise<ItemPurchase>;
-  confirmItemPurchase(itemId: string, userId: string): Promise<ItemPurchase>;
+  confirmItemPurchase(itemId: string, userId: string, notes?: string | null): Promise<ItemPurchase>;
   unmarkItemPurchased(itemId: string, userId: string): Promise<void>;
   getItemPurchase(itemId: string): Promise<ItemPurchase | undefined>;
+  getItemPurchaseByUser(itemId: string, userId: string): Promise<ItemPurchase | undefined>;
   getPurchasedItemsByUser(userId: string, familyId: string): Promise<any[]>;
   
   // Budget operations
@@ -504,6 +505,14 @@ export class DatabaseStorage implements IStorage {
     return purchase;
   }
 
+  async getItemPurchaseByUser(itemId: string, userId: string): Promise<ItemPurchase | undefined> {
+    const [purchase] = await db
+      .select()
+      .from(itemPurchases)
+      .where(and(eq(itemPurchases.itemId, itemId), eq(itemPurchases.purchasedById, userId)));
+    return purchase;
+  }
+
   async getPurchasedItemsByUser(userId: string, familyId: string): Promise<any[]> {
     const purchases = await db
       .select({
@@ -561,13 +570,19 @@ export class DatabaseStorage implements IStorage {
     return intent;
   }
 
-  async confirmItemPurchase(itemId: string, userId: string): Promise<ItemPurchase> {
+  async confirmItemPurchase(itemId: string, userId: string, notes?: string | null): Promise<ItemPurchase> {
+    const updateData: any = {
+      status: 'purchased',
+      purchasedAt: new Date(),
+    };
+    
+    if (notes !== undefined) {
+      updateData.notes = notes;
+    }
+    
     const [purchase] = await db
       .update(itemPurchases)
-      .set({
-        status: 'purchased',
-        purchasedAt: new Date(),
-      })
+      .set(updateData)
       .where(and(eq(itemPurchases.itemId, itemId), eq(itemPurchases.purchasedById, userId)))
       .returning();
     return purchase;
