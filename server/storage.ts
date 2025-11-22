@@ -19,7 +19,22 @@ import {
   type InsertActivityLog,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, sql, desc, asc } from "drizzle-orm";
+import { eq, and, sql, desc, asc, inArray } from "drizzle-orm";
+
+// Custom error types for better error handling
+export class AuthorizationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "AuthorizationError";
+  }
+}
+
+export class NotFoundError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "NotFoundError";
+  }
+}
 
 export interface WishlistFilterOptions {
   sort?: 'name' | 'price' | 'priority' | 'createdAt';
@@ -53,6 +68,8 @@ export interface IStorage {
   createWishlistItem(item: InsertWishlistItem): Promise<WishlistItem>;
   updateWishlistItem(id: string, item: Partial<InsertWishlistItem>): Promise<WishlistItem>;
   deleteWishlistItem(id: string): Promise<void>;
+  bulkDeleteWishlistItems(userId: string, familyId: string, itemIds: string[]): Promise<WishlistItem[]>;
+  bulkUpdateWishlistPriority(userId: string, familyId: string, itemIds: string[], priority: 'low' | 'medium' | 'high'): Promise<WishlistItem[]>;
   getUserWishlistItems(userId: string, options?: WishlistFilterOptions): Promise<WishlistItem[]>;
   getUserWishlistItemsByFamily(userId: string, familyId: string, options?: WishlistFilterOptions): Promise<WishlistItem[]>;
   getMemberWishlistItems(userId: string, viewerId: string, familyId?: string): Promise<any[]>;
@@ -368,6 +385,80 @@ export class DatabaseStorage implements IStorage {
 
   async deleteWishlistItem(id: string): Promise<void> {
     await db.delete(wishlistItems).where(eq(wishlistItems.id, id));
+  }
+
+  async bulkDeleteWishlistItems(userId: string, familyId: string, itemIds: string[]): Promise<WishlistItem[]> {
+    // Verify user is a member of the family
+    const membership = await this.getFamilyMember(familyId, userId);
+    if (!membership) {
+      throw new AuthorizationError("You are not a member of this family");
+    }
+
+    // Fetch all items to verify ownership and family membership
+    const items = await db
+      .select()
+      .from(wishlistItems)
+      .where(and(
+        inArray(wishlistItems.id, itemIds),
+        eq(wishlistItems.userId, userId),
+        eq(wishlistItems.familyId, familyId)
+      ));
+
+    // Check if any items were not found or don't belong to the user/family
+    if (items.length < itemIds.length) {
+      const foundIds = new Set(items.map(item => item.id));
+      const missingIds = itemIds.filter(id => !foundIds.has(id));
+      throw new AuthorizationError(`Cannot delete ${missingIds.length} item(s): not found or unauthorized`);
+    }
+
+    // Delete all items
+    await db
+      .delete(wishlistItems)
+      .where(and(
+        inArray(wishlistItems.id, itemIds),
+        eq(wishlistItems.userId, userId),
+        eq(wishlistItems.familyId, familyId)
+      ));
+
+    return items;
+  }
+
+  async bulkUpdateWishlistPriority(userId: string, familyId: string, itemIds: string[], priority: 'low' | 'medium' | 'high'): Promise<WishlistItem[]> {
+    // Verify user is a member of the family
+    const membership = await this.getFamilyMember(familyId, userId);
+    if (!membership) {
+      throw new AuthorizationError("You are not a member of this family");
+    }
+
+    // Verify all items belong to the user and family
+    const existingItems = await db
+      .select()
+      .from(wishlistItems)
+      .where(and(
+        inArray(wishlistItems.id, itemIds),
+        eq(wishlistItems.userId, userId),
+        eq(wishlistItems.familyId, familyId)
+      ));
+
+    // Check if any items were not found or don't belong to the user/family
+    if (existingItems.length < itemIds.length) {
+      const foundIds = new Set(existingItems.map(item => item.id));
+      const missingIds = itemIds.filter(id => !foundIds.has(id));
+      throw new AuthorizationError(`Cannot update ${missingIds.length} item(s): not found or unauthorized`);
+    }
+
+    // Update all items
+    const items = await db
+      .update(wishlistItems)
+      .set({ priority })
+      .where(and(
+        inArray(wishlistItems.id, itemIds),
+        eq(wishlistItems.userId, userId),
+        eq(wishlistItems.familyId, familyId)
+      ))
+      .returning();
+
+    return items;
   }
 
   async getUserWishlistItems(userId: string, options?: WishlistFilterOptions): Promise<WishlistItem[]> {

@@ -14,7 +14,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Gift, Plus, Trash2, Edit, ExternalLink, AlertCircle, Circle, ArrowUp, Search, Upload, SlidersHorizontal, X } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Gift, Plus, Trash2, Edit, ExternalLink, AlertCircle, Circle, ArrowUp, Search, Upload, SlidersHorizontal, X, CheckSquare, Square } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -58,6 +59,9 @@ export default function Wishlist() {
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
   const [itemTypeFilter, setItemTypeFilter] = useState<string>("all");
   
+  // Bulk selection state
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  
   const form = useForm<AddItemFormData>({
     resolver: zodResolver(addItemSchema),
     defaultValues: {
@@ -81,6 +85,8 @@ export default function Wishlist() {
     setEditingItem(null);
     setIsAddDialogOpen(false);
     form.reset();
+    // Clear selected items to prevent stale IDs when switching families
+    setSelectedItems(new Set());
   }, [selectedFamilyId, form]);
 
   useEffect(() => {
@@ -247,6 +253,111 @@ export default function Wishlist() {
       });
     },
   });
+
+  // Bulk delete mutation
+  const bulkDeleteMutation = useMutation({
+    mutationFn: async ({ itemIds, count, familyId }: { itemIds: string[]; count: number; familyId: string }) => {
+      return { response: await apiRequest("POST", "/api/wishlist/bulk-delete", { itemIds, familyId }), count };
+    },
+    onSuccess: (data) => {
+      const currentFamilyId = selectedFamilyIdRef.current;
+      queryClient.invalidateQueries({ queryKey: ["/api/wishlist", currentFamilyId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats", currentFamilyId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/activities", currentFamilyId] });
+      setSelectedItems(new Set());
+      toast({
+        title: "Success",
+        description: `${data.count} item(s) deleted`,
+      });
+    },
+    onError: (error: Error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        });
+        setTimeout(() => {
+          window.location.href = "/api/login";
+        }, 500);
+        return;
+      }
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete items",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Bulk update priority mutation
+  const bulkUpdatePriorityMutation = useMutation({
+    mutationFn: async ({ itemIds, priority, count, familyId }: { itemIds: string[]; priority: string; count: number; familyId: string }) => {
+      return { response: await apiRequest("PATCH", "/api/wishlist/bulk-priority", { itemIds, priority, familyId }), count };
+    },
+    onSuccess: (data) => {
+      const currentFamilyId = selectedFamilyIdRef.current;
+      queryClient.invalidateQueries({ queryKey: ["/api/wishlist", currentFamilyId] });
+      setSelectedItems(new Set());
+      toast({
+        title: "Success",
+        description: `${data.count} item(s) updated`,
+      });
+    },
+    onError: (error: Error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        });
+        setTimeout(() => {
+          window.location.href = "/api/login";
+        }, 500);
+        return;
+      }
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update priorities",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Bulk selection helper functions
+  const toggleItemSelection = (itemId: string) => {
+    setSelectedItems(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(itemId)) {
+        newSet.delete(itemId);
+      } else {
+        newSet.add(itemId);
+      }
+      return newSet;
+    });
+  };
+
+  const selectAllItems = () => {
+    if (items && items.length > 0) {
+      setSelectedItems(new Set(items.map((item: any) => item.id)));
+    }
+  };
+
+  const clearSelection = () => {
+    setSelectedItems(new Set());
+  };
+
+  const handleBulkDelete = () => {
+    if (selectedItems.size === 0 || !selectedFamilyId) return;
+    const count = selectedItems.size;
+    bulkDeleteMutation.mutate({ itemIds: Array.from(selectedItems), count, familyId: selectedFamilyId });
+  };
+
+  const handleBulkUpdatePriority = (priority: string) => {
+    if (selectedItems.size === 0 || !selectedFamilyId) return;
+    const count = selectedItems.size;
+    bulkUpdatePriorityMutation.mutate({ itemIds: Array.from(selectedItems), priority, count, familyId: selectedFamilyId });
+  };
 
   const onSubmit = (data: AddItemFormData) => {
     if (editingItem) {
@@ -714,7 +825,62 @@ export default function Wishlist() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3">
+        <>
+          {/* Bulk action toolbar */}
+          {selectedItems.size > 0 && (
+            <Card className="mb-4">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    <CheckSquare className="w-4 h-4 text-primary" />
+                    <span className="font-medium text-sm">
+                      {selectedItems.size} item{selectedItems.size !== 1 ? 's' : ''} selected
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 ml-auto flex-wrap">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={selectAllItems}
+                      data-testid="button-select-all"
+                    >
+                      Select All
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={clearSelection}
+                      data-testid="button-clear-selection"
+                    >
+                      Clear
+                    </Button>
+                    <Select onValueChange={handleBulkUpdatePriority}>
+                      <SelectTrigger className="w-36 h-9" data-testid="select-bulk-priority">
+                        <SelectValue placeholder="Set Priority" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="high">Must-Have!</SelectItem>
+                        <SelectItem value="medium">Would Love</SelectItem>
+                        <SelectItem value="low">Just a Thought</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={handleBulkDelete}
+                      disabled={bulkDeleteMutation.isPending}
+                      data-testid="button-bulk-delete"
+                    >
+                      <Trash2 className="w-3 h-3 mr-2" />
+                      Delete {selectedItems.size}
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+          
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3">
           {items.map((item: any) => (
             <Card key={item.id} className="flex flex-col h-full overflow-hidden hover-elevate" data-testid={`wishlist-item-${item.id}`}>
               <div className="aspect-square bg-muted relative overflow-hidden">
@@ -729,6 +895,15 @@ export default function Wishlist() {
                     <Gift className="w-12 h-12 text-muted-foreground" />
                   </div>
                 )}
+                {/* Selection checkbox */}
+                <div className="absolute top-2 left-2 z-10">
+                  <Checkbox
+                    checked={selectedItems.has(item.id)}
+                    onCheckedChange={() => toggleItemSelection(item.id)}
+                    className="bg-background/90 backdrop-blur-sm border-border data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+                    data-testid={`checkbox-select-${item.id}`}
+                  />
+                </div>
                 {item.priority && (
                   <Badge 
                     variant={item.priority === "high" ? "destructive" : item.priority === "medium" ? "default" : "secondary"} 
@@ -792,6 +967,7 @@ export default function Wishlist() {
             </Card>
           ))}
         </div>
+        </>
       )}
     </div>
   );
