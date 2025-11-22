@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Gift, Plus, Trash2, Edit, ExternalLink, AlertCircle, Circle, ArrowUp, Search, Upload } from "lucide-react";
+import { Gift, Plus, Trash2, Edit, ExternalLink, AlertCircle, Circle, ArrowUp, Search, Upload, SlidersHorizontal, X } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -50,8 +50,13 @@ export default function Wishlist() {
   const { selectedFamilyId } = useFamily();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
-  const [selectedPriority, setSelectedPriority] = useState<string | null>(null);
   const [uploadedImageUrl, setUploadedImageUrl] = useState<string>("");
+  
+  // Sort and filter state
+  const [sortBy, setSortBy] = useState<string>("createdAt");
+  const [sortOrder, setSortOrder] = useState<string>("desc");
+  const [priorityFilter, setPriorityFilter] = useState<string>("all");
+  const [itemTypeFilter, setItemTypeFilter] = useState<string>("all");
   
   const form = useForm<AddItemFormData>({
     resolver: zodResolver(addItemSchema),
@@ -93,10 +98,18 @@ export default function Wishlist() {
   }, [isAuthenticated, authLoading, toast]);
 
   const { data: items, isLoading } = useQuery({
-    queryKey: ["/api/wishlist", selectedFamilyId],
+    queryKey: ["/api/wishlist", selectedFamilyId, sortBy, sortOrder, priorityFilter, itemTypeFilter],
     queryFn: async () => {
       if (!selectedFamilyId) return [];
-      const response = await fetch(`/api/wishlist?familyId=${selectedFamilyId}`, {
+      
+      // Build query string with filters
+      const params = new URLSearchParams({ familyId: selectedFamilyId });
+      if (sortBy) params.append("sort", sortBy);
+      if (sortOrder) params.append("order", sortOrder);
+      if (priorityFilter && priorityFilter !== "all") params.append("priority", priorityFilter);
+      if (itemTypeFilter && itemTypeFilter !== "all") params.append("itemType", itemTypeFilter);
+      
+      const response = await fetch(`/api/wishlist?${params.toString()}`, {
         credentials: "include",
       });
       if (!response.ok) {
@@ -320,21 +333,14 @@ export default function Wishlist() {
 
   const hasItems = items && items.length > 0;
   
-  // Filter and sort by priority
-  const filteredItems = items ? items
-    .filter((item: any) => {
-      if (!selectedPriority) return true;
-      return item.priority === selectedPriority;
-    })
-    .sort((a: any, b: any) => {
-      // Sort by priority: high -> medium -> low
-      const priorityOrder = { high: 0, medium: 1, low: 2 };
-      const aPriority = a.priority || 'medium';
-      const bPriority = b.priority || 'medium';
-      return priorityOrder[aPriority as keyof typeof priorityOrder] - priorityOrder[bPriority as keyof typeof priorityOrder];
-    }) : [];
+  // Check if any filters are active
+  const hasActiveFilters = priorityFilter !== "all" || itemTypeFilter !== "all";
   
-  const hasFilteredItems = filteredItems && filteredItems.length > 0;
+  // Clear all filters (but keep sort preferences)
+  const clearFilters = () => {
+    setPriorityFilter("all");
+    setItemTypeFilter("all");
+  };
 
   return (
     <div className="p-4 md:p-8 lg:p-12 space-y-6">
@@ -580,31 +586,92 @@ export default function Wishlist() {
         </Dialog>
 
       {hasItems && (
-        <div className="flex flex-wrap gap-2">
-          <Badge
-            variant={selectedPriority === null ? "default" : "outline"}
-            className="cursor-pointer hover-elevate active-elevate-2"
-            onClick={() => setSelectedPriority(null)}
-            data-testid="filter-all"
-          >
-            All Priorities
-          </Badge>
-          {PRIORITIES.map((priority) => {
-            const Icon = priority.icon;
-            return (
-              <Badge
-                key={priority.value}
-                variant={selectedPriority === priority.value ? (priority.value === "high" ? "destructive" : "default") : "outline"}
-                className="cursor-pointer hover-elevate active-elevate-2"
-                onClick={() => setSelectedPriority(priority.value)}
-                data-testid={`filter-${priority.value}`}
-              >
-                <Icon className="w-3 h-3 mr-1" />
-                {priority.label}
-              </Badge>
-            );
-          })}
-        </div>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-4">
+              <SlidersHorizontal className="w-4 h-4 text-muted-foreground" />
+              <h3 className="font-medium text-sm">Sort & Filter</h3>
+              {hasActiveFilters && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearFilters}
+                  className="ml-auto h-7 text-xs"
+                  data-testid="button-clear-filters"
+                >
+                  <X className="w-3 h-3 mr-1" />
+                  Clear
+                </Button>
+              )}
+            </div>
+            
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {/* Sort By */}
+              <div className="space-y-2">
+                <label className="text-xs text-muted-foreground">Sort By</label>
+                <Select value={sortBy} onValueChange={setSortBy}>
+                  <SelectTrigger className="h-9" data-testid="select-sort-by">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="createdAt">Date Added</SelectItem>
+                    <SelectItem value="name">Name</SelectItem>
+                    <SelectItem value="price">Price</SelectItem>
+                    <SelectItem value="priority">Priority</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              {/* Sort Order */}
+              <div className="space-y-2">
+                <label className="text-xs text-muted-foreground">Order</label>
+                <Select value={sortOrder} onValueChange={setSortOrder}>
+                  <SelectTrigger className="h-9" data-testid="select-sort-order">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="asc">Ascending</SelectItem>
+                    <SelectItem value="desc">Descending</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              {/* Priority Filter */}
+              <div className="space-y-2">
+                <label className="text-xs text-muted-foreground">Priority</label>
+                <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+                  <SelectTrigger className="h-9" data-testid="select-filter-priority">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Priorities</SelectItem>
+                    <SelectItem value="high">Must-Have!</SelectItem>
+                    <SelectItem value="medium">Would Love</SelectItem>
+                    <SelectItem value="low">Just a Thought</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              {/* Item Type Filter */}
+              <div className="space-y-2">
+                <label className="text-xs text-muted-foreground">Type</label>
+                <Select value={itemTypeFilter} onValueChange={setItemTypeFilter}>
+                  <SelectTrigger className="h-9" data-testid="select-filter-type">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Types</SelectItem>
+                    <SelectItem value="product">Product</SelectItem>
+                    <SelectItem value="experience">Experience</SelectItem>
+                    <SelectItem value="service">Service</SelectItem>
+                    <SelectItem value="membership">Membership</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {!hasItems ? (
@@ -631,24 +698,24 @@ export default function Wishlist() {
             </div>
           </CardContent>
         </Card>
-      ) : !hasFilteredItems ? (
+      ) : items.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-16 text-center">
             <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center mb-4">
               <Gift className="w-10 h-10 text-muted-foreground" />
             </div>
-            <h3 className="font-semibold text-xl mb-2 text-foreground">No items with this priority</h3>
+            <h3 className="font-semibold text-xl mb-2 text-foreground">No items match your filters</h3>
             <p className="text-muted-foreground mb-6 max-w-md">
-              Try selecting a different priority filter or add new items.
+              Try adjusting your filters or add new items.
             </p>
-            <Button onClick={() => setSelectedPriority(null)} variant="outline" data-testid="button-clear-filter">
-              Show All Items
+            <Button onClick={clearFilters} variant="outline" data-testid="button-clear-filter">
+              Clear Filters
             </Button>
           </CardContent>
         </Card>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3">
-          {filteredItems.map((item: any) => (
+          {items.map((item: any) => (
             <Card key={item.id} className="flex flex-col h-full overflow-hidden hover-elevate" data-testid={`wishlist-item-${item.id}`}>
               <div className="aspect-square bg-muted relative overflow-hidden">
                 {item.imageUrl ? (

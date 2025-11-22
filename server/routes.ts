@@ -431,13 +431,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/wishlist', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const { familyId } = req.query;
+      const { familyId, sort, order, priority, itemType } = req.query;
+      
+      // Validate and sanitize query params
+      const validSorts = ['name', 'price', 'priority', 'createdAt'];
+      const validOrders = ['asc', 'desc'];
+      const validPriorities = ['high', 'medium', 'low'];
+      const validItemTypes = ['product', 'experience', 'service', 'membership', 'other'];
+      
+      // Build filter options with validation
+      const options = {
+        sort: sort && validSorts.includes(sort as string) ? (sort as 'name' | 'price' | 'priority' | 'createdAt') : undefined,
+        order: order && validOrders.includes(order as string) ? (order as 'asc' | 'desc') : undefined,
+        priority: priority && validPriorities.includes(priority as string) ? (priority as 'high' | 'medium' | 'low') : undefined,
+        itemType: itemType && validItemTypes.includes(itemType as string) ? (itemType as 'product' | 'experience' | 'service' | 'membership' | 'other') : undefined,
+      };
       
       if (familyId && typeof familyId === 'string') {
-        const items = await storage.getUserWishlistItemsByFamily(userId, familyId);
+        const items = await storage.getUserWishlistItemsByFamily(userId, familyId, options);
         res.json(items);
       } else {
-        const items = await storage.getUserWishlistItems(userId);
+        const items = await storage.getUserWishlistItems(userId, options);
         res.json(items);
       }
     } catch (error) {

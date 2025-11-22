@@ -19,7 +19,14 @@ import {
   type InsertActivityLog,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, sql, desc } from "drizzle-orm";
+import { eq, and, sql, desc, asc } from "drizzle-orm";
+
+export interface WishlistFilterOptions {
+  sort?: 'name' | 'price' | 'priority' | 'createdAt';
+  order?: 'asc' | 'desc';
+  priority?: 'high' | 'medium' | 'low';
+  itemType?: 'product' | 'experience' | 'service' | 'membership' | 'other';
+}
 
 export interface IStorage {
   // User operations (required for Replit Auth)
@@ -46,7 +53,8 @@ export interface IStorage {
   createWishlistItem(item: InsertWishlistItem): Promise<WishlistItem>;
   updateWishlistItem(id: string, item: Partial<InsertWishlistItem>): Promise<WishlistItem>;
   deleteWishlistItem(id: string): Promise<void>;
-  getUserWishlistItems(userId: string): Promise<WishlistItem[]>;
+  getUserWishlistItems(userId: string, options?: WishlistFilterOptions): Promise<WishlistItem[]>;
+  getUserWishlistItemsByFamily(userId: string, familyId: string, options?: WishlistFilterOptions): Promise<WishlistItem[]>;
   getMemberWishlistItems(userId: string, viewerId: string, familyId?: string): Promise<any[]>;
   getWishlistItem(id: string): Promise<WishlistItem | undefined>;
   findDuplicateWishlistItem(userId: string, familyId: string, url?: string, productId?: string): Promise<WishlistItem | undefined>;
@@ -362,59 +370,138 @@ export class DatabaseStorage implements IStorage {
     await db.delete(wishlistItems).where(eq(wishlistItems.id, id));
   }
 
-  async getUserWishlistItems(userId: string): Promise<WishlistItem[]> {
+  async getUserWishlistItems(userId: string, options?: WishlistFilterOptions): Promise<WishlistItem[]> {
+    // Build where conditions
+    const whereConditions = [eq(wishlistItems.userId, userId)];
+    
+    if (options?.priority) {
+      whereConditions.push(eq(wishlistItems.priority, options.priority));
+    }
+    
+    if (options?.itemType) {
+      whereConditions.push(eq(wishlistItems.itemType, options.itemType));
+    }
+    
+    // Build order by clauses (primary + secondary for stable sorting)
+    const orderByClauses = [];
+    const orderDirection = options?.order === 'asc' ? asc : desc;
+    
+    switch (options?.sort) {
+      case 'name':
+        orderByClauses.push(orderDirection(sql`LOWER(${wishlistItems.name})`));
+        orderByClauses.push(desc(wishlistItems.createdAt)); // Secondary: newest first
+        break;
+      case 'price':
+        // Handle nulls: nulls last for both asc and desc
+        if (options?.order === 'asc') {
+          orderByClauses.push(sql`${wishlistItems.price} ASC NULLS LAST`);
+        } else {
+          orderByClauses.push(sql`${wishlistItems.price} DESC NULLS LAST`);
+        }
+        orderByClauses.push(desc(wishlistItems.createdAt)); // Secondary: newest first
+        break;
+      case 'priority':
+        // Priority sorting: low=1, medium=2, high=3
+        // DESC: 3→2→1 = high→medium→low
+        // ASC: 1→2→3 = low→medium→high
+        orderByClauses.push(sql`CASE ${wishlistItems.priority} 
+          WHEN 'low' THEN 1 
+          WHEN 'medium' THEN 2 
+          WHEN 'high' THEN 3 
+          ELSE 0
+          END ${options?.order === 'asc' ? sql`ASC` : sql`DESC`}`);
+        orderByClauses.push(desc(wishlistItems.createdAt)); // Secondary: newest first
+        break;
+      case 'createdAt':
+      default:
+        // Default: newest first (desc createdAt)
+        orderByClauses.push(orderDirection(wishlistItems.createdAt));
+        break;
+    }
+    
+    // Fallback: ensure we always have at least one ordering clause
+    if (orderByClauses.length === 0) {
+      orderByClauses.push(desc(wishlistItems.createdAt));
+    }
+    
     const items = await db
-      .select({
-        id: wishlistItems.id,
-        userId: wishlistItems.userId,
-        familyId: wishlistItems.familyId,
-        name: wishlistItems.name,
-        description: wishlistItems.description,
-        price: wishlistItems.price,
-        url: wishlistItems.url,
-        imageUrl: wishlistItems.imageUrl,
-        source: wishlistItems.source,
-        productId: wishlistItems.productId,
-        priority: wishlistItems.priority,
-        quantity: wishlistItems.quantity,
-        category: wishlistItems.category,
-        itemType: wishlistItems.itemType,
-        createdAt: wishlistItems.createdAt,
-      })
+      .select()
       .from(wishlistItems)
-      .where(eq(wishlistItems.userId, userId))
-      .orderBy(sql`${wishlistItems.createdAt} desc`);
+      .where(and(...whereConditions))
+      .orderBy(...orderByClauses);
+    
     return items as WishlistItem[];
   }
 
-  async getUserWishlistItemsByFamily(userId: string, familyId: string): Promise<WishlistItem[]> {
+  async getUserWishlistItemsByFamily(userId: string, familyId: string, options?: WishlistFilterOptions): Promise<WishlistItem[]> {
     // First verify that the user is a member of this family
     const membership = await this.getFamilyMember(familyId, userId);
     if (!membership) {
       throw new Error("You are not a member of this family");
     }
 
+    // Build where conditions
+    const whereConditions = [
+      eq(wishlistItems.userId, userId),
+      eq(wishlistItems.familyId, familyId)
+    ];
+    
+    if (options?.priority) {
+      whereConditions.push(eq(wishlistItems.priority, options.priority));
+    }
+    
+    if (options?.itemType) {
+      whereConditions.push(eq(wishlistItems.itemType, options.itemType));
+    }
+    
+    // Build order by clauses (primary + secondary for stable sorting)
+    const orderByClauses = [];
+    const orderDirection = options?.order === 'asc' ? asc : desc;
+    
+    switch (options?.sort) {
+      case 'name':
+        orderByClauses.push(orderDirection(sql`LOWER(${wishlistItems.name})`));
+        orderByClauses.push(desc(wishlistItems.createdAt)); // Secondary: newest first
+        break;
+      case 'price':
+        // Handle nulls: nulls last for both asc and desc
+        if (options?.order === 'asc') {
+          orderByClauses.push(sql`${wishlistItems.price} ASC NULLS LAST`);
+        } else {
+          orderByClauses.push(sql`${wishlistItems.price} DESC NULLS LAST`);
+        }
+        orderByClauses.push(desc(wishlistItems.createdAt)); // Secondary: newest first
+        break;
+      case 'priority':
+        // Priority sorting: low=1, medium=2, high=3
+        // DESC: 3→2→1 = high→medium→low
+        // ASC: 1→2→3 = low→medium→high
+        orderByClauses.push(sql`CASE ${wishlistItems.priority} 
+          WHEN 'low' THEN 1 
+          WHEN 'medium' THEN 2 
+          WHEN 'high' THEN 3 
+          ELSE 0
+          END ${options?.order === 'asc' ? sql`ASC` : sql`DESC`}`);
+        orderByClauses.push(desc(wishlistItems.createdAt)); // Secondary: newest first
+        break;
+      case 'createdAt':
+      default:
+        // Default: newest first (desc createdAt)
+        orderByClauses.push(orderDirection(wishlistItems.createdAt));
+        break;
+    }
+    
+    // Fallback: ensure we always have at least one ordering clause
+    if (orderByClauses.length === 0) {
+      orderByClauses.push(desc(wishlistItems.createdAt));
+    }
+
     const items = await db
-      .select({
-        id: wishlistItems.id,
-        userId: wishlistItems.userId,
-        familyId: wishlistItems.familyId,
-        name: wishlistItems.name,
-        description: wishlistItems.description,
-        price: wishlistItems.price,
-        url: wishlistItems.url,
-        imageUrl: wishlistItems.imageUrl,
-        source: wishlistItems.source,
-        productId: wishlistItems.productId,
-        priority: wishlistItems.priority,
-        quantity: wishlistItems.quantity,
-        category: wishlistItems.category,
-        itemType: wishlistItems.itemType,
-        createdAt: wishlistItems.createdAt,
-      })
+      .select()
       .from(wishlistItems)
-      .where(and(eq(wishlistItems.userId, userId), eq(wishlistItems.familyId, familyId)))
-      .orderBy(sql`${wishlistItems.createdAt} desc`);
+      .where(and(...whereConditions))
+      .orderBy(...orderByClauses);
+    
     return items as WishlistItem[];
   }
 
