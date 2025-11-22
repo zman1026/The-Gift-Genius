@@ -16,8 +16,6 @@ import { Gift, ArrowLeft, CheckCircle2, ExternalLink, MessageSquare, AlertCircle
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ShoppingOptionsDialog } from "@/components/shopping-options-dialog";
 
-const CATEGORIES = ["toys", "clothes", "electronics", "books", "home", "other"] as const;
-
 export default function MemberWishlist() {
   const { toast } = useToast();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
@@ -26,7 +24,6 @@ export default function MemberWishlist() {
   const [, setLocation] = useLocation();
   const [purchaseNotes, setPurchaseNotes] = useState<Record<string, string>>({});
   const [openNoteDialog, setOpenNoteDialog] = useState<string | null>(null);
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedItemForShopping, setSelectedItemForShopping] = useState<any>(null);
   
   // Use a ref to always get the current selectedFamilyId (prevents stale closure bugs)
@@ -177,13 +174,6 @@ export default function MemberWishlist() {
   const memberName = memberData?.firstName || memberData?.lastName
     ? `${memberData.firstName || ""} ${memberData.lastName || ""}`.trim()
     : memberData?.email || "Family Member";
-  
-  const filteredItems = items ? items.filter((item: any) => {
-    if (!selectedCategory) return true;
-    return item.category === selectedCategory;
-  }) : [];
-  
-  const hasFilteredItems = filteredItems && filteredItems.length > 0;
 
   return (
     <div className="p-6 md:p-8 lg:p-12 space-y-6">
@@ -215,30 +205,6 @@ export default function MemberWishlist() {
         </div>
       </div>
 
-      {hasItems && (
-        <div className="flex flex-wrap gap-2">
-          <Badge
-            variant={selectedCategory === null ? "default" : "outline"}
-            className="cursor-pointer hover-elevate active-elevate-2"
-            onClick={() => setSelectedCategory(null)}
-            data-testid="filter-all"
-          >
-            All Items
-          </Badge>
-          {CATEGORIES.map((category) => (
-            <Badge
-              key={category}
-              variant={selectedCategory === category ? "default" : "outline"}
-              className="cursor-pointer hover-elevate active-elevate-2 capitalize"
-              onClick={() => setSelectedCategory(category)}
-              data-testid={`filter-${category}`}
-            >
-              {category}
-            </Badge>
-          ))}
-        </div>
-      )}
-
       {!hasItems ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-16 text-center">
@@ -251,31 +217,16 @@ export default function MemberWishlist() {
             </p>
           </CardContent>
         </Card>
-      ) : !hasFilteredItems ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center mb-4">
-              <Gift className="w-10 h-10 text-muted-foreground" />
-            </div>
-            <h3 className="font-semibold text-xl mb-2 text-foreground">No items in this category</h3>
-            <p className="text-muted-foreground max-w-md">
-              {memberName} doesn't have any items in this category.
-            </p>
-            <Button onClick={() => setSelectedCategory(null)} variant="outline" data-testid="button-clear-filter">
-              Show All Items
-            </Button>
-          </CardContent>
-        </Card>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3">
-          {filteredItems.map((item: any) => {
+          {items.map((item: any) => {
             const isPurchased = !!item.purchase;
             const isPurchasedByMe = item.purchase?.purchasedById === memberData?.userId;
 
             return (
               <Card
                 key={item.id}
-                className={`flex flex-col h-full overflow-hidden hover-elevate cursor-pointer ${isPurchased ? 'opacity-75' : ''}`}
+                className={`flex flex-col overflow-hidden hover-elevate cursor-pointer ${isPurchased ? 'opacity-75' : ''}`}
                 onClick={() => !isPurchased && setSelectedItemForShopping(item)}
                 data-testid={`wishlist-item-${item.id}`}
               >
@@ -312,21 +263,19 @@ export default function MemberWishlist() {
                     </div>
                   )}
                 </div>
-                <CardContent className="flex flex-col gap-2 grow p-3">
-                  <div className="flex-1 min-h-0">
-                    <h3 className="font-semibold text-sm text-foreground line-clamp-2">{item.name}</h3>
-                    {item.price && (
-                      <p className="text-base font-bold text-primary">${parseFloat(item.price).toFixed(2)}</p>
-                    )}
-                    {item.quantity && item.quantity !== 1 && (
-                      <Badge variant="outline" className="text-xs h-5 mt-1" data-testid={`badge-quantity-${item.id}`}>
-                        Qty: {item.quantity}
-                      </Badge>
-                    )}
-                    {item.description && (
-                      <p className="text-xs text-muted-foreground line-clamp-2 mt-1">{item.description}</p>
-                    )}
-                  </div>
+                <CardContent className="flex flex-col p-3 gap-2">
+                  <h3 className="font-semibold text-sm text-foreground line-clamp-2">{item.name}</h3>
+                  {item.price && (
+                    <p className="text-base font-bold text-primary">${parseFloat(item.price).toFixed(2)}</p>
+                  )}
+                  {item.quantity && item.quantity !== 1 && (
+                    <Badge variant="outline" className="text-xs h-5 w-fit" data-testid={`badge-quantity-${item.id}`}>
+                      Qty: {item.quantity}
+                    </Badge>
+                  )}
+                  {item.description && (
+                    <p className="text-xs text-muted-foreground line-clamp-2">{item.description}</p>
+                  )}
                   
                   {isPurchased && item.purchase?.notes && (
                     <div className="bg-muted p-2 rounded-md">
@@ -337,17 +286,17 @@ export default function MemberWishlist() {
                     </div>
                   )}
 
-                  <div className="flex flex-wrap gap-1.5 mt-auto" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex gap-1.5 mt-2" onClick={(e) => e.stopPropagation()}>
                     {item.url && (
                       <Button
                         variant="outline"
                         size="sm"
-                        className="flex-1 min-w-[70px]"
+                        className="flex-1"
                         onClick={() => window.open(item.url, '_blank')}
                         data-testid={`button-view-${item.id}`}
                       >
                         <ExternalLink className="w-3 h-3 mr-1" />
-                        View
+                        <span className="truncate">View</span>
                       </Button>
                     )}
                     
@@ -357,13 +306,11 @@ export default function MemberWishlist() {
                           <Button
                             variant="default"
                             size="sm"
-                            className={item.url ? "flex-1 min-w-[70px]" : "flex-1"}
+                            className="flex-1"
                             data-testid={`button-mark-purchased-${item.id}`}
                           >
                             <CheckCircle2 className="w-3 h-3 mr-1" />
-                            <span className="hidden xs:inline">Mark </span>
-                            <span className="xs:hidden">✓ </span>
-                            Purchased
+                            <span className="truncate">Purchase</span>
                           </Button>
                         </DialogTrigger>
                         <DialogContent>
@@ -404,11 +351,12 @@ export default function MemberWishlist() {
                       <Button
                         variant="outline"
                         size="sm"
+                        className="flex-1"
                         onClick={() => unmarkPurchasedMutation.mutate(item.id)}
                         disabled={unmarkPurchasedMutation.isPending}
                         data-testid={`button-unmark-purchased-${item.id}`}
                       >
-                        Unmark
+                        <span className="truncate">Unmark</span>
                       </Button>
                     ) : null}
                   </div>
