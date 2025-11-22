@@ -474,7 +474,7 @@ export default function Members() {
                 data-testid={`member-card-${member.userId}`}
               >
                 <CardContent className="p-4">
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-3">
                     <Avatar className="h-12 w-12 shrink-0">
                       <AvatarImage src={member.profileImageUrl || undefined} alt={member.firstName || "Member"} />
                       <AvatarFallback>
@@ -483,27 +483,27 @@ export default function Members() {
                     </Avatar>
                     
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-semibold text-foreground truncate" data-testid={`member-name-${member.userId}`}>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="font-semibold text-foreground" data-testid={`member-name-${member.userId}`}>
                           {member.displayName || (member.firstName || member.lastName
                             ? `${member.firstName || ""} ${member.lastName || ""}`.trim()
                             : member.email || "Family Member")}
                         </h3>
                         {isCurrentUser && (
-                          <span className="text-xs text-primary font-medium">(You)</span>
+                          <span className="text-xs text-primary font-medium whitespace-nowrap">(You)</span>
                         )}
                       </div>
-                      <div className="flex items-center gap-3 text-muted-foreground text-sm">
-                        <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-2 text-muted-foreground text-sm flex-wrap">
+                        <div className="flex items-center gap-1">
                           <Gift className="w-3.5 h-3.5" />
                           <span data-testid={`member-items-${member.userId}`}>
                             {member.itemCount || 0} items
                           </span>
                         </div>
                         {!isCurrentUser && purchaseMap.has(member.userId) && purchaseMap.get(member.userId)?.totalSpent > 0 && (
-                          <div className="flex items-center gap-1.5 text-primary" data-testid={`member-spent-${member.userId}`}>
+                          <div className="flex items-center gap-1 text-primary" data-testid={`member-spent-${member.userId}`}>
                             <span>•</span>
-                            <span className="font-medium">
+                            <span className="font-medium whitespace-nowrap">
                               ${(purchaseMap.get(member.userId)?.totalSpent || 0).toFixed(2)} spent
                             </span>
                           </div>
@@ -511,7 +511,7 @@ export default function Members() {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 shrink-0">
+                    <div className="flex items-center gap-1.5 shrink-0">
                       {!isCurrentUser ? (
                         <>
                           <Button
@@ -520,8 +520,8 @@ export default function Members() {
                             onClick={() => setLocation(`/members/${member.userId}`)}
                             data-testid={`button-view-wishlist-${member.userId}`}
                           >
-                            <Eye className="w-4 h-4 mr-2" />
-                            View Wishlist
+                            <Eye className="w-4 h-4 sm:mr-2" />
+                            <span className="hidden sm:inline">View Wishlist</span>
                           </Button>
                           {isOrganizer && (
                             <>
@@ -562,8 +562,8 @@ export default function Members() {
                           onClick={() => setLocation('/wishlist')}
                           data-testid="button-view-my-wishlist"
                         >
-                          <Eye className="w-4 h-4 mr-2" />
-                          View My List
+                          <Eye className="w-4 h-4 sm:mr-2" />
+                          <span className="hidden sm:inline">View My List</span>
                         </Button>
                       )}
                     </div>
