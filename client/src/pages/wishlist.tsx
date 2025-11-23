@@ -66,6 +66,11 @@ export default function Wishlist() {
   // Filter dialog state
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   
+  // Detail view state
+  const [viewingItem, setViewingItem] = useState<any>(null);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  
   const form = useForm<AddItemFormData>({
     resolver: zodResolver(addItemSchema),
     defaultValues: {
@@ -193,17 +198,29 @@ export default function Wishlist() {
       
       return await apiRequest("PATCH", `/api/wishlist/${id}`, payload);
     },
-    onSuccess: async () => {
+    onSuccess: async (updatedItem) => {
       const currentFamilyId = selectedFamilyIdRef.current;
-      // Wait for refetch to complete before closing dialog
-      await queryClient.invalidateQueries({ queryKey: ["/api/wishlist", currentFamilyId] });
+      
       toast({
         title: "Success",
         description: "Item updated successfully!",
       });
-      setEditingItem(null);
-      setUploadedImageUrl("");
-      form.reset();
+      
+      // If we're viewing this item in detail view, update it and switch back to view mode
+      if (viewingItem) {
+        // Update the viewing item with the fresh data from the server
+        setViewingItem(updatedItem);
+        setIsEditMode(false);
+        setUploadedImageUrl("");
+      } else {
+        // Otherwise, we're in the old edit dialog - close it
+        setEditingItem(null);
+        setUploadedImageUrl("");
+        form.reset();
+      }
+      
+      // Invalidate queries after UI update to refresh the list
+      await queryClient.invalidateQueries({ queryKey: ["/api/wishlist", currentFamilyId] });
     },
     onError: (error: Error) => {
       if (isUnauthorizedError(error)) {
@@ -393,6 +410,54 @@ export default function Wishlist() {
     setEditingItem(null);
     setUploadedImageUrl("");
     form.reset();
+  };
+  
+  const handleCardClick = (item: any, e: React.MouseEvent) => {
+    // Don't open detail view if clicking on checkbox
+    const target = e.target as HTMLElement;
+    if (target.closest('button[role="checkbox"]')) {
+      return;
+    }
+    setViewingItem(item);
+    setIsEditMode(false);
+    setUploadedImageUrl(item.imageUrl || "");
+    form.reset({
+      name: item.name,
+      description: item.description || "",
+      price: item.price || "",
+      url: item.url || "",
+      imageUrl: item.imageUrl || "",
+      priority: item.priority || "medium",
+      quantity: item.quantity || 1,
+      category: item.category || undefined,
+      itemType: item.itemType || "product",
+    });
+  };
+  
+  const handleCloseDetailView = () => {
+    setViewingItem(null);
+    setIsEditMode(false);
+    setShowDeleteConfirm(false);
+    setUploadedImageUrl("");
+    form.reset();
+  };
+  
+  const handleToggleEditMode = () => {
+    setIsEditMode(!isEditMode);
+  };
+  
+  const handleSaveEdit = (data: AddItemFormData) => {
+    if (!viewingItem) return;
+    updateItemMutation.mutate({ id: viewingItem.id, data });
+  };
+  
+  const handleDeleteFromDetail = () => {
+    if (!viewingItem) return;
+    deleteItemMutation.mutate(viewingItem.id, {
+      onSuccess: () => {
+        handleCloseDetailView();
+      }
+    });
   };
 
   const handleGetUploadParameters = async () => {
@@ -826,6 +891,337 @@ export default function Wishlist() {
         </Sheet>
       )}
 
+      {/* Item Detail Sheet */}
+      <Sheet open={!!viewingItem} onOpenChange={(open) => { if (!open) handleCloseDetailView(); }}>
+        <SheetContent side="bottom" className="h-[90vh] overflow-y-auto">
+          {viewingItem && (
+            <>
+              <SheetHeader className="pb-4">
+                <SheetTitle>{isEditMode ? "Edit Item" : viewingItem.name}</SheetTitle>
+                <SheetDescription>
+                  {isEditMode ? "Update the item details below" : "View and manage your wishlist item"}
+                </SheetDescription>
+              </SheetHeader>
+              
+              {!isEditMode ? (
+                <div className="space-y-6">
+                  {/* Image */}
+                  {viewingItem.imageUrl && (
+                    <div className="w-full aspect-video rounded-md overflow-hidden bg-muted">
+                      <img
+                        src={viewingItem.imageUrl}
+                        alt={viewingItem.name}
+                        className="w-full h-full object-contain"
+                      />
+                    </div>
+                  )}
+                  
+                  {/* Details Grid */}
+                  <div className="space-y-4">
+                    {viewingItem.price && (
+                      <div>
+                        <p className="text-sm text-muted-foreground mb-1">Price</p>
+                        <p className="text-2xl font-bold text-primary">${parseFloat(viewingItem.price).toFixed(2)}</p>
+                      </div>
+                    )}
+                    
+                    {viewingItem.description && (
+                      <div>
+                        <p className="text-sm text-muted-foreground mb-1">Description</p>
+                        <p className="text-base text-foreground whitespace-pre-wrap">{viewingItem.description}</p>
+                      </div>
+                    )}
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      {viewingItem.priority && (
+                        <div>
+                          <p className="text-sm text-muted-foreground mb-1">Priority</p>
+                          <Badge variant={viewingItem.priority === "high" ? "destructive" : viewingItem.priority === "medium" ? "default" : "secondary"}>
+                            {viewingItem.priority === "high" && <ArrowUp className="w-3 h-3 mr-1" />}
+                            {viewingItem.priority === "medium" && <Circle className="w-3 h-3 mr-1" />}
+                            {viewingItem.priority === "low" && <AlertCircle className="w-3 h-3 mr-1" />}
+                            {viewingItem.priority === "high" ? "Must-Have!" : viewingItem.priority === "medium" ? "Would Love" : "Just a Thought"}
+                          </Badge>
+                        </div>
+                      )}
+                      
+                      {viewingItem.quantity && viewingItem.quantity !== 1 && (
+                        <div>
+                          <p className="text-sm text-muted-foreground mb-1">Quantity</p>
+                          <p className="text-base text-foreground">{viewingItem.quantity}</p>
+                        </div>
+                      )}
+                    </div>
+                    
+                    {viewingItem.itemType && (
+                      <div>
+                        <p className="text-sm text-muted-foreground mb-1">Type</p>
+                        <Badge variant="outline" className="capitalize">
+                          {viewingItem.itemType}
+                        </Badge>
+                      </div>
+                    )}
+                    
+                    {viewingItem.category && (
+                      <div>
+                        <p className="text-sm text-muted-foreground mb-1">Category</p>
+                        <p className="text-base text-foreground">{viewingItem.category}</p>
+                      </div>
+                    )}
+                    
+                    {viewingItem.url && (
+                      <div>
+                        <p className="text-sm text-muted-foreground mb-1">Product Link</p>
+                        <Button
+                          variant="outline"
+                          className="w-full justify-start"
+                          onClick={() => window.open(viewingItem.url, '_blank')}
+                          data-testid="button-view-product-link"
+                        >
+                          <ExternalLink className="w-4 h-4 mr-2" />
+                          View Product
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Actions */}
+                  <div className="flex gap-3 pt-4 border-t">
+                    <Button
+                      variant="outline"
+                      className="flex-1"
+                      onClick={handleToggleEditMode}
+                      data-testid="button-edit-item-detail"
+                    >
+                      <Edit className="w-4 h-4 mr-2" />
+                      Edit
+                    </Button>
+                    {!showDeleteConfirm ? (
+                      <Button
+                        variant="destructive"
+                        className="flex-1"
+                        onClick={() => setShowDeleteConfirm(true)}
+                        data-testid="button-delete-item-detail"
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Delete
+                      </Button>
+                    ) : (
+                      <div className="flex-1 flex gap-2">
+                        <Button
+                          variant="destructive"
+                          className="flex-1"
+                          onClick={handleDeleteFromDetail}
+                          disabled={deleteItemMutation.isPending}
+                          data-testid="button-confirm-delete"
+                        >
+                          Confirm
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => setShowDeleteConfirm(false)}
+                          data-testid="button-cancel-delete"
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <Form {...form}>
+                  <form onSubmit={form.handleSubmit(handleSaveEdit)} className="space-y-4">
+                    <FormField
+                      control={form.control}
+                      name="name"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Item Name *</FormLabel>
+                          <FormControl>
+                            <Input placeholder="e.g., Wireless Headphones" {...field} data-testid="input-item-name-detail" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="description"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Description</FormLabel>
+                          <FormControl>
+                            <Textarea
+                              placeholder="Tell your family more about this item..."
+                              className="resize-none h-24"
+                              {...field}
+                              data-testid="input-item-description-detail"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="price"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Price</FormLabel>
+                          <FormControl>
+                            <Input type="number" step="0.01" placeholder="29.99" {...field} data-testid="input-item-price-detail" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="url"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Product URL</FormLabel>
+                          <FormControl>
+                            <Input placeholder="https://example.com/product" {...field} data-testid="input-item-url-detail" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <div className="space-y-2">
+                      <FormLabel>Item Image</FormLabel>
+                      <div className="flex items-center gap-4">
+                        <ObjectUploader
+                          maxNumberOfFiles={1}
+                          maxFileSize={10485760}
+                          onGetUploadParameters={handleGetUploadParameters}
+                          onComplete={handleUploadComplete}
+                          buttonVariant="outline"
+                        >
+                          <Upload className="w-4 h-4 mr-2" />
+                          Upload Image
+                        </ObjectUploader>
+                        {uploadedImageUrl && (
+                          <span className="text-sm text-muted-foreground">Image uploaded</span>
+                        )}
+                      </div>
+                      {uploadedImageUrl && (
+                        <div className="relative w-32 h-32 border rounded-md overflow-hidden">
+                          <img
+                            src={uploadedImageUrl}
+                            alt="Uploaded preview"
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      )}
+                      <FormField
+                        control={form.control}
+                        name="imageUrl"
+                        render={({ field }) => <input type="hidden" {...field} data-testid="input-item-image-url-detail" />}
+                      />
+                    </div>
+                    <FormField
+                      control={form.control}
+                      name="itemType"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Item Type</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger data-testid="select-item-type-detail">
+                                <SelectValue placeholder="Select type" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="product">Product</SelectItem>
+                              <SelectItem value="experience">Experience</SelectItem>
+                              <SelectItem value="service">Service</SelectItem>
+                              <SelectItem value="membership">Membership</SelectItem>
+                              <SelectItem value="other">Other</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="priority"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Priority</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger data-testid="select-priority-detail">
+                                <SelectValue placeholder="Select priority" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {PRIORITIES.map((priority) => (
+                                <SelectItem key={priority.value} value={priority.value}>
+                                  {priority.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="quantity"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Quantity</FormLabel>
+                          <FormControl>
+                            <Input type="number" min="1" step="1" placeholder="1" {...field} data-testid="input-item-quantity-detail" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="category"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Category (Optional)</FormLabel>
+                          <FormControl>
+                            <Input placeholder="e.g., Electronics" {...field} data-testid="input-item-category-detail" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <div className="flex gap-3 pt-4">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="flex-1"
+                        onClick={() => setIsEditMode(false)}
+                        data-testid="button-cancel-edit-detail"
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        type="submit"
+                        className="flex-1"
+                        disabled={updateItemMutation.isPending}
+                        data-testid="button-save-edit-detail"
+                      >
+                        Save Changes
+                      </Button>
+                    </div>
+                  </form>
+                </Form>
+              )}
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
+
       {!hasItems ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-20 md:py-24 text-center">
@@ -911,7 +1307,12 @@ export default function Wishlist() {
           
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3">
           {items.map((item: any) => (
-            <Card key={item.id} className="flex flex-col h-full overflow-hidden hover-elevate" data-testid={`wishlist-item-${item.id}`}>
+            <Card 
+              key={item.id} 
+              className="flex flex-col h-full overflow-hidden hover-elevate cursor-pointer" 
+              onClick={(e) => handleCardClick(item, e)}
+              data-testid={`wishlist-item-${item.id}`}
+            >
               <div className="aspect-square bg-muted relative overflow-hidden">
                 {item.imageUrl ? (
                   <img
@@ -960,37 +1361,6 @@ export default function Wishlist() {
                   {item.description && (
                     <p className="text-xs text-muted-foreground line-clamp-2 mt-1">{item.description}</p>
                   )}
-                </div>
-                <div className="flex gap-1.5 mt-auto">
-                  {item.url && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="flex-1"
-                      onClick={() => window.open(item.url, '_blank')}
-                      data-testid={`button-view-${item.id}`}
-                    >
-                      <ExternalLink className="w-3 h-3 mr-1" />
-                      View
-                    </Button>
-                  )}
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => handleEdit(item)}
-                    data-testid={`button-edit-${item.id}`}
-                  >
-                    <Edit className="w-3 h-3" />
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    size="icon"
-                    onClick={() => deleteItemMutation.mutate(item.id)}
-                    disabled={deleteItemMutation.isPending}
-                    data-testid={`button-delete-${item.id}`}
-                  >
-                    <Trash2 className="w-3 h-3" />
-                  </Button>
                 </div>
               </CardContent>
             </Card>
