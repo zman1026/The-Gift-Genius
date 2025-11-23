@@ -15,8 +15,10 @@ export function CameraCapture({ onImageCaptured, isProcessing = false }: CameraC
   const [isLoading, setIsLoading] = useState(false);
   const [facingMode, setFacingMode] = useState<"user" | "environment">("environment");
   const [hasMultipleCameras, setHasMultipleCameras] = useState(false);
+  const [retryTrigger, setRetryTrigger] = useState(0);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
   const { toast } = useToast();
 
   // Check for multiple cameras
@@ -40,9 +42,10 @@ export function CameraCapture({ onImageCaptured, isProcessing = false }: CameraC
       setError(null);
 
       try {
-        // Stop any existing stream
-        if (stream) {
-          stream.getTracks().forEach(track => track.stop());
+        // Stop any existing stream using ref
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach(track => track.stop());
+          streamRef.current = null;
         }
 
         // Request camera access
@@ -56,6 +59,7 @@ export function CameraCapture({ onImageCaptured, isProcessing = false }: CameraC
         };
 
         const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+        streamRef.current = mediaStream;
         setStream(mediaStream);
 
         if (videoRef.current) {
@@ -88,11 +92,12 @@ export function CameraCapture({ onImageCaptured, isProcessing = false }: CameraC
 
     // Cleanup on unmount
     return () => {
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
       }
     };
-  }, [facingMode]);
+  }, [facingMode, retryTrigger]);
 
   const capturePhoto = () => {
     if (!videoRef.current || !canvasRef.current) return;
@@ -141,8 +146,15 @@ export function CameraCapture({ onImageCaptured, isProcessing = false }: CameraC
   };
 
   const retryCamera = () => {
+    // Stop any active stream immediately before retry
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    setStream(null);
     setError(null);
     setFacingMode("environment"); // Reset to back camera
+    setRetryTrigger(prev => prev + 1); // Trigger camera restart
   };
 
   if (error) {

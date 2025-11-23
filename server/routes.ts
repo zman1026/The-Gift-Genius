@@ -1246,15 +1246,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Image search route (Google Lens via SerpApi)
   app.post('/api/search/image', isAuthenticated, async (req: any, res) => {
     try {
-      // Validate request body
-      const imageSearchSchema = z.object({
-        image: z.string().refine(
+      // Validate request body with proper Base64 payload validation
+      const imageSearchSchema = z.string()
+        .refine(
           (val) => val.startsWith('data:image/'),
           "Image must be a valid base64 data URI"
-        ),
-      });
+        )
+        .refine(
+          (val) => {
+            // Validate it's an actual image format
+            const validFormats = ['data:image/jpeg', 'data:image/jpg', 'data:image/png', 'data:image/webp'];
+            return validFormats.some(format => val.startsWith(format));
+          },
+          "Image must be in JPEG, PNG, or WebP format"
+        )
+        .refine(
+          (val) => {
+            try {
+              // Extract Base64 payload after the prefix (e.g., "data:image/jpeg;base64,")
+              const base64Match = val.match(/^data:image\/[^;]+;base64,(.+)$/);
+              if (!base64Match || !base64Match[1]) {
+                return false;
+              }
+              const base64Payload = base64Match[1];
+              
+              // Verify it's valid Base64
+              const decoded = Buffer.from(base64Payload, 'base64');
+              
+              // Check decoded size (10MB limit)
+              const sizeInMB = decoded.length / (1024 * 1024);
+              return sizeInMB <= 10;
+            } catch {
+              return false;
+            }
+          },
+          "Image size must not exceed 10MB and must be valid Base64"
+        );
 
-      const { image } = imageSearchSchema.parse(req.body);
+      const image = imageSearchSchema.parse(req.body.image);
 
       const apiKey = process.env.SERPAPI_KEY;
       if (!apiKey) {
