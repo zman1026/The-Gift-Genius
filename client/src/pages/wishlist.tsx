@@ -456,7 +456,7 @@ export default function Wishlist() {
 
   return (
     <div className="p-4 md:p-8 lg:p-12 space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div className="flex flex-col gap-2">
         <div>
           <h1 className="font-serif text-2xl md:text-4xl font-semibold text-foreground">
             My Wishlist
@@ -464,12 +464,6 @@ export default function Wishlist() {
           <p className="text-sm md:text-base text-muted-foreground mt-1">
             Add items you'd love to receive this Christmas
           </p>
-        </div>
-        <div className="flex gap-2 md:gap-3">
-          <Button onClick={() => setIsAddDialogOpen(true)} className="flex-1 md:flex-initial" data-testid="button-add-manually">
-            <Plus className="w-4 h-4 md:mr-2" />
-            <span className="md:inline">Add Item</span>
-          </Button>
         </div>
       </div>
 
@@ -788,25 +782,21 @@ export default function Wishlist() {
 
       {!hasItems ? (
         <Card>
-          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center mb-4">
-              <Gift className="w-10 h-10 text-muted-foreground" />
+          <CardContent className="flex flex-col items-center justify-center py-20 md:py-24 text-center">
+            <div className="w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center mb-6">
+              <Gift className="w-12 h-12 text-primary" />
             </div>
             <h3 className="font-semibold text-xl mb-2 text-foreground">Your Wishlist is Empty</h3>
-            <p className="text-muted-foreground mb-6 max-w-md">
-              Start adding items you'd love to receive. Search for products or add them manually.
+            <p className="text-muted-foreground mb-8 max-w-md px-4">
+              Start adding items you'd love to receive this Christmas.
             </p>
-            <div className="flex gap-3">
-              <Link href="/search">
-                <Button data-testid="button-search-first-gift">
-                  <Search className="w-4 h-4 mr-2" />
-                  Search for Your First Gift
-                </Button>
-              </Link>
-              <Button variant="outline" onClick={() => setIsAddDialogOpen(true)} data-testid="button-add-first-item">
-                <Plus className="w-4 h-4 mr-2" />
-                Manually Add
-              </Button>
+            <div className="flex flex-col items-center gap-3 text-sm text-muted-foreground">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
+                  <Plus className="w-4 h-4 text-primary-foreground" />
+                </div>
+                <span>Tap the red button below to add your first item</span>
+              </div>
             </div>
           </CardContent>
         </Card>
