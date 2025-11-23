@@ -168,43 +168,29 @@ export default function Home() {
   const hasFamilies = familiesData && familiesData.length > 0;
 
   return (
-    <div className="p-4 md:p-8 lg:p-12 space-y-6 md:space-y-8">
-      {/* Welcome Header */}
-      <div>
-        <h1 className="font-serif text-2xl md:text-4xl font-semibold text-foreground mb-2">
-          Welcome to Your Christmas Dashboard
-        </h1>
-        <p className="text-sm md:text-base text-muted-foreground">
-          Manage your wishlists and coordinate gifts with your family.
-        </p>
+    <div className="p-4 md:p-8 lg:p-12 space-y-4 md:space-y-6">
+      {/* Hero Section: Countdown + Onboarding */}
+      <div className="space-y-4">
+        <ChristmasCountdown />
+        <OnboardingChecklist />
       </div>
 
-      {/* Christmas Countdown */}
-      <ChristmasCountdown />
+      {/* Main Content Grid */}
+      {hasFamilies && selectedFamilyId ? (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* Left Column: Gift Progress */}
+          <GiftProgressTracker />
+          
+          {/* Right Column: Budget */}
+          <BudgetTracker
+            budget={selectedFamily?.giftBudget ? parseFloat(selectedFamily.giftBudget) : null}
+            totalPurchased={stats?.totalPurchased || 0}
+            onSetBudget={() => setIsBudgetDialogOpen(true)}
+          />
+        </div>
+      ) : null}
 
-      {/* Onboarding Checklist */}
-      <OnboardingChecklist />
-
-      {/* Gift Progress Tracker - Who Needs Gifts */}
-      {hasFamilies && selectedFamilyId && (
-        <GiftProgressTracker />
-      )}
-
-      {/* Budget Tracker */}
-      {hasFamilies && selectedFamilyId && (
-        <BudgetTracker
-          budget={selectedFamily?.giftBudget ? parseFloat(selectedFamily.giftBudget) : null}
-          totalPurchased={stats?.totalPurchased || 0}
-          onSetBudget={() => setIsBudgetDialogOpen(true)}
-        />
-      )}
-
-      {/* Activity Feed */}
-      {hasFamilies && selectedFamilyId && (
-        <ActivityFeed familyId={selectedFamilyId} limit={10} />
-      )}
-
-      {/* Family Groups */}
+      {/* Family Groups - Compact */}
       <div>
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-serif text-2xl font-semibold text-foreground">
