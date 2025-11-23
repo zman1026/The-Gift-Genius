@@ -22,6 +22,8 @@ import { ChristmasCountdown } from "@/components/christmas-countdown";
 import { BudgetTracker } from "@/components/budget-tracker";
 import { BudgetDialog } from "@/components/budget-dialog";
 import { ActivityFeed } from "@/components/activity-feed";
+import { OnboardingChecklist } from "@/components/onboarding-checklist";
+import { GiftProgressTracker } from "@/components/gift-progress-tracker";
 
 const inviteEmailSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
@@ -180,106 +182,13 @@ export default function Home() {
       {/* Christmas Countdown */}
       <ChristmasCountdown />
 
-      {/* Quick Actions */}
+      {/* Onboarding Checklist */}
+      <OnboardingChecklist />
+
+      {/* Gift Progress Tracker - Who Needs Gifts */}
       {hasFamilies && selectedFamilyId && (
-        <div>
-          <div className="flex items-center gap-2 mb-4">
-            <Zap className="w-5 h-5 text-primary" />
-            <h2 className="font-serif text-xl font-semibold text-foreground">
-              Quick Actions
-            </h2>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Card className="hover-elevate cursor-pointer" onClick={() => setLocation('/wishlist')} data-testid="card-action-add-item">
-              <CardContent className="p-6 flex items-center gap-4">
-                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-                  <Plus className="w-6 h-6 text-primary" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-foreground mb-1">Add Item to Wishlist</h3>
-                  <p className="text-xs text-muted-foreground">Manually add or search products</p>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="hover-elevate cursor-pointer" onClick={() => setLocation('/search')} data-testid="card-action-search-products">
-              <CardContent className="p-6 flex items-center gap-4">
-                <div className="w-12 h-12 rounded-full bg-accent/10 flex items-center justify-center">
-                  <Search className="w-6 h-6 text-accent" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-foreground mb-1">Search Products</h3>
-                  <p className="text-xs text-muted-foreground">Find items from Google Shopping</p>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="hover-elevate cursor-pointer" onClick={() => setIsInviteDialogOpen(true)} data-testid="card-action-invite-member">
-              <CardContent className="p-6 flex items-center gap-4">
-                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-                  <UserPlus className="w-6 h-6 text-primary" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-foreground mb-1">Invite Family Member</h3>
-                  <p className="text-xs text-muted-foreground">Share invite code or link</p>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
+        <GiftProgressTracker />
       )}
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              My Wishlist Items
-            </CardTitle>
-            <Gift className="w-4 h-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-foreground" data-testid="stat-my-items">
-              {stats?.myItemsCount || 0}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Items on your wishlist
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Family Members
-            </CardTitle>
-            <Users className="w-4 h-4 text-accent" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-foreground" data-testid="stat-family-members">
-              {stats?.familyMembersCount || 0}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              People in your families
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Must-Have Items to Purchase
-            </CardTitle>
-            <Gift className="w-4 h-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-foreground" data-testid="stat-items-to-purchase">
-              {stats?.itemsToPurchaseCount || 0}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              High priority unpurchased items
-            </p>
-          </CardContent>
-        </Card>
-      </div>
 
       {/* Budget Tracker */}
       {hasFamilies && selectedFamilyId && (
