@@ -27,9 +27,10 @@ type Activity = z.infer<typeof activitySchema>;
 interface ActivityFeedProps {
   familyId: string;
   limit?: number;
+  compact?: boolean;
 }
 
-export function ActivityFeed({ familyId, limit = 10 }: ActivityFeedProps) {
+export function ActivityFeed({ familyId, limit = 10, compact = false }: ActivityFeedProps) {
   const { data: activities, isLoading, isError } = useQuery<Activity[]>({
     queryKey: ["/api/activities", familyId],
     queryFn: async () => {
@@ -112,7 +113,22 @@ export function ActivityFeed({ familyId, limit = 10 }: ActivityFeedProps) {
     }
   };
 
+  const loadingSkeleton = (
+    <div className="space-y-4">
+      {[...Array(5)].map((_, i) => (
+        <div key={i} className="flex gap-3">
+          <Skeleton className="w-10 h-10 rounded-full" />
+          <div className="flex-1 space-y-2">
+            <Skeleton className="h-4 w-3/4" />
+            <Skeleton className="h-3 w-1/4" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
   if (isLoading) {
+    if (compact) return loadingSkeleton;
     return (
       <Card data-testid="activity-feed-loading">
         <CardHeader>
@@ -125,23 +141,32 @@ export function ActivityFeed({ familyId, limit = 10 }: ActivityFeedProps) {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {[...Array(5)].map((_, i) => (
-              <div key={i} className="flex gap-3">
-                <Skeleton className="w-10 h-10 rounded-full" />
-                <div className="flex-1 space-y-2">
-                  <Skeleton className="h-4 w-3/4" />
-                  <Skeleton className="h-3 w-1/4" />
-                </div>
-              </div>
-            ))}
-          </div>
+          {loadingSkeleton}
         </CardContent>
       </Card>
     );
   }
 
+  const errorContent = (
+    <div className="text-center py-8">
+      <ActivityIcon className="w-12 h-12 mx-auto text-muted-foreground mb-3" />
+      <p className="text-muted-foreground text-sm">
+        Unable to load activities. Please try again later.
+      </p>
+    </div>
+  );
+
+  const emptyContent = (
+    <div className="text-center py-8">
+      <ActivityIcon className="w-12 h-12 mx-auto text-muted-foreground mb-3" />
+      <p className="text-muted-foreground text-sm">
+        No recent activity yet. Start adding items or inviting family members!
+      </p>
+    </div>
+  );
+
   if (isError) {
+    if (compact) return errorContent;
     return (
       <Card data-testid="activity-feed-error">
         <CardHeader>
@@ -154,18 +179,14 @@ export function ActivityFeed({ familyId, limit = 10 }: ActivityFeedProps) {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="text-center py-8">
-            <ActivityIcon className="w-12 h-12 mx-auto text-muted-foreground mb-3" />
-            <p className="text-muted-foreground text-sm">
-              Unable to load activities. Please try again later.
-            </p>
-          </div>
+          {errorContent}
         </CardContent>
       </Card>
     );
   }
 
   if (!activities || activities.length === 0) {
+    if (compact) return emptyContent;
     return (
       <Card data-testid="activity-feed-empty">
         <CardHeader>
@@ -178,17 +199,63 @@ export function ActivityFeed({ familyId, limit = 10 }: ActivityFeedProps) {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="text-center py-8">
-            <ActivityIcon className="w-12 h-12 mx-auto text-muted-foreground mb-3" />
-            <p className="text-muted-foreground text-sm">
-              No recent activity yet. Start adding items or inviting family members!
-            </p>
-          </div>
+          {emptyContent}
         </CardContent>
       </Card>
     );
   }
 
+  const activityList = (
+    <div className="space-y-4">
+      {activities.map((activity) => {
+        const { text, color } = getActivityText(activity);
+        
+        return (
+          <div
+            key={activity.id}
+            className="flex gap-3 items-start"
+            data-testid={`activity-${activity.id}`}
+          >
+            <Avatar className="w-10 h-10">
+              <AvatarImage
+                src={activity.actor?.profileImageUrl || undefined}
+                alt={activity.actor?.firstName || "User"}
+              />
+              <AvatarFallback className="text-xs">
+                {getInitials(
+                  activity.actor?.firstName || undefined,
+                  activity.actor?.lastName || undefined,
+                  activity.actor?.email
+                )}
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-start gap-2">
+                <div className={`w-6 h-6 rounded-full bg-muted flex items-center justify-center ${color}`}>
+                  {getActivityIcon(activity.action)}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-foreground leading-relaxed">
+                    {text}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {formatDistanceToNow(new Date(activity.createdAt), { addSuffix: true })}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+
+  // Compact mode: just return the activity list without Card wrapper
+  if (compact) {
+    return activityList;
+  }
+
+  // Full mode: return Card with header
   return (
     <Card data-testid="activity-feed">
       <CardHeader>
@@ -201,48 +268,7 @@ export function ActivityFeed({ familyId, limit = 10 }: ActivityFeedProps) {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="space-y-4">
-          {activities.map((activity) => {
-            const { text, color } = getActivityText(activity);
-            
-            return (
-              <div
-                key={activity.id}
-                className="flex gap-3 items-start"
-                data-testid={`activity-${activity.id}`}
-              >
-                <Avatar className="w-10 h-10">
-                  <AvatarImage
-                    src={activity.actor?.profileImageUrl || undefined}
-                    alt={activity.actor?.firstName || "User"}
-                  />
-                  <AvatarFallback className="text-xs">
-                    {getInitials(
-                      activity.actor?.firstName || undefined,
-                      activity.actor?.lastName || undefined,
-                      activity.actor?.email
-                    )}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-start gap-2">
-                    <div className={`w-6 h-6 rounded-full bg-muted flex items-center justify-center ${color}`}>
-                      {getActivityIcon(activity.action)}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-foreground leading-relaxed">
-                        {text}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {formatDistanceToNow(new Date(activity.createdAt), { addSuffix: true })}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+        {activityList}
       </CardContent>
     </Card>
   );

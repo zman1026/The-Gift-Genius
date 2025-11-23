@@ -1,7 +1,7 @@
 # Family Christmas Wishlist Manager
 
 ## Overview
-A festive web application enabling families to collaboratively create, share, and manage Christmas wishlists. It allows family members to add personal wishes, view others' wishlists, and secretly mark items as purchased to streamline gift coordination and maintain surprise. The project aims to simplify holiday gift-giving within families.
+A mobile-first festive web application enabling families to collaboratively create, share, and manage Christmas wishlists. It allows family members to add personal wishes, view others' wishlists, and secretly mark items as purchased to streamline gift coordination and maintain surprise. The project prioritizes quick access to the primary function (adding items) with a persistent floating action button available on all screens.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
@@ -11,7 +11,18 @@ Preferred communication style: Simple, everyday language.
 ### UI/UX Decisions
 The application features a hybrid design, combining Pinterest-style visual cards for items with Notion-style organized data presentation. It uses a warm, family-oriented aesthetic with Inter and Playfair Display fonts, and a festive color scheme (primary red, accent green). The UI is responsive, utilizing **compact grid layouts** that adapt from **2-6 columns** for wishlist item displays (2 on mobile, 3 on tablets, 4-6 on desktops), maximizing information density while maintaining readability. Item cards feature **square aspect-ratio images** (aspect-square), **reduced spacing** (gap-3, p-3), **optimized typography** (text-sm titles, text-xs descriptions), and **priority badge overlays** (positioned top-right on thumbnails) to show 2-3x more items per screen while allowing titles to span full width without truncation.
 
-**Mobile-First Redesign (Latest):** The app prioritizes the primary mobile workflow: (1) adding items to wishlist, (2) viewing family members, (3) accessing secondary features. Navigation uses a **3-tab bottom bar** (My List, Family, More) instead of 4 tabs, with **"/" (Dashboard) as the default landing page**. The dashboard is simplified with: (1) countdown + onboarding checklist, (2) 2-column grid for gift progress and budget tracker, (3) compact family groups section. A persistent **Floating Action Button (FAB)** with festive styling (16x16, pulse animation, hover glow, rotating icon) provides quick access to add items from any page. The wishlist page includes a **quick-add banner** with URL paste and search shortcuts for faster item addition. The **members page uses a compact avatar grid** (2-6 columns responsive) showing member avatars, names, item counts, and click-to-view functionality. Secondary features (Dashboard, Search, Purchased Items) are consolidated in a **More page** menu. The redesign reduces navigation friction, increases information density, and optimizes touch targets for mobile users.
+**Mobile-First Redesign (Latest):** The app prioritizes the primary mobile workflow: (1) adding items to wishlist, (2) viewing family members, (3) accessing secondary features. Navigation uses a **3-tab bottom bar** (My List, Family, More) with **"/" (Dashboard) as the default landing page**. 
+
+**Dashboard Redesign (December 2024):** Completely redesigned for mobile-first experience with single-column stacked layout:
+- **Compact Stats Banner:** Top banner shows countdown timer with inline metrics (items count, family members, gifts received)
+- **Dismissible Onboarding:** Smart banner with inline quick-actions that auto-hides after completion (stored in localStorage)
+- **Actionable Tiles:** Each card is tappable and navigates to relevant sections (My Wishlist, Gift Progress, Budget Tracker)
+- **Compact Activity Feed:** Shows 5 most recent activities inline without nested cards
+- **No Desktop Grids:** Removed 2-column layouts in favor of mobile-friendly vertical stacking
+
+**Persistent FAB:** A **Floating Action Button** with festive styling (16x16, pulse animation, hover glow, rotating icon) appears on **all authenticated screens** and opens the unified add-item dialog, making the primary function (adding items) always one tap away. 
+
+The wishlist page includes a **quick-add banner** with URL paste and search shortcuts for faster item addition. The **members page uses a compact avatar grid** (2-6 columns responsive) showing member avatars, names, item counts, and click-to-view functionality. Secondary features (Dashboard, Search, Purchased Items) are consolidated in a **More page** menu. The redesign reduces navigation friction, increases information density, and optimizes touch targets for mobile users.
 
 **Camera-Based Product Search (Implemented):** The app features camera-based image search using SerpApi's Google Lens API to add products by photographing them in stores.
 - **Technology Stack:** HTML5 getUserMedia API for camera capture with MediaStream management, SerpApi Google Lens API for visual product recognition, base64 encoding for efficient image transfer (no storage costs)
