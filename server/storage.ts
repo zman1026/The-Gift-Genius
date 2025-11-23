@@ -864,10 +864,11 @@ export class DatabaseStorage implements IStorage {
             SUM(
               CASE 
                 WHEN wi.price IS NULL OR wi.price = '' THEN 0
-                ELSE COALESCE(
-                  NULLIF(REGEXP_REPLACE(wi.price, '[^0-9.]', '', 'g'), '')::numeric,
-                  0
-                )
+                ELSE 
+                  CASE 
+                    WHEN REGEXP_REPLACE(wi.price, '[^0-9.]', '', 'g') = '' THEN 0
+                    ELSE REGEXP_REPLACE(wi.price, '[^0-9.]', '', 'g')::numeric
+                  END
               END
             ), 
             0
@@ -904,10 +905,11 @@ export class DatabaseStorage implements IStorage {
           SUM(
             CASE 
               WHEN wi.price IS NULL OR wi.price = '' THEN 0
-              ELSE COALESCE(
-                NULLIF(REGEXP_REPLACE(wi.price, '[^0-9.]', '', 'g'), '')::numeric,
-                0
-              )
+              ELSE 
+                CASE 
+                  WHEN REGEXP_REPLACE(wi.price, '[^0-9.]', '', 'g') = '' THEN 0
+                  ELSE REGEXP_REPLACE(wi.price, '[^0-9.]', '', 'g')::numeric
+                END
             END
           ), 
           0
