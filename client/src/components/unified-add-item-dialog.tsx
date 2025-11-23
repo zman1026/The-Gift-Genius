@@ -42,11 +42,12 @@ import {
 } from "@/components/ui/form";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Search, Plus, ExternalLink, Gift, Sparkles, Users, Ticket, Upload } from "lucide-react";
+import { Loader2, Search, Plus, ExternalLink, Gift, Sparkles, Users, Ticket, Upload, Camera } from "lucide-react";
 import { ObjectUploader } from "@/components/ObjectUploader";
 import type { UploadResult } from "@uppy/core";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { CameraCapture } from "@/components/camera-capture";
 
 // Form schema for custom items
 const customItemSchema = z.object({
@@ -89,6 +90,8 @@ export function UnifiedAddItemDialog({
   const [duplicateItem, setDuplicateItem] = useState<any>(null);
   const [pendingItem, setPendingItem] = useState<any>(null);
   const [pendingItemType, setPendingItemType] = useState<'search' | 'custom' | null>(null);
+  const [isSearchingByImage, setIsSearchingByImage] = useState(false);
+  const [imageSearchResults, setImageSearchResults] = useState<any[] | null>(null);
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const { toast } = useToast();
 
@@ -367,6 +370,44 @@ export function UnifiedAddItemDialog({
     }
   };
 
+  const handleImageSearch = async (base64Image: string) => {
+    setIsSearchingByImage(true);
+    setImageSearchResults(null);
+
+    try {
+      const response = await fetch("/api/search/image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ image: base64Image }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ message: "Failed to search by image" }));
+        throw new Error(error.message || "Failed to search by image");
+      }
+
+      const data = await response.json();
+      setImageSearchResults(data.results || []);
+
+      if (!data.results || data.results.length === 0) {
+        toast({
+          title: "No Results",
+          description: "Couldn't find any products matching this image. Try a clearer photo or search manually.",
+        });
+      }
+    } catch (error: any) {
+      console.error("Image search error:", error);
+      toast({
+        title: "Search Failed",
+        description: error.message || "Failed to search by image. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSearchingByImage(false);
+    }
+  };
+
   const handleClose = () => {
     // Reset all dialog state
     setSearchQuery("");
@@ -376,6 +417,8 @@ export function UnifiedAddItemDialog({
     setDetectedType(null);
     setSuggestionDismissed(false);
     setLastDismissedQuery("");
+    setIsSearchingByImage(false);
+    setImageSearchResults(null);
     form.reset();
     setActiveTab("quick");
     onOpenChange(false);
@@ -454,14 +497,18 @@ export function UnifiedAddItemDialog({
           </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="quick" data-testid="tab-quick-add">
               <Search className="w-4 h-4 mr-2" />
-              Quick Add
+              Search
+            </TabsTrigger>
+            <TabsTrigger value="camera" data-testid="tab-camera">
+              <Camera className="w-4 h-4 mr-2" />
+              Camera
             </TabsTrigger>
             <TabsTrigger value="custom" data-testid="tab-custom-item">
               <Plus className="w-4 h-4 mr-2" />
-              Custom Item
+              Manual
             </TabsTrigger>
           </TabsList>
 
@@ -630,6 +677,87 @@ export function UnifiedAddItemDialog({
               <div className="text-center py-8 text-muted-foreground" data-testid="search-initial-state">
                 <Search className="w-12 h-12 mx-auto mb-2 opacity-50" />
                 <p>Paste a product URL or search for anything</p>
+              </div>
+            )}
+          </TabsContent>
+
+          {/* Camera Tab */}
+          <TabsContent value="camera" className="space-y-4 mt-4">
+            <CameraCapture 
+              onImageCaptured={handleImageSearch} 
+              isProcessing={isSearchingByImage}
+            />
+
+            {/* Image search results */}
+            {imageSearchResults && imageSearchResults.length > 0 && (
+              <div className="space-y-3">
+                <p className="text-sm text-muted-foreground">
+                  Found {imageSearchResults.length} result{imageSearchResults.length !== 1 ? "s" : ""}
+                </p>
+                <div className="grid grid-cols-1 gap-3 max-h-96 overflow-y-auto">
+                  {imageSearchResults.map((result: any, index: number) => (
+                    <Card key={index} className="hover-elevate" data-testid={`camera-result-${index}`}>
+                      <CardContent className="p-4">
+                        <div className="flex gap-4">
+                          {result.thumbnail && (
+                            <img
+                              src={result.thumbnail}
+                              alt={result.title}
+                              className="w-20 h-20 object-cover rounded-md"
+                            />
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-medium line-clamp-2 mb-1">{result.title}</h4>
+                            {result.snippet && (
+                              <p className="text-sm text-muted-foreground line-clamp-2 mb-2">
+                                {result.snippet}
+                              </p>
+                            )}
+                            <div className="flex items-center gap-2 flex-wrap">
+                              {result.extracted_price !== null && result.extracted_price !== undefined && (
+                                <Badge variant="secondary">
+                                  ${result.extracted_price.toFixed(2)}
+                                </Badge>
+                              )}
+                              {result.source && (
+                                <span className="text-xs text-muted-foreground">
+                                  {result.source}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex flex-col gap-2">
+                            <Button
+                              size="sm"
+                              onClick={() => addFromSearchMutation.mutate({ product: result })}
+                              disabled={addFromSearchMutation.isPending}
+                              data-testid={`button-add-camera-result-${index}`}
+                            >
+                              {addFromSearchMutation.isPending ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <>
+                                  <Plus className="w-4 h-4 mr-1" />
+                                  Add
+                                </>
+                              )}
+                            </Button>
+                            {result.link && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => window.open(result.link, "_blank")}
+                                data-testid={`button-view-camera-result-${index}`}
+                              >
+                                <ExternalLink className="w-4 h-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
               </div>
             )}
           </TabsContent>
