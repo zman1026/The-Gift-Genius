@@ -82,8 +82,8 @@ function AppContent() {
             </header>
             <main className="flex-1 overflow-y-auto pb-20 md:pb-0">
               <Switch>
-                <Route path="/" component={Wishlist} />
-                <Route path="/dashboard" component={Home} />
+                <Route path="/" component={Home} />
+                <Route path="/my-list" component={Wishlist} />
                 <Route path="/families/create" component={CreateFamily} />
                 <Route path="/families/join" component={JoinFamily} />
                 <Route path="/wishlist" component={Wishlist} />

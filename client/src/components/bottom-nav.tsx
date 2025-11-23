@@ -7,7 +7,7 @@ export function BottomNav() {
 
   const navItems = [
     {
-      path: "/wishlist",
+      path: "/my-list",
       icon: Gift,
       label: "My List",
       testId: "nav-wishlist",
@@ -36,9 +36,7 @@ export function BottomNav() {
     <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 safe-area-inset-bottom">
       <div className="flex items-center justify-around h-16">
         {navItems.map((item) => {
-          // Highlight "My List" for both "/" and "/wishlist" routes
           const isActive = location === item.path || 
-                          (item.path === "/wishlist" && location === "/") ||
                           (item.path !== "/" && location.startsWith(item.path));
           const Icon = item.icon;
           

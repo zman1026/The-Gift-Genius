@@ -26,7 +26,7 @@ const menuItems = [
   },
   {
     title: "My Wishlist",
-    url: "/wishlist",
+    url: "/my-list",
     icon: Gift,
     testId: "nav-wishlist",
   },
