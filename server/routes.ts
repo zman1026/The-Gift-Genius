@@ -950,11 +950,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Serve uploaded images with ACL check
-  app.get('/objects/:objectPath(*)', isAuthenticated, async (req: any, res) => {
+  // For camera-search images, allow public access (no auth required)
+  // For other images, require authentication and ACL check
+  app.get('/objects/:objectPath(*)', async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
       const objectStorageService = new ObjectStorageService();
+      const requestedPath = req.params.objectPath || '';
       
+      // Check if this is a camera-search image (public access)
+      const isCameraSearch = requestedPath.startsWith('camera-search-');
+      
+      if (isCameraSearch) {
+        // Public access for camera search images - try to serve from public directory
+        const publicFile = await objectStorageService.searchPublicObject(requestedPath);
+        
+        if (!publicFile) {
+          return res.sendStatus(404);
+        }
+        
+        return objectStorageService.downloadObject(publicFile, res);
+      }
+      
+      // For other images, require authentication
+      if (!req.user) {
+        return res.sendStatus(401);
+      }
+      
+      const userId = req.user.claims.sub;
       const objectFile = await objectStorageService.getObjectEntityFile(req.path);
       const canAccess = await objectStorageService.canAccessObjectEntity({
         objectFile,
