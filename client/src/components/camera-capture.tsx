@@ -129,8 +129,8 @@ export function CameraCapture({ onImageCaptured, isProcessing = false }: CameraC
       return;
     }
 
-    // Calculate scaled dimensions (max 1024px on longest side for better compression)
-    const maxSize = 1024;
+    // Calculate scaled dimensions (max 800px on longest side for smaller payload)
+    const maxSize = 800;
     const videoWidth = video.videoWidth;
     const videoHeight = video.videoHeight;
     
@@ -171,7 +171,7 @@ export function CameraCapture({ onImageCaptured, isProcessing = false }: CameraC
     context.drawImage(video, 0, 0, targetWidth, targetHeight);
 
     // Convert to base64 with lower quality for smaller file size
-    const base64Image = canvas.toDataURL('image/jpeg', 0.7);
+    const base64Image = canvas.toDataURL('image/jpeg', 0.6);
     
     // Validate size (max 10MB)
     const sizeInBytes = Math.ceil((base64Image.length * 3) / 4);
