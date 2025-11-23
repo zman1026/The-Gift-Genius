@@ -1350,9 +1350,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log(`SerpApi response: ${response.status} ${response.statusText}`);
 
-      // Clean up the temporary file (best effort, don't fail if it errors)
-      file.delete().catch((err: any) => console.error(`Failed to cleanup temp file: ${err.message}`));
-
       if (!response.ok) {
         const errorText = await response.text();
         const truncatedError = errorText.substring(0, 500);
@@ -1371,6 +1368,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const data = await response.json();
+      
+      // Log the raw response structure for debugging
+      console.log(`SerpApi response keys: ${Object.keys(data).join(', ')}`);
+      console.log(`visual_matches count: ${data.visual_matches?.length || 0}`);
+      console.log(`shopping_results count: ${data.shopping_results?.length || 0}`);
+      
+      // Log first result if available
+      if (data.visual_matches?.[0]) {
+        console.log(`First visual match: ${JSON.stringify(data.visual_matches[0]).substring(0, 200)}`);
+      }
+      if (data.shopping_results?.[0]) {
+        console.log(`First shopping result: ${JSON.stringify(data.shopping_results[0]).substring(0, 200)}`);
+      }
       
       // Extract visual matches and shopping results
       const visualMatches = data.visual_matches || [];
@@ -1392,6 +1402,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }));
 
       console.log(`Image search successful: ${results.length} results found`);
+      
+      // Clean up the temporary file after sending response (best effort)
+      // Wait a bit to ensure SerpApi had time to fetch it
+      setTimeout(() => {
+        file.delete().catch((err: any) => console.error(`Failed to cleanup temp file: ${err.message}`));
+      }, 5000);
+      
       res.json({ results });
     } catch (error) {
       if (error instanceof z.ZodError) {
