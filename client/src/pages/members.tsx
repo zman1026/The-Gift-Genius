@@ -474,13 +474,60 @@ export default function Members() {
           {members.map((member: any) => {
             const isCurrentUser = !!user && member.userId === (user as any).id;
             return (
-              <div key={member.userId} className="relative">
+              <div key={member.userId}>
                 <Card
-                  className="hover-elevate cursor-pointer active-elevate-2"
+                  className="hover-elevate cursor-pointer active-elevate-2 relative"
                   onClick={() => !isCurrentUser ? setLocation(`/members/${member.userId}`) : setLocation('/wishlist')}
                   data-testid={`member-card-${member.userId}`}
                 >
                   <CardContent className="p-3 flex flex-col items-center text-center gap-2">
+                    {/* Three-dot menu in top-right corner */}
+                    {isOrganizer && !isCurrentUser && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="absolute top-1 right-1 h-6 w-6 z-10"
+                            onClick={(e) => e.stopPropagation()}
+                            data-testid={`button-member-menu-${member.userId}`}
+                          >
+                            <MoreVertical className="w-4 h-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setMemberToEdit(member);
+                              editMemberForm.reset({
+                                displayName: member.displayName || "",
+                                firstName: member.firstName || "",
+                                lastName: member.lastName || "",
+                              });
+                              setIsEditMemberDialogOpen(true);
+                            }}
+                            data-testid={`button-edit-member-${member.userId}`}
+                          >
+                            <Edit className="w-4 h-4 mr-2" />
+                            Edit Member
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setMemberToRemove(member);
+                              setShowRemoveConfirm(true);
+                            }}
+                            className="text-destructive"
+                            data-testid={`button-remove-member-${member.userId}`}
+                          >
+                            <UserMinus className="w-4 h-4 mr-2" />
+                            Remove Member
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
+
                     <div className="relative">
                       <Avatar className="h-20 w-20">
                         <AvatarImage src={member.profileImageUrl || undefined} alt={member.firstName || "Member"} />
@@ -510,52 +557,6 @@ export default function Members() {
                     </div>
                   </CardContent>
                 </Card>
-
-                {isOrganizer && !isCurrentUser && (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="absolute top-1 right-1 h-6 w-6"
-                        onClick={(e) => e.stopPropagation()}
-                        data-testid={`button-member-menu-${member.userId}`}
-                      >
-                        <MoreVertical className="w-4 h-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setMemberToEdit(member);
-                          editMemberForm.reset({
-                            displayName: member.displayName || "",
-                            firstName: member.firstName || "",
-                            lastName: member.lastName || "",
-                          });
-                          setIsEditMemberDialogOpen(true);
-                        }}
-                        data-testid={`button-edit-member-${member.userId}`}
-                      >
-                        <Edit className="w-4 h-4 mr-2" />
-                        Edit Member
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setMemberToRemove(member);
-                          setShowRemoveConfirm(true);
-                        }}
-                        className="text-destructive"
-                        data-testid={`button-remove-member-${member.userId}`}
-                      >
-                        <UserMinus className="w-4 h-4 mr-2" />
-                        Remove Member
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                )}
               </div>
             );
           })}
