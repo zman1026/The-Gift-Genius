@@ -5,6 +5,7 @@ import {
   wishlistItems,
   itemPurchases,
   activityLogs,
+  managedProfiles,
   type User,
   type UpsertUser,
   type Family,
@@ -17,6 +18,8 @@ import {
   type InsertItemPurchase,
   type ActivityLog,
   type InsertActivityLog,
+  type ManagedProfile,
+  type InsertManagedProfile,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, sql, desc, asc, inArray } from "drizzle-orm";
@@ -63,6 +66,13 @@ export interface IStorage {
   updateFamilyMemberDisplayName(familyId: string, userId: string, displayName: string | null, requesterId: string): Promise<FamilyMember>;
   removeFamilyMember(familyId: string, userIdToRemove: string, requesterId: string): Promise<void>;
   leaveFamily(familyId: string, userId: string): Promise<void>;
+  
+  // Managed profile operations (children/dependents)
+  createManagedProfile(profile: InsertManagedProfile, familyId: string): Promise<ManagedProfile>;
+  updateManagedProfile(id: string, updates: Partial<InsertManagedProfile>, requesterId: string): Promise<ManagedProfile>;
+  deleteManagedProfile(id: string, familyId: string, requesterId: string): Promise<void>;
+  getManagedProfile(id: string): Promise<ManagedProfile | undefined>;
+  getManagedProfilesByCreator(createdById: string): Promise<ManagedProfile[]>;
   
   // Wishlist operations
   createWishlistItem(item: InsertWishlistItem): Promise<WishlistItem>;
@@ -235,30 +245,40 @@ export class DatabaseStorage implements IStorage {
       throw new Error("You are not a member of this family");
     }
 
-    // Get all family members for a specific family
-    const result = await db
-      .select({
-        userId: users.id,
-        email: users.email,
-        firstName: users.firstName,
-        lastName: users.lastName,
-        profileImageUrl: users.profileImageUrl,
-        displayName: familyMembers.displayName,
-        itemCount: sql<number>`count(distinct ${wishlistItems.id})::int`,
-      })
-      .from(familyMembers)
-      .innerJoin(users, eq(familyMembers.userId, users.id))
-      .leftJoin(
-        wishlistItems,
-        and(
-          eq(wishlistItems.userId, users.id),
-          eq(wishlistItems.familyId, familyId)
-        )
-      )
-      .where(eq(familyMembers.familyId, familyId))
-      .groupBy(users.id, familyMembers.displayName);
+    // Get all family members (both users and managed profiles) for a specific family
+    const result = await db.execute(sql`
+      SELECT 
+        COALESCE(u.id, mp.id) as "userId",
+        COALESCE(u.email, NULL) as email,
+        COALESCE(u.first_name, mp.first_name) as "firstName",
+        COALESCE(u.last_name, mp.last_name) as "lastName",
+        COALESCE(u.profile_image_url, mp.profile_image_url) as "profileImageUrl",
+        fm.display_name as "displayName",
+        mp.created_by_id as "createdById",
+        CASE WHEN mp.id IS NOT NULL THEN true ELSE false END as "isManagedProfile",
+        COUNT(DISTINCT wi.id)::int as "itemCount"
+      FROM family_members fm
+      LEFT JOIN users u ON fm.user_id = u.id
+      LEFT JOIN managed_profiles mp ON fm.managed_profile_id = mp.id
+      LEFT JOIN wishlist_items wi ON 
+        (wi.user_id = u.id OR wi.managed_profile_id = mp.id) 
+        AND wi.family_id = ${familyId}
+      WHERE fm.family_id = ${familyId}
+      GROUP BY 
+        u.id, 
+        u.email, 
+        u.first_name, 
+        u.last_name, 
+        u.profile_image_url,
+        mp.id,
+        mp.first_name,
+        mp.last_name,
+        mp.profile_image_url,
+        mp.created_by_id,
+        fm.display_name
+    `);
     
-    return result;
+    return result.rows as any[];
   }
 
   async getFamilyMember(familyId: string, userId: string): Promise<FamilyMember | undefined> {
@@ -366,6 +386,89 @@ export class DatabaseStorage implements IStorage {
     await db
       .delete(familyMembers)
       .where(and(eq(familyMembers.familyId, familyId), eq(familyMembers.userId, userId)));
+  }
+
+  // Managed profile operations (children/dependents)
+  async createManagedProfile(profileData: InsertManagedProfile, familyId: string): Promise<ManagedProfile> {
+    // Verify the creator is a member of the family
+    const membership = await this.getFamilyMember(familyId, profileData.createdById);
+    if (!membership) {
+      throw new AuthorizationError("You must be a member of the family to create a child profile");
+    }
+
+    // Create the managed profile
+    const [profile] = await db.insert(managedProfiles).values(profileData).returning();
+    
+    // Automatically add the managed profile as a family member
+    await db.insert(familyMembers).values({
+      familyId,
+      managedProfileId: profile.id,
+      userId: null,
+    });
+    
+    return profile;
+  }
+
+  async updateManagedProfile(id: string, updates: Partial<InsertManagedProfile>, requesterId: string): Promise<ManagedProfile> {
+    // Get the profile to verify ownership
+    const [profile] = await db
+      .select()
+      .from(managedProfiles)
+      .where(eq(managedProfiles.id, id));
+    
+    if (!profile) {
+      throw new NotFoundError("Managed profile not found");
+    }
+    
+    // Verify the requester is the creator
+    if (profile.createdById !== requesterId) {
+      throw new AuthorizationError("You can only edit child profiles you created");
+    }
+    
+    // Update the profile
+    const [updatedProfile] = await db
+      .update(managedProfiles)
+      .set(updates)
+      .where(eq(managedProfiles.id, id))
+      .returning();
+    
+    return updatedProfile;
+  }
+
+  async deleteManagedProfile(id: string, familyId: string, requesterId: string): Promise<void> {
+    // Get the profile to verify ownership
+    const [profile] = await db
+      .select()
+      .from(managedProfiles)
+      .where(eq(managedProfiles.id, id));
+    
+    if (!profile) {
+      throw new NotFoundError("Managed profile not found");
+    }
+    
+    // Verify the requester is the creator
+    if (profile.createdById !== requesterId) {
+      throw new AuthorizationError("You can only delete child profiles you created");
+    }
+    
+    // Delete the profile (cascade will handle familyMembers and wishlistItems)
+    await db.delete(managedProfiles).where(eq(managedProfiles.id, id));
+  }
+
+  async getManagedProfile(id: string): Promise<ManagedProfile | undefined> {
+    const [profile] = await db
+      .select()
+      .from(managedProfiles)
+      .where(eq(managedProfiles.id, id));
+    return profile;
+  }
+
+  async getManagedProfilesByCreator(createdById: string): Promise<ManagedProfile[]> {
+    const profiles = await db
+      .select()
+      .from(managedProfiles)
+      .where(eq(managedProfiles.createdById, createdById));
+    return profiles;
   }
 
   // Wishlist operations

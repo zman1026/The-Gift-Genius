@@ -374,6 +374,76 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Managed profile (children) routes
+  app.post('/api/families/:familyId/children', isAuthenticated, async (req: any, res) => {
+    try {
+      const requesterId = req.user.claims.sub;
+      const { familyId } = req.params;
+
+      const createChildSchema = z.object({
+        firstName: z.string().trim().min(1, "First name is required"),
+        lastName: z.string().trim().optional(),
+        profileImageUrl: z.string().url().optional(),
+      });
+
+      const validatedData = createChildSchema.parse(req.body);
+
+      const profile = await storage.createManagedProfile(
+        {
+          createdById: requesterId,
+          firstName: validatedData.firstName,
+          lastName: validatedData.lastName || null,
+          profileImageUrl: validatedData.profileImageUrl || null,
+        },
+        familyId
+      );
+      res.json(profile);
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid input data", errors: error.errors });
+      }
+      console.error("Error creating child profile:", error);
+      res.status(400).json({ message: error.message || "Failed to create child profile" });
+    }
+  });
+
+  app.put('/api/families/:familyId/children/:childId', isAuthenticated, async (req: any, res) => {
+    try {
+      const requesterId = req.user.claims.sub;
+      const { childId } = req.params;
+
+      const updateChildSchema = z.object({
+        firstName: z.string().trim().min(1).optional(),
+        lastName: z.string().trim().optional(),
+        profileImageUrl: z.string().url().optional(),
+      });
+
+      const validatedData = updateChildSchema.parse(req.body);
+
+      const profile = await storage.updateManagedProfile(childId, validatedData, requesterId);
+      res.json(profile);
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid input data", errors: error.errors });
+      }
+      console.error("Error updating child profile:", error);
+      res.status(400).json({ message: error.message || "Failed to update child profile" });
+    }
+  });
+
+  app.delete('/api/families/:familyId/children/:childId', isAuthenticated, async (req: any, res) => {
+    try {
+      const requesterId = req.user.claims.sub;
+      const { familyId, childId } = req.params;
+
+      await storage.deleteManagedProfile(childId, familyId, requesterId);
+      res.json({ message: "Child profile deleted successfully" });
+    } catch (error: any) {
+      console.error("Error deleting child profile:", error);
+      res.status(400).json({ message: error.message || "Failed to delete child profile" });
+    }
+  });
+
   // Family members routes
   app.get('/api/members', isAuthenticated, async (req: any, res) => {
     try {
