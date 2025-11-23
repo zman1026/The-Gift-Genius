@@ -11,7 +11,7 @@ Preferred communication style: Simple, everyday language.
 ### UI/UX Decisions
 The application features a hybrid design, combining Pinterest-style visual cards for items with Notion-style organized data presentation. It uses a warm, family-oriented aesthetic with Inter and Playfair Display fonts, and a festive color scheme (primary red, accent green). The UI is responsive, utilizing **compact grid layouts** that adapt from **2-6 columns** for wishlist item displays (2 on mobile, 3 on tablets, 4-6 on desktops), maximizing information density while maintaining readability. Item cards feature **square aspect-ratio images** (aspect-square), **reduced spacing** (gap-3, p-3), **optimized typography** (text-sm titles, text-xs descriptions), and **priority badge overlays** (positioned top-right on thumbnails) to show 2-3x more items per screen while allowing titles to span full width without truncation.
 
-**Mobile-First Redesign (Latest):** The app prioritizes the primary mobile workflow: (1) adding items to wishlist, (2) viewing family members, (3) accessing secondary features. Navigation uses a **3-tab bottom bar** (My List, Family, More) with **"/" (Dashboard) as the default landing page**. 
+**Mobile-First Redesign (Latest):** The app prioritizes the primary mobile workflow: (1) adding items to wishlist, (2) viewing family members, (3) accessing secondary features. Navigation uses a **4-tab bottom bar** (My List, Family, Purchased, Add Item) with **"/" (Dashboard) as the default landing page**. 
 
 **Dashboard Redesign (December 2024):** Completely redesigned for mobile-first experience with single-column stacked layout:
 - **Compact Stats Banner:** Top banner shows countdown timer with inline metrics (items count, family members, gifts received)
@@ -28,9 +28,12 @@ The application features a hybrid design, combining Pinterest-style visual cards
   - Activity feed: Compact header (pb-2 pt-3 px-3) with properly sized default buttons
   - All touch targets meet 44×44px accessibility minimum, text remains readable (text-sm minimum for primary content)
 
-**Persistent FAB:** A **Floating Action Button** with festive styling (16x16, pulse animation, hover glow, rotating icon) appears on **all authenticated screens** and opens the unified add-item dialog, making the primary function (adding items) always one tap away. 
+**Bottom Navigation "Add Item" Button:** The primary function (adding items) is always accessible via a dedicated **"Add Item" button** in the mobile bottom navigation bar. The button features a PlusCircle icon styled in the primary brand color and includes intelligent disabled state management:
+- **Disabled State:** When no family exists, the button appears grayed out (50% opacity) with cursor-not-allowed, preventing user confusion
+- **Enabled State:** After joining/creating a family, the button becomes active with primary color, hover elevation effects, and opens the unified add-item dialog on tap
+- **Accessibility:** Maintains 44×44px minimum touch target on all screen sizes
 
-The wishlist page includes a **quick-add banner** with URL paste and search shortcuts for faster item addition. The **members page uses a compact avatar grid** (2-6 columns responsive) showing member avatars, names, item counts, and click-to-view functionality. Secondary features (Dashboard, Search, Purchased Items) are consolidated in a **More page** menu. The redesign reduces navigation friction, increases information density, and optimizes touch targets for mobile users.
+The wishlist page includes a **quick-add banner** with URL paste and search shortcuts for faster item addition. The **members page uses a compact avatar grid** (2-6 columns responsive) showing member avatars, names, item counts, and click-to-view functionality. Secondary features (Dashboard, Search) are accessible via the **More page** (still available through sidebar and other navigation). The redesign reduces navigation friction, increases information density, and optimizes touch targets for mobile users.
 
 **Camera-Based Product Search (Implemented):** The app features camera-based image search using SerpApi's Google Lens API to add products by photographing them in stores.
 - **Technology Stack:** HTML5 getUserMedia API for camera capture with MediaStream management, SerpApi Google Lens API for visual product recognition, base64 encoding for efficient image transfer (no storage costs)
