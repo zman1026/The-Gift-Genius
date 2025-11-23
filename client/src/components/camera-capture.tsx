@@ -100,13 +100,27 @@ export function CameraCapture({ onImageCaptured, isProcessing = false }: CameraC
   }, [facingMode, retryTrigger]);
 
   const capturePhoto = () => {
-    if (!videoRef.current || !canvasRef.current) return;
+    console.log("capturePhoto called!");
+    console.log("videoRef.current:", videoRef.current);
+    console.log("canvasRef.current:", canvasRef.current);
+    console.log("stream:", stream);
+    
+    if (!videoRef.current || !canvasRef.current) {
+      console.error("Missing video or canvas ref");
+      toast({
+        title: "Error",
+        description: "Camera not ready. Please try again.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     const video = videoRef.current;
     const canvas = canvasRef.current;
     const context = canvas.getContext('2d');
 
     if (!context) {
+      console.error("Failed to get canvas context");
       toast({
         title: "Error",
         description: "Failed to capture photo",
@@ -119,6 +133,19 @@ export function CameraCapture({ onImageCaptured, isProcessing = false }: CameraC
     const maxSize = 1024;
     const videoWidth = video.videoWidth;
     const videoHeight = video.videoHeight;
+    
+    console.log(`Video dimensions: ${videoWidth}x${videoHeight}`);
+    
+    if (videoWidth === 0 || videoHeight === 0) {
+      console.error("Video dimensions are 0");
+      toast({
+        title: "Error",
+        description: "Camera not ready. Please wait a moment and try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     const aspectRatio = videoWidth / videoHeight;
     
     let targetWidth = videoWidth;
@@ -167,6 +194,7 @@ export function CameraCapture({ onImageCaptured, isProcessing = false }: CameraC
       description: "Searching for products...",
     });
 
+    console.log("Calling onImageCaptured with base64 image");
     onImageCaptured(base64Image);
   };
 
@@ -273,6 +301,12 @@ export function CameraCapture({ onImageCaptured, isProcessing = false }: CameraC
       <div className="text-center text-sm text-muted-foreground space-y-1">
         <p>Position the product in the frame</p>
         <p className="text-xs">Take a clear photo for best results</p>
+        {/* Debug info */}
+        <p className="text-xs opacity-50">
+          Camera: {stream ? '✓ Ready' : '✗ Not Ready'} | 
+          Loading: {isLoading ? 'Yes' : 'No'} | 
+          Processing: {isProcessing ? 'Yes' : 'No'}
+        </p>
       </div>
     </div>
   );
