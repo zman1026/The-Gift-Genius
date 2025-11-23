@@ -55,6 +55,13 @@ const editFamilyNameSchema = z.object({
 
 type EditFamilyNameForm = z.infer<typeof editFamilyNameSchema>;
 
+const createChildSchema = z.object({
+  firstName: z.string().trim().min(1, "First name is required"),
+  lastName: z.string().trim().optional(),
+});
+
+type CreateChildForm = z.infer<typeof createChildSchema>;
+
 export default function Members() {
   const { toast } = useToast();
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
@@ -68,6 +75,7 @@ export default function Members() {
   const [isEditMemberDialogOpen, setIsEditMemberDialogOpen] = useState(false);
   const [memberToEdit, setMemberToEdit] = useState<any>(null);
   const [isEditFamilyNameDialogOpen, setIsEditFamilyNameDialogOpen] = useState(false);
+  const [isAddChildDialogOpen, setIsAddChildDialogOpen] = useState(false);
   
   const selectedFamily = families?.find((f: any) => f.id === selectedFamilyId);
   const isOrganizer = selectedFamily?.createdById === (user as any)?.id;
@@ -92,6 +100,14 @@ export default function Members() {
     resolver: zodResolver(editFamilyNameSchema),
     defaultValues: {
       name: selectedFamily?.name || "",
+    },
+  });
+
+  const createChildForm = useForm<CreateChildForm>({
+    resolver: zodResolver(createChildSchema),
+    defaultValues: {
+      firstName: "",
+      lastName: "",
     },
   });
 
@@ -202,6 +218,55 @@ export default function Members() {
         description: error.message || "There was a problem updating the family name",
         variant: "destructive",
       });
+    },
+  });
+
+  const createChildMutation = useMutation({
+    mutationFn: async (data: CreateChildForm) => {
+      if (!selectedFamilyId) throw new Error("No family selected");
+      return apiRequest("POST", `/api/families/${selectedFamilyId}/children`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/members", selectedFamilyId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/families"] });
+      toast({
+        title: "Child profile created",
+        description: "The child profile has been created successfully",
+      });
+      setIsAddChildDialogOpen(false);
+      createChildForm.reset();
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to create child profile",
+        description: error.message || "There was a problem creating the child profile",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const removeChildMutation = useMutation({
+    mutationFn: async (childId: string) => {
+      if (!selectedFamilyId) throw new Error("No family selected");
+      return apiRequest("DELETE", `/api/families/${selectedFamilyId}/children/${childId}`, {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/members", selectedFamilyId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/families"] });
+      toast({
+        title: "Child profile removed",
+        description: "The child profile has been removed successfully",
+      });
+      setShowRemoveConfirm(false);
+      setMemberToRemove(null);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to remove child profile",
+        description: error.message || "There was a problem removing the child profile",
+        variant: "destructive",
+      });
+      setShowRemoveConfirm(false);
     },
   });
 
@@ -326,14 +391,87 @@ export default function Members() {
             </Button>
           )}
         </div>
-        <Dialog open={isInviteDialogOpen} onOpenChange={setIsInviteDialogOpen}>
-          <DialogTrigger asChild>
-            <Button data-testid="button-invite-member">
-              <UserPlus className="w-4 h-4 mr-2" />
-              Invite Member
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-lg">
+        <div className="flex gap-2">
+          <Dialog open={isAddChildDialogOpen} onOpenChange={setIsAddChildDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" data-testid="button-add-child">
+                <UserPlus className="w-4 h-4 mr-2" />
+                Add Child
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Add Child Profile</DialogTitle>
+                <DialogDescription>
+                  Create a wishlist profile for your child (no account needed)
+                </DialogDescription>
+              </DialogHeader>
+              <Form {...createChildForm}>
+                <form onSubmit={createChildForm.handleSubmit((data) => createChildMutation.mutate(data))} className="space-y-4">
+                  <FormField
+                    control={createChildForm.control}
+                    name="firstName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>First Name</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            placeholder="Child's first name"
+                            data-testid="input-child-first-name"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={createChildForm.control}
+                    name="lastName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Last Name (Optional)</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            value={field.value || ""}
+                            placeholder="Child's last name"
+                            data-testid="input-child-last-name"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <div className="flex gap-2 justify-end pt-4">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setIsAddChildDialogOpen(false)}
+                      data-testid="button-cancel-add-child"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="submit"
+                      disabled={createChildMutation.isPending}
+                      data-testid="button-save-child"
+                    >
+                      {createChildMutation.isPending ? "Creating..." : "Create Profile"}
+                    </Button>
+                  </div>
+                </form>
+              </Form>
+            </DialogContent>
+          </Dialog>
+          <Dialog open={isInviteDialogOpen} onOpenChange={setIsInviteDialogOpen}>
+            <DialogTrigger asChild>
+              <Button data-testid="button-invite-member">
+                <UserPlus className="w-4 h-4 mr-2" />
+                Invite Member
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-lg">
             <DialogHeader>
               <DialogTitle>Invite Family Member</DialogTitle>
               <DialogDescription>
@@ -452,6 +590,7 @@ export default function Members() {
             </div>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       {!hasMembers ? (
@@ -472,16 +611,20 @@ export default function Members() {
       ) : (
         <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
           {members.map((member: any) => {
+            const memberId = member.userId || member.managedProfileId;
             const isCurrentUser = !!user && member.userId === (user as any).id;
+            const isChildProfile = member.isManagedProfile;
+            const canEdit = isOrganizer || (isChildProfile && member.createdBy === (user as any)?.id);
+            
             return (
-              <div key={member.userId}>
+              <div key={memberId}>
                 <Card
                   className="hover-elevate cursor-pointer active-elevate-2 relative"
-                  onClick={() => !isCurrentUser ? setLocation(`/members/${member.userId}`) : setLocation('/wishlist')}
-                  data-testid={`member-card-${member.userId}`}
+                  onClick={() => !isCurrentUser ? setLocation(`/members/${memberId}`) : setLocation('/wishlist')}
+                  data-testid={`member-card-${memberId}`}
                 >
                   {/* Three-dot menu in top-right corner of card */}
-                  {isOrganizer && !isCurrentUser && (
+                  {canEdit && !isCurrentUser && (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button
@@ -489,28 +632,30 @@ export default function Members() {
                           size="icon"
                           className="absolute top-1 right-1 h-6 w-6 z-10"
                           onClick={(e) => e.stopPropagation()}
-                          data-testid={`button-member-menu-${member.userId}`}
+                          data-testid={`button-member-menu-${memberId}`}
                         >
                           <MoreVertical className="w-4 h-4" />
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setMemberToEdit(member);
-                            editMemberForm.reset({
-                              displayName: member.displayName || "",
-                              firstName: member.firstName || "",
-                              lastName: member.lastName || "",
-                            });
-                            setIsEditMemberDialogOpen(true);
-                          }}
-                          data-testid={`button-edit-member-${member.userId}`}
-                        >
-                          <Edit className="w-4 h-4 mr-2" />
-                          Edit Member
-                        </DropdownMenuItem>
+                        {!isChildProfile && (
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setMemberToEdit(member);
+                              editMemberForm.reset({
+                                displayName: member.displayName || "",
+                                firstName: member.firstName || "",
+                                lastName: member.lastName || "",
+                              });
+                              setIsEditMemberDialogOpen(true);
+                            }}
+                            data-testid={`button-edit-member-${memberId}`}
+                          >
+                            <Edit className="w-4 h-4 mr-2" />
+                            Edit Member
+                          </DropdownMenuItem>
+                        )}
                         <DropdownMenuItem
                           onClick={(e) => {
                             e.stopPropagation();
@@ -518,10 +663,10 @@ export default function Members() {
                             setShowRemoveConfirm(true);
                           }}
                           className="text-destructive"
-                          data-testid={`button-remove-member-${member.userId}`}
+                          data-testid={`button-remove-member-${memberId}`}
                         >
                           <UserMinus className="w-4 h-4 mr-2" />
-                          Remove Member
+                          {isChildProfile ? "Remove Child" : "Remove Member"}
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -543,14 +688,14 @@ export default function Members() {
                     </div>
                     
                     <div className="w-full">
-                      <h3 className="font-semibold text-xs text-foreground line-clamp-1" data-testid={`member-name-${member.userId}`}>
+                      <h3 className="font-semibold text-xs text-foreground line-clamp-1" data-testid={`member-name-${memberId}`}>
                         {member.displayName || (member.firstName || member.lastName
                           ? `${member.firstName || ""} ${member.lastName || ""}`.trim()
                           : member.email || "Family Member")}
                       </h3>
                       <div className="flex items-center justify-center gap-1 text-muted-foreground text-xs mt-1">
                         <Gift className="w-3 h-3" />
-                        <span data-testid={`member-items-${member.userId}`}>
+                        <span data-testid={`member-items-${memberId}`}>
                           {member.itemCount || 0}
                         </span>
                       </div>
@@ -566,7 +711,9 @@ export default function Members() {
       <AlertDialog open={showRemoveConfirm} onOpenChange={setShowRemoveConfirm}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Remove Family Member?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {memberToRemove?.isManagedProfile ? "Remove Child Profile?" : "Remove Family Member?"}
+            </AlertDialogTitle>
             <AlertDialogDescription>
               Are you sure you want to remove {memberToRemove?.firstName || "this member"} from the family? This action cannot be undone.
             </AlertDialogDescription>
@@ -574,12 +721,20 @@ export default function Members() {
           <AlertDialogFooter>
             <AlertDialogCancel data-testid="button-cancel-remove">Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => removeMemberMutation.mutate(memberToRemove?.userId)}
-              disabled={removeMemberMutation.isPending}
+              onClick={() => {
+                if (memberToRemove?.isManagedProfile) {
+                  removeChildMutation.mutate(memberToRemove.managedProfileId);
+                } else {
+                  removeMemberMutation.mutate(memberToRemove?.userId);
+                }
+              }}
+              disabled={removeMemberMutation.isPending || removeChildMutation.isPending}
               className="bg-destructive hover:bg-destructive/90"
               data-testid="button-confirm-remove"
             >
-              {removeMemberMutation.isPending ? "Removing..." : "Remove Member"}
+              {(removeMemberMutation.isPending || removeChildMutation.isPending) 
+                ? "Removing..." 
+                : (memberToRemove?.isManagedProfile ? "Remove Child" : "Remove Member")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

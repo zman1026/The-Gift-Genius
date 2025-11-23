@@ -699,8 +699,30 @@ export class DatabaseStorage implements IStorage {
     return items as WishlistItem[];
   }
 
-  async getMemberWishlistItems(userId: string, viewerId: string, familyId?: string): Promise<any[]> {
-    // First, get all families that both users share
+  async getMemberWishlistItems(memberId: string, viewerId: string, familyId?: string): Promise<any[]> {
+    // First, determine if this is a userId or managedProfileId by checking the family_members table
+    const memberCheck = await db
+      .select({ 
+        userId: familyMembers.userId, 
+        managedProfileId: familyMembers.managedProfileId 
+      })
+      .from(familyMembers)
+      .where(
+        or(
+          eq(familyMembers.userId, memberId),
+          eq(familyMembers.managedProfileId, memberId)
+        )
+      )
+      .limit(1);
+
+    if (memberCheck.length === 0) {
+      throw new Error("Member not found");
+    }
+
+    const isUserId = memberCheck[0].userId === memberId;
+    const isManagedProfile = memberCheck[0].managedProfileId === memberId;
+
+    // Get all families that both the member and viewer share
     const sharedFamilies = await db
       .select({ familyId: sql<string>`fm1.family_id` })
       .from(sql`${familyMembers} as fm1`)
@@ -710,13 +732,15 @@ export class DatabaseStorage implements IStorage {
       )
       .where(
         and(
-          sql`fm1.user_id = ${userId}`,
+          isUserId 
+            ? sql`fm1.user_id = ${memberId}`
+            : sql`fm1.managed_profile_id = ${memberId}`,
           sql`fm2.user_id = ${viewerId}`
         )
       );
 
     if (sharedFamilies.length === 0) {
-      throw new Error("You do not share any families with this user");
+      throw new Error("You do not share any families with this member");
     }
 
     const sharedFamilyIds = sharedFamilies.map(f => f.familyId);
@@ -724,20 +748,27 @@ export class DatabaseStorage implements IStorage {
     // If familyId is provided, verify it's in the shared families
     if (familyId) {
       if (!sharedFamilyIds.includes(familyId)) {
-        throw new Error("You do not share this family with this user");
+        throw new Error("You do not share this family with this member");
       }
     }
 
     // Build where conditions - filter by specific family if provided, otherwise all shared families
-    const whereConditions = familyId
-      ? and(eq(wishlistItems.userId, userId), eq(wishlistItems.familyId, familyId))
-      : and(eq(wishlistItems.userId, userId), sql`${wishlistItems.familyId} = ANY(${sharedFamilyIds})`);
+    const memberCondition = isUserId 
+      ? eq(wishlistItems.userId, memberId)
+      : eq(wishlistItems.managedProfileId, memberId);
+    
+    const familyCondition = familyId
+      ? eq(wishlistItems.familyId, familyId)
+      : sql`${wishlistItems.familyId} = ANY(${sharedFamilyIds})`;
+
+    const whereConditions = and(memberCondition, familyCondition);
 
     // Only return items from shared families (or specific family if provided)
     const items = await db
       .select({
         id: wishlistItems.id,
         userId: wishlistItems.userId,
+        managedProfileId: wishlistItems.managedProfileId,
         familyId: wishlistItems.familyId,
         name: wishlistItems.name,
         description: wishlistItems.description,
