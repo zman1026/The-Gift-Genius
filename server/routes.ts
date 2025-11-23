@@ -1287,23 +1287,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const apiKey = process.env.SERPAPI_KEY;
       if (!apiKey) {
+        console.error("SERPAPI_KEY environment variable not set");
         return res.status(500).json({ message: "Search service not configured" });
       }
 
-      // Call SerpApi Google Lens API with base64 image
-      const searchUrl = new URL('https://serpapi.com/search');
-      searchUrl.searchParams.set('engine', 'google_lens');
-      searchUrl.searchParams.set('api_key', apiKey);
-      searchUrl.searchParams.set('url', image); // SerpApi accepts base64 data URIs
+      // Extract base64 payload (remove data:image/jpeg;base64, prefix)
+      const base64Match = image.match(/^data:image\/[^;]+;base64,(.+)$/);
+      if (!base64Match || !base64Match[1]) {
+        return res.status(400).json({ message: "Invalid image format" });
+      }
+      const base64Payload = base64Match[1];
+
+      console.log(`Image search: payload size ${Math.round(base64Payload.length / 1024)}KB`);
+
+      // Call SerpApi Google Lens API - use POST with encoded_image in body
+      const searchUrl = 'https://serpapi.com/search';
+      const requestBody = new URLSearchParams({
+        engine: 'google_lens',
+        api_key: apiKey,
+        encoded_image: base64Payload,
+      });
       
-      const response = await fetch(searchUrl.toString(), {
-        method: 'GET',
+      const response = await fetch(searchUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: requestBody.toString(),
         signal: AbortSignal.timeout(15000), // 15 second timeout for image processing
       });
 
+      console.log(`SerpApi response: ${response.status} ${response.statusText}`);
+
       if (!response.ok) {
         const errorText = await response.text();
-        console.error("SerpApi Google Lens error:", response.status, errorText);
+        const truncatedError = errorText.substring(0, 500);
+        console.error(`SerpApi Google Lens error: ${response.status} - ${truncatedError}`);
+        
+        // Provide user-friendly error messages
+        if (response.status === 401) {
+          return res.status(500).json({ message: "Search service authentication failed" });
+        } else if (response.status === 429) {
+          return res.status(429).json({ message: "Too many searches. Please try again in a moment." });
+        } else if (response.status >= 400 && response.status < 500) {
+          return res.status(400).json({ message: "Invalid image. Please try a different photo." });
+        }
+        
         throw new Error('Image search service error');
       }
 
@@ -1328,12 +1357,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         snippet: result.snippet || result.description,
       }));
 
+      console.log(`Image search successful: ${results.length} results found`);
       res.json({ results });
     } catch (error) {
       if (error instanceof z.ZodError) {
+        console.error("Image validation failed:", error.errors);
         return res.status(400).json({ message: "Invalid image data", errors: error.errors });
       }
-      console.error("Error searching by image:", error);
+      
+      // Log detailed error info (without exposing API keys)
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorStack = error instanceof Error ? error.stack?.substring(0, 300) : '';
+      console.error(`Image search error: ${errorMessage}`, errorStack);
+      
       res.status(500).json({ message: "Failed to search by image" });
     }
   });
