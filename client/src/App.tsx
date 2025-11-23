@@ -25,7 +25,6 @@ import Search from "@/pages/search";
 import Purchased from "@/pages/purchased";
 import More from "@/pages/more";
 import { AppErrorBoundary } from "@/components/error-boundary";
-import { FAB } from "@/components/fab";
 import { UnifiedAddItemDialog } from "@/components/unified-add-item-dialog";
 
 function AuthenticatedContent() {
@@ -92,18 +91,18 @@ function AuthenticatedContent() {
             </Switch>
           </main>
         </div>
-        <BottomNav />
+        <BottomNav 
+          onAddItemClick={() => setIsAddItemDialogOpen(true)}
+          disabled={!selectedFamilyId}
+        />
       </div>
       {selectedFamilyId && (
-        <>
-          <FAB onClick={() => setIsAddItemDialogOpen(true)} />
-          <UnifiedAddItemDialog 
-            open={isAddItemDialogOpen} 
-            onOpenChange={setIsAddItemDialogOpen}
-            familyId={selectedFamilyId}
-            onSuccess={handleAddItemSuccess}
-          />
-        </>
+        <UnifiedAddItemDialog 
+          open={isAddItemDialogOpen} 
+          onOpenChange={setIsAddItemDialogOpen}
+          familyId={selectedFamilyId}
+          onSuccess={handleAddItemSuccess}
+        />
       )}
       <UserSettingsDialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen} />
       <Toaster />

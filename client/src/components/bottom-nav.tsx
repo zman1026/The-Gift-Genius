@@ -1,8 +1,13 @@
 import { Link, useLocation } from "wouter";
-import { Users, Gift, ShoppingBag, MoreHorizontal } from "lucide-react";
+import { Users, Gift, ShoppingBag, PlusCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export function BottomNav() {
+interface BottomNavProps {
+  onAddItemClick?: () => void;
+  disabled?: boolean;
+}
+
+export function BottomNav({ onAddItemClick, disabled = false }: BottomNavProps) {
   const [location] = useLocation();
 
   const navItems = [
@@ -23,12 +28,6 @@ export function BottomNav() {
       icon: ShoppingBag,
       label: "Purchased",
       testId: "nav-purchased",
-    },
-    {
-      path: "/more",
-      icon: MoreHorizontal,
-      label: "More",
-      testId: "nav-more",
     },
   ];
 
@@ -61,6 +60,24 @@ export function BottomNav() {
             </Link>
           );
         })}
+        
+        {/* Add Item Button */}
+        <button
+          onClick={onAddItemClick}
+          disabled={disabled}
+          className="flex-1"
+          data-testid="nav-add-item"
+        >
+          <div className={cn(
+            "flex flex-col items-center justify-center h-full min-w-[44px] min-h-[44px] gap-1 transition-colors",
+            disabled 
+              ? "text-muted-foreground/50 cursor-not-allowed"
+              : "text-primary hover-elevate active-elevate-2"
+          )}>
+            <PlusCircle className="w-5 h-5" />
+            <span className="text-xs font-medium">Add Item</span>
+          </div>
+        </button>
       </div>
     </nav>
   );
