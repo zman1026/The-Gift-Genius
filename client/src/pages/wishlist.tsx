@@ -23,7 +23,6 @@ import { Link } from "wouter";
 import { ObjectUploader } from "@/components/ObjectUploader";
 import { UnifiedAddItemDialog } from "@/components/unified-add-item-dialog";
 import { FAB } from "@/components/fab";
-import { QuickAddBanner } from "@/components/quick-add-banner";
 import type { UploadResult } from "@uppy/core";
 
 const addItemSchema = z.object({
@@ -473,12 +472,6 @@ export default function Wishlist() {
           </Button>
         </div>
       </div>
-
-      {/* Quick Add Banner */}
-      <QuickAddBanner
-        onPasteUrl={() => setIsAddDialogOpen(true)}
-        onSearch={() => setIsAddDialogOpen(true)}
-      />
 
       {/* Unified Add Item Dialog */}
       <UnifiedAddItemDialog
