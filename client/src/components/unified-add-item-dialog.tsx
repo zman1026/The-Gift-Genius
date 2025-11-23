@@ -92,6 +92,7 @@ export function UnifiedAddItemDialog({
   const [pendingItemType, setPendingItemType] = useState<'search' | 'custom' | null>(null);
   const [isSearchingByImage, setIsSearchingByImage] = useState(false);
   const [imageSearchResults, setImageSearchResults] = useState<any[] | null>(null);
+  const [imageSearchError, setImageSearchError] = useState<string | null>(null);
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const { toast } = useToast();
 
@@ -375,6 +376,7 @@ export function UnifiedAddItemDialog({
     
     setIsSearchingByImage(true);
     setImageSearchResults(null);
+    setImageSearchError(null);
 
     try {
       console.log("Sending image search request...");
@@ -412,9 +414,11 @@ export function UnifiedAddItemDialog({
       }
     } catch (error: any) {
       console.error("Image search error:", error);
+      const errorMessage = error.message || "Failed to search by image. Please try again.";
+      setImageSearchError(errorMessage);
       toast({
         title: "Search Failed",
-        description: error.message || "Failed to search by image. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -434,6 +438,7 @@ export function UnifiedAddItemDialog({
     setLastDismissedQuery("");
     setIsSearchingByImage(false);
     setImageSearchResults(null);
+    setImageSearchError(null);
     form.reset();
     setActiveTab("quick");
     onOpenChange(false);
@@ -703,8 +708,40 @@ export function UnifiedAddItemDialog({
               isProcessing={isSearchingByImage}
             />
 
+            {/* Loading indicator */}
+            {isSearchingByImage && (
+              <Card className="border-primary/20 bg-primary/5">
+                <CardContent className="p-6 text-center">
+                  <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2 text-primary" />
+                  <p className="text-sm font-medium">Searching for products...</p>
+                  <p className="text-xs text-muted-foreground mt-1">This may take a few seconds</p>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Error message */}
+            {!isSearchingByImage && imageSearchError && (
+              <Card className="border-destructive/20 bg-destructive/5">
+                <CardContent className="p-6 text-center">
+                  <p className="text-sm font-medium text-destructive mb-1">Search Failed</p>
+                  <p className="text-xs text-muted-foreground">{imageSearchError}</p>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* No results message */}
+            {!isSearchingByImage && !imageSearchError && imageSearchResults !== null && imageSearchResults.length === 0 && (
+              <Card className="border-muted">
+                <CardContent className="p-6 text-center">
+                  <p className="text-sm text-muted-foreground">
+                    No products found. Try taking a clearer photo or use the Search tab instead.
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+
             {/* Image search results */}
-            {imageSearchResults && imageSearchResults.length > 0 && (
+            {!isSearchingByImage && imageSearchResults && imageSearchResults.length > 0 && (
               <div className="space-y-3">
                 <p className="text-sm text-muted-foreground">
                   Found {imageSearchResults.length} result{imageSearchResults.length !== 1 ? "s" : ""}
