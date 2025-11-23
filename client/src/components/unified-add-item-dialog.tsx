@@ -371,10 +371,14 @@ export function UnifiedAddItemDialog({
   };
 
   const handleImageSearch = async (base64Image: string) => {
+    console.log("handleImageSearch called, image size:", Math.round(base64Image.length / 1024), "KB");
+    
     setIsSearchingByImage(true);
     setImageSearchResults(null);
 
     try {
+      console.log("Sending image search request...");
+      
       const response = await fetch("/api/search/image", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -382,18 +386,28 @@ export function UnifiedAddItemDialog({
         body: JSON.stringify({ image: base64Image }),
       });
 
+      console.log("Response status:", response.status);
+
       if (!response.ok) {
         const error = await response.json().catch(() => ({ message: "Failed to search by image" }));
+        console.error("API error:", error);
         throw new Error(error.message || "Failed to search by image");
       }
 
       const data = await response.json();
+      console.log("Search results:", data);
+      
       setImageSearchResults(data.results || []);
 
       if (!data.results || data.results.length === 0) {
         toast({
           title: "No Results",
           description: "Couldn't find any products matching this image. Try a clearer photo or search manually.",
+        });
+      } else {
+        toast({
+          title: "Products Found!",
+          description: `Found ${data.results.length} matching product${data.results.length !== 1 ? 's' : ''}`,
         });
       }
     } catch (error: any) {
@@ -405,6 +419,7 @@ export function UnifiedAddItemDialog({
       });
     } finally {
       setIsSearchingByImage(false);
+      console.log("Image search complete, isSearchingByImage set to false");
     }
   };
 
