@@ -107,10 +107,10 @@ export default function Home() {
 
   if (authLoading || familiesLoading || statsLoading) {
     return (
-      <div className="p-4 md:p-8 space-y-4">
-        <Skeleton className="h-24 w-full" />
-        <Skeleton className="h-32" />
-        <Skeleton className="h-32" />
+      <div className="p-3 md:p-8 space-y-3">
+        <Skeleton className="h-20 w-full" />
+        <Skeleton className="h-28" />
+        <Skeleton className="h-28" />
       </div>
     );
   }
@@ -121,14 +121,14 @@ export default function Home() {
   const needsOnboarding = !hasFamilies || !hasItems || !hasMembers;
 
   return (
-    <div className="p-4 md:p-8 space-y-4">
+    <div className="p-3 md:p-8 space-y-3 md:space-y-4">
       {/* Compact Stats Banner */}
       {hasFamilies && selectedFamilyId && (
-        <div className="bg-gradient-to-r from-primary/10 via-accent/10 to-primary/10 rounded-lg p-4 border border-primary/20">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center gap-2">
-              <Clock className="w-5 h-5 text-primary" />
-              <div>
+        <div className="bg-gradient-to-r from-primary/10 via-accent/10 to-primary/10 rounded-lg p-3 border border-primary/20">
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              <Clock className="w-4 h-4 text-primary flex-shrink-0" />
+              <div className="flex-1 min-w-0">
                 <div className="text-sm font-medium text-foreground">
                   {/* Calculate days until Christmas */}
                   {(() => {
@@ -139,17 +139,15 @@ export default function Home() {
                     return `${daysLeft} days until Christmas`;
                   })()}
                 </div>
-                <div className="text-xs text-muted-foreground">
+                <div className="text-xs text-muted-foreground mt-0.5">
                   {stats?.myItemsCount || 0} items • {stats?.familyMembersCount || 0} family members
                 </div>
               </div>
             </div>
-            <div className="flex gap-2">
-              <Badge variant="outline" className="gap-1">
-                <Gift className="w-3 h-3" />
-                {stats?.itemsPurchasedByOthers || 0} gifts bought for you
-              </Badge>
-            </div>
+            <Badge variant="outline" className="gap-1 flex-shrink-0 text-xs">
+              <Gift className="w-3 h-3" />
+              {stats?.itemsPurchasedByOthers || 0}
+            </Badge>
           </div>
         </div>
       )}
@@ -157,7 +155,7 @@ export default function Home() {
       {/* Dismissible Onboarding Banner */}
       {needsOnboarding && !onboardingDismissed && (
         <Card className="border-primary/30 bg-primary/5">
-          <CardHeader className="pb-3">
+          <CardHeader className="pb-2 pt-3 px-3">
             <div className="flex items-start justify-between gap-2">
               <div className="flex items-center gap-2">
                 <Sparkles className="w-5 h-5 text-primary" />
@@ -166,7 +164,6 @@ export default function Home() {
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-6 w-6 -mt-1 -mr-1"
                 onClick={handleDismissOnboarding}
                 data-testid="button-dismiss-onboarding"
               >
@@ -174,44 +171,50 @@ export default function Home() {
               </Button>
             </div>
           </CardHeader>
-          <CardContent className="space-y-2">
+          <CardContent className="space-y-2 px-3 pb-3">
             {!hasFamilies && (
-              <div className="flex items-center justify-between gap-2 p-2 rounded-md hover-elevate">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+              <div 
+                className="flex items-center justify-between gap-2 p-2.5 rounded-md hover-elevate cursor-pointer" 
+                onClick={() => setLocation('/families/create')}
+                data-testid="quick-create-family"
+              >
+                <div className="flex items-center gap-2.5 flex-1">
+                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
                     <Users className="w-4 h-4 text-primary" />
                   </div>
                   <span className="text-sm font-medium">Create or join a family</span>
                 </div>
-                <Button size="sm" variant="ghost" onClick={() => setLocation('/families/create')} data-testid="quick-create-family">
-                  <Plus className="w-4 h-4" />
-                </Button>
+                <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0" />
               </div>
             )}
             {!hasItems && hasFamilies && (
-              <div className="flex items-center justify-between gap-2 p-2 rounded-md hover-elevate">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+              <div 
+                className="flex items-center justify-between gap-2 p-2.5 rounded-md hover-elevate cursor-pointer" 
+                onClick={() => setLocation('/my-list')}
+                data-testid="quick-add-item"
+              >
+                <div className="flex items-center gap-2.5 flex-1">
+                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
                     <ListTodo className="w-4 h-4 text-primary" />
                   </div>
                   <span className="text-sm font-medium">Add your first wishlist item</span>
                 </div>
-                <Button size="sm" variant="ghost" onClick={() => setLocation('/my-list')} data-testid="quick-add-item">
-                  <Plus className="w-4 h-4" />
-                </Button>
+                <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0" />
               </div>
             )}
             {!hasMembers && hasFamilies && (
-              <div className="flex items-center justify-between gap-2 p-2 rounded-md hover-elevate">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+              <div 
+                className="flex items-center justify-between gap-2 p-2.5 rounded-md hover-elevate cursor-pointer" 
+                onClick={() => setLocation('/members')}
+                data-testid="quick-invite"
+              >
+                <div className="flex items-center gap-2.5 flex-1">
+                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
                     <UserPlus className="w-4 h-4 text-primary" />
                   </div>
                   <span className="text-sm font-medium">Invite family members</span>
                 </div>
-                <Button size="sm" variant="ghost" onClick={() => setLocation('/members')} data-testid="quick-invite">
-                  <ChevronRight className="w-4 h-4" />
-                </Button>
+                <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0" />
               </div>
             )}
           </CardContent>
@@ -219,24 +222,24 @@ export default function Home() {
       )}
 
       {/* Main Action Tiles - Mobile-First Single Column */}
-      <div className="space-y-4">
+      <div className="space-y-3">
         {/* My Wishlist Health */}
         {hasFamilies && selectedFamilyId && (
           <Card className="hover-elevate cursor-pointer" onClick={() => setLocation('/my-list')}>
-            <CardContent className="p-4">
+            <CardContent className="p-3">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-                    <Gift className="w-6 h-6 text-primary" />
+                <div className="flex items-center gap-2.5">
+                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    <Gift className="w-5 h-5 text-primary" />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-foreground">My Wishlist</h3>
-                    <p className="text-sm text-muted-foreground">
+                    <h3 className="font-semibold text-sm text-foreground">My Wishlist</h3>
+                    <p className="text-xs text-muted-foreground">
                       {stats?.myItemsCount || 0} items added
                     </p>
                   </div>
                 </div>
-                <ChevronRight className="w-5 h-5 text-muted-foreground" />
+                <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0" />
               </div>
             </CardContent>
           </Card>
@@ -257,15 +260,15 @@ export default function Home() {
         {/* Activity Feed - Limited to 5 items */}
         {hasFamilies && selectedFamilyId && (
           <Card>
-            <CardHeader>
+            <CardHeader className="pb-2 pt-3 px-3">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-lg">Recent Activity</CardTitle>
-                <Button variant="ghost" size="sm" onClick={() => setLocation('/more')} data-testid="view-all-activity">
+                <CardTitle className="text-base">Recent Activity</CardTitle>
+                <Button variant="ghost" onClick={() => setLocation('/more')} data-testid="view-all-activity">
                   View All
                 </Button>
               </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="px-3 pb-3">
               <ActivityFeed familyId={selectedFamilyId} limit={5} compact />
             </CardContent>
           </Card>
