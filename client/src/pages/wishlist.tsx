@@ -71,6 +71,9 @@ export default function Wishlist() {
   const [isEditMode, setIsEditMode] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   
+  // Ref to avoid stale closure in mutation onSuccess
+  const viewingItemRef = useRef<any>(null);
+  
   const form = useForm<AddItemFormData>({
     resolver: zodResolver(addItemSchema),
     defaultValues: {
@@ -97,6 +100,11 @@ export default function Wishlist() {
     // Clear selected items to prevent stale IDs when switching families
     setSelectedItems(new Set());
   }, [selectedFamilyId, form]);
+  
+  // Keep viewingItemRef in sync to avoid stale closure in mutation onSuccess
+  useEffect(() => {
+    viewingItemRef.current = viewingItem;
+  }, [viewingItem]);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -206,8 +214,8 @@ export default function Wishlist() {
         description: "Item updated successfully!",
       });
       
-      // If we're viewing this item in detail view, update it and switch back to view mode
-      if (viewingItem) {
+      // Use ref to avoid stale closure - check if we're viewing this item in detail view
+      if (viewingItemRef.current) {
         // Update the viewing item with the fresh data from the server
         setViewingItem(updatedItem);
         setIsEditMode(false);
