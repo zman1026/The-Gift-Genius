@@ -19,6 +19,14 @@ The application features a hybrid design, combining Pinterest-style visual cards
 - **Actionable Tiles:** Each card is tappable and navigates to relevant sections (My Wishlist, Gift Progress, Budget Tracker)
 - **Compact Activity Feed:** Shows 5 most recent activities inline without nested cards
 - **No Desktop Grids:** Removed 2-column layouts in favor of mobile-friendly vertical stacking
+- **Mobile Spacing Optimization (Latest):** Improved mobile information density while maintaining accessibility compliance:
+  - Main container: Reduced padding from p-4 to p-3 on mobile (responsive: p-3 md:p-8)
+  - Vertical spacing: Reduced from space-y-4 to space-y-3 on mobile (responsive: space-y-3 md:space-y-4)
+  - Stats banner: Compact single-line layout with p-3 padding, eliminates wrapping on narrow screens
+  - Onboarding card: Reduced padding (pb-2 pt-3 px-3), full-width clickable action rows with >44px touch targets, removed redundant small buttons
+  - Action tiles: Reduced card padding from p-4 to p-3
+  - Activity feed: Compact header (pb-2 pt-3 px-3) with properly sized default buttons
+  - All touch targets meet 44×44px accessibility minimum, text remains readable (text-sm minimum for primary content)
 
 **Persistent FAB:** A **Floating Action Button** with festive styling (16x16, pulse animation, hover glow, rotating icon) appears on **all authenticated screens** and opens the unified add-item dialog, making the primary function (adding items) always one tap away. 
 

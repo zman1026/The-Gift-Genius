@@ -281,12 +281,12 @@ export default function Home() {
       {/* No Family State */}
       {!hasFamilies && (
         <Card className="border-2 border-dashed">
-          <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-            <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-              <Users className="w-8 h-8 text-primary" />
+          <CardContent className="flex flex-col items-center justify-center py-6 md:py-12 text-center">
+            <div className="w-12 h-12 md:w-16 md:h-16 rounded-full bg-primary/10 flex items-center justify-center mb-3 md:mb-4">
+              <Users className="w-6 h-6 md:w-8 md:h-8 text-primary" />
             </div>
-            <h3 className="font-semibold text-lg mb-2 text-foreground">Welcome to Gift Genie!</h3>
-            <p className="text-muted-foreground mb-6 max-w-md">
+            <h3 className="font-semibold text-base md:text-lg mb-2 text-foreground">Welcome to Gift Genie!</h3>
+            <p className="text-sm md:text-base text-muted-foreground mb-4 md:mb-6 max-w-md">
               Start by creating a family group or joining one to begin sharing wishlists.
             </p>
             <div className="flex flex-col sm:flex-row gap-3">
