@@ -1334,7 +1334,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`Image uploaded successfully`);
 
       // Get public URL for the image
-      const imageUrl = `${req.protocol}://${req.get('host')}/objects/${tempFileName}`;
+      // Use PUBLIC_BASE_URL env var if set (for production), otherwise use request host
+      const baseUrl = process.env.PUBLIC_BASE_URL || `${req.protocol}://${req.get('host')}`;
+      const imageUrl = `${baseUrl}/objects/${tempFileName}`;
       console.log(`Public URL: ${imageUrl}`);
 
       // Call SerpApi Google Lens API with the public URL
