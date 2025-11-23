@@ -169,28 +169,41 @@ export default function Home() {
 
   return (
     <div className="p-4 md:p-8 lg:p-12 space-y-4 md:space-y-6">
-      {/* Hero Section: Countdown + Onboarding */}
-      <div className="space-y-4">
+      {/* Compact Hero Row - Countdown + Onboarding side-by-side on desktop */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <ChristmasCountdown />
-        <OnboardingChecklist />
+        <div className="lg:flex lg:items-stretch">
+          <OnboardingChecklist />
+        </div>
       </div>
 
-      {/* Main Content Grid */}
-      {hasFamilies && selectedFamilyId ? (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* Left Column: Gift Progress */}
-          <GiftProgressTracker />
-          
-          {/* Right Column: Budget */}
-          <BudgetTracker
-            budget={selectedFamily?.giftBudget ? parseFloat(selectedFamily.giftBudget) : null}
-            totalPurchased={stats?.totalPurchased || 0}
-            onSetBudget={() => setIsBudgetDialogOpen(true)}
-          />
-        </div>
-      ) : null}
+      {/* Main Dashboard Grid - Always show stats */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {hasFamilies && selectedFamilyId ? (
+          <>
+            <GiftProgressTracker />
+            <BudgetTracker
+              budget={selectedFamily?.giftBudget ? parseFloat(selectedFamily.giftBudget) : null}
+              totalPurchased={stats?.totalPurchased || 0}
+              onSetBudget={() => setIsBudgetDialogOpen(true)}
+            />
+          </>
+        ) : (
+          <Card className="lg:col-span-2">
+            <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+              <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
+                <Gift className="w-8 h-8 text-muted-foreground" />
+              </div>
+              <h3 className="font-semibold text-lg mb-2 text-foreground">Ready to Start?</h3>
+              <p className="text-muted-foreground mb-6 max-w-md">
+                Create or join a family group to see your gift coordination dashboard and start tracking your Christmas shopping.
+              </p>
+            </CardContent>
+          </Card>
+        )}
+      </div>
 
-      {/* Family Groups - Compact */}
+      {/* Family Groups */}
       <div>
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-serif text-2xl font-semibold text-foreground">

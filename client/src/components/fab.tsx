@@ -21,15 +21,15 @@ export function FAB({ onClick, className }: FABProps) {
             "h-16 w-16 rounded-full shadow-2xl",
             "bg-primary hover:bg-primary/90",
             "transition-all duration-300 ease-out",
-            "hover:scale-110 hover:shadow-[0_0_30px_rgba(220,38,38,0.5)]",
+            "hover:scale-105 hover:shadow-[0_0_20px_rgba(220,38,38,0.4)]",
             "active:scale-95",
-            "group",
+            "relative group overflow-hidden",
             className
           )}
           data-testid="fab-add-item"
         >
-          <Plus className="w-7 h-7 text-primary-foreground transition-transform group-hover:rotate-90 duration-300" />
-          <span className="absolute inset-0 rounded-full bg-primary/20 animate-ping opacity-75" />
+          <Plus className="w-7 h-7 text-primary-foreground transition-transform group-hover:rotate-90 duration-300 relative z-10" />
+          <span className="absolute inset-2 rounded-full bg-primary/20 animate-ping opacity-75 pointer-events-none" />
         </Button>
       </TooltipTrigger>
       <TooltipContent side="left">
