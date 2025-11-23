@@ -15,14 +15,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Gift, Plus, Trash2, Edit, ExternalLink, AlertCircle, Circle, ArrowUp, Search, Upload, SlidersHorizontal, X, CheckSquare, Square } from "lucide-react";
+import { Gift, Plus, Trash2, Edit, ExternalLink, AlertCircle, Circle, ArrowUp, Search, Upload, SlidersHorizontal, X, CheckSquare, Square, Filter } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Link } from "wouter";
 import { ObjectUploader } from "@/components/ObjectUploader";
 import { UnifiedAddItemDialog } from "@/components/unified-add-item-dialog";
-import { FAB } from "@/components/fab";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import type { UploadResult } from "@uppy/core";
 
 const addItemSchema = z.object({
@@ -62,6 +62,9 @@ export default function Wishlist() {
   
   // Bulk selection state
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  
+  // Filter dialog state
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
   
   const form = useForm<AddItemFormData>({
     resolver: zodResolver(addItemSchema),
@@ -448,8 +451,23 @@ export default function Wishlist() {
   // Check if any filters are active
   const hasActiveFilters = priorityFilter !== "all" || itemTypeFilter !== "all";
   
+  // Check if sort/filter settings differ from defaults
+  const hasActiveSettings = 
+    sortBy !== "createdAt" || 
+    sortOrder !== "desc" || 
+    priorityFilter !== "all" || 
+    itemTypeFilter !== "all";
+  
   // Clear all filters (but keep sort preferences)
   const clearFilters = () => {
+    setPriorityFilter("all");
+    setItemTypeFilter("all");
+  };
+  
+  // Reset all sort and filter settings to defaults
+  const resetAllSettings = () => {
+    setSortBy("createdAt");
+    setSortOrder("desc");
     setPriorityFilter("all");
     setItemTypeFilter("all");
   };
@@ -465,12 +483,10 @@ export default function Wishlist() {
             Add items you'd love to receive this Christmas
           </p>
         </div>
-        <div className="hidden md:flex gap-2 md:gap-3">
-          <Button onClick={() => setIsAddDialogOpen(true)} data-testid="button-add-manually">
-            <Plus className="w-4 h-4 mr-2" />
-            Add Item
-          </Button>
-        </div>
+        <Button onClick={() => setIsAddDialogOpen(true)} data-testid="button-add-manually">
+          <Plus className="w-4 h-4 mr-2" />
+          Add Item
+        </Button>
       </div>
 
       {/* Unified Add Item Dialog */}
@@ -698,92 +714,116 @@ export default function Wishlist() {
         </Dialog>
 
       {hasItems && (
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-4">
-              <SlidersHorizontal className="w-4 h-4 text-muted-foreground" />
-              <h3 className="font-medium text-sm">Sort & Filter</h3>
-              {hasActiveFilters && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={clearFilters}
-                  className="ml-auto h-7 text-xs"
-                  data-testid="button-clear-filters"
-                >
-                  <X className="w-3 h-3 mr-1" />
-                  Clear
-                </Button>
+        <Sheet open={isFilterOpen} onOpenChange={setIsFilterOpen}>
+          <SheetTrigger asChild>
+            <Button variant="outline" data-testid="button-open-filters">
+              <Filter className="w-4 h-4 mr-2" />
+              Filter & Sort
+              {hasActiveSettings && (
+                <Badge variant="secondary" className="ml-2 h-5 px-1.5">
+                  Active
+                </Badge>
               )}
-            </div>
-            
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {/* Sort By */}
-              <div className="space-y-2">
-                <label className="text-xs text-muted-foreground">Sort By</label>
-                <Select value={sortBy} onValueChange={setSortBy}>
-                  <SelectTrigger className="h-9" data-testid="select-sort-by">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="createdAt">Date Added</SelectItem>
-                    <SelectItem value="name">Name</SelectItem>
-                    <SelectItem value="price">Price</SelectItem>
-                    <SelectItem value="priority">Priority</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+            </Button>
+          </SheetTrigger>
+            <SheetContent side="bottom" className="h-[85vh]">
+              <SheetHeader>
+                <SheetTitle>Sort & Filter</SheetTitle>
+                <SheetDescription>
+                  Customize how your wishlist items are organized
+                </SheetDescription>
+              </SheetHeader>
               
-              {/* Sort Order */}
-              <div className="space-y-2">
-                <label className="text-xs text-muted-foreground">Order</label>
-                <Select value={sortOrder} onValueChange={setSortOrder}>
-                  <SelectTrigger className="h-9" data-testid="select-sort-order">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="asc">Ascending</SelectItem>
-                    <SelectItem value="desc">Descending</SelectItem>
-                  </SelectContent>
-                </Select>
+              <div className="mt-6 space-y-6">
+                {/* Sort By */}
+                <div className="space-y-3">
+                  <label className="text-sm font-medium">Sort By</label>
+                  <Select value={sortBy} onValueChange={setSortBy}>
+                    <SelectTrigger data-testid="select-sort-by">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="createdAt">Date Added</SelectItem>
+                      <SelectItem value="name">Name</SelectItem>
+                      <SelectItem value="price">Price</SelectItem>
+                      <SelectItem value="priority">Priority</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                {/* Sort Order */}
+                <div className="space-y-3">
+                  <label className="text-sm font-medium">Order</label>
+                  <Select value={sortOrder} onValueChange={setSortOrder}>
+                    <SelectTrigger data-testid="select-sort-order">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="asc">Ascending</SelectItem>
+                      <SelectItem value="desc">Descending</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                {/* Priority Filter */}
+                <div className="space-y-3">
+                  <label className="text-sm font-medium">Priority</label>
+                  <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+                    <SelectTrigger data-testid="select-filter-priority">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Priorities</SelectItem>
+                      <SelectItem value="high">Must-Have!</SelectItem>
+                      <SelectItem value="medium">Would Love</SelectItem>
+                      <SelectItem value="low">Just a Thought</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                {/* Item Type Filter */}
+                <div className="space-y-3">
+                  <label className="text-sm font-medium">Type</label>
+                  <Select value={itemTypeFilter} onValueChange={setItemTypeFilter}>
+                    <SelectTrigger data-testid="select-filter-type">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Types</SelectItem>
+                      <SelectItem value="product">Product</SelectItem>
+                      <SelectItem value="experience">Experience</SelectItem>
+                      <SelectItem value="service">Service</SelectItem>
+                      <SelectItem value="membership">Membership</SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                {/* Action Buttons */}
+                <div className="flex gap-3 pt-4">
+                  {hasActiveSettings && (
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        resetAllSettings();
+                      }}
+                      className="flex-1"
+                      data-testid="button-reset-all"
+                    >
+                      Reset All
+                    </Button>
+                  )}
+                  <Button
+                    onClick={() => setIsFilterOpen(false)}
+                    className="flex-1"
+                    data-testid="button-done-filters"
+                  >
+                    Done
+                  </Button>
+                </div>
               </div>
-              
-              {/* Priority Filter */}
-              <div className="space-y-2">
-                <label className="text-xs text-muted-foreground">Priority</label>
-                <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-                  <SelectTrigger className="h-9" data-testid="select-filter-priority">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Priorities</SelectItem>
-                    <SelectItem value="high">Must-Have!</SelectItem>
-                    <SelectItem value="medium">Would Love</SelectItem>
-                    <SelectItem value="low">Just a Thought</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              {/* Item Type Filter */}
-              <div className="space-y-2">
-                <label className="text-xs text-muted-foreground">Type</label>
-                <Select value={itemTypeFilter} onValueChange={setItemTypeFilter}>
-                  <SelectTrigger className="h-9" data-testid="select-filter-type">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Types</SelectItem>
-                    <SelectItem value="product">Product</SelectItem>
-                    <SelectItem value="experience">Experience</SelectItem>
-                    <SelectItem value="service">Service</SelectItem>
-                    <SelectItem value="membership">Membership</SelectItem>
-                    <SelectItem value="other">Other</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </SheetContent>
+        </Sheet>
       )}
 
       {!hasItems ? (
@@ -794,19 +834,8 @@ export default function Wishlist() {
             </div>
             <h3 className="font-semibold text-xl mb-2 text-foreground">Your Wishlist is Empty</h3>
             <p className="text-muted-foreground mb-6 max-w-md px-4">
-              Start adding items you'd love to receive this Christmas.
+              Start adding items you'd love to receive this Christmas. Click "Add Item" above to get started.
             </p>
-            <div className="flex flex-col items-center gap-3 text-sm text-muted-foreground">
-              <div className="md:hidden flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
-                  <Plus className="w-4 h-4 text-primary-foreground" />
-                </div>
-                <span>Tap the red button below to add your first item</span>
-              </div>
-              <div className="hidden md:block text-center">
-                <span>Click "Add Item" above to get started</span>
-              </div>
-            </div>
           </CardContent>
         </Card>
       ) : items.length === 0 ? (
@@ -969,9 +998,6 @@ export default function Wishlist() {
         </div>
         </>
       )}
-      
-      {/* Floating Action Button */}
-      <FAB onClick={() => setIsAddDialogOpen(true)} />
     </div>
   );
 }
