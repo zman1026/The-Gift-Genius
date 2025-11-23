@@ -1243,6 +1243,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Image search route (Google Lens via SerpApi)
+  app.post('/api/search/image', isAuthenticated, async (req: any, res) => {
+    try {
+      // Validate request body
+      const imageSearchSchema = z.object({
+        image: z.string().refine(
+          (val) => val.startsWith('data:image/'),
+          "Image must be a valid base64 data URI"
+        ),
+      });
+
+      const { image } = imageSearchSchema.parse(req.body);
+
+      const apiKey = process.env.SERPAPI_KEY;
+      if (!apiKey) {
+        return res.status(500).json({ message: "Search service not configured" });
+      }
+
+      // Call SerpApi Google Lens API with base64 image
+      const searchUrl = new URL('https://serpapi.com/search');
+      searchUrl.searchParams.set('engine', 'google_lens');
+      searchUrl.searchParams.set('api_key', apiKey);
+      searchUrl.searchParams.set('url', image); // SerpApi accepts base64 data URIs
+      
+      const response = await fetch(searchUrl.toString(), {
+        method: 'GET',
+        signal: AbortSignal.timeout(15000), // 15 second timeout for image processing
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("SerpApi Google Lens error:", response.status, errorText);
+        throw new Error('Image search service error');
+      }
+
+      const data = await response.json();
+      
+      // Extract visual matches and shopping results
+      const visualMatches = data.visual_matches || [];
+      const shoppingResults = data.shopping_results || [];
+      
+      // Combine and format results to match our existing product format
+      const results = [...shoppingResults, ...visualMatches].slice(0, 10).map((result: any) => ({
+        position: result.position || 0,
+        title: result.title || result.name,
+        link: result.link || result.product_link,
+        product_link: result.product_link || result.link,
+        source: result.source || result.store || 'Google Lens',
+        price: result.price,
+        extracted_price: result.extracted_price || (result.price ? parseFloat(result.price.replace(/[^0-9.]/g, '')) : undefined),
+        thumbnail: result.thumbnail,
+        rating: result.rating,
+        reviews: result.reviews,
+        snippet: result.snippet || result.description,
+      }));
+
+      res.json({ results });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid image data", errors: error.errors });
+      }
+      console.error("Error searching by image:", error);
+      res.status(500).json({ message: "Failed to search by image" });
+    }
+  });
+
 
   // Stats route
   app.get('/api/stats', isAuthenticated, async (req: any, res) => {
