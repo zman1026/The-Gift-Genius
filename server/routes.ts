@@ -696,7 +696,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Organizer-only: Add wishlist item to any member's wishlist
+  // Organizer-only: Add wishlist item to any member's wishlist (including child profiles)
   app.post('/api/families/:familyId/members/:targetUserId/wishlist', isAuthenticated, async (req: any, res) => {
     try {
       const organizerId = req.user.claims.sub;
@@ -713,14 +713,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Only the family organizer can add items to other members' wishlists" });
       }
 
-      // Verify target user is a member of the family
-      const targetMembership = await storage.getFamilyMember(familyId, targetUserId);
-      if (!targetMembership) {
+      // Verify target is a member of the family (could be user or managed profile)
+      const targetInfo = await storage.getFamilyMemberByAnyId(familyId, targetUserId);
+      if (!targetInfo) {
         return res.status(404).json({ message: "Target member not found in this family" });
       }
 
-      const item = await storage.createWishlistItem({
-        userId: targetUserId,
+      // Create item with correct field based on which field matched
+      const itemData: any = {
         familyId,
         name,
         description: description || null,
@@ -732,7 +732,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         priority: priority || "medium",
         quantity: quantity || 1,
         category: category || null,
-      });
+      };
+
+      // Set exactly one of userId or managedProfileId based on matched field
+      if (targetInfo.matchedField === 'managedProfileId') {
+        itemData.managedProfileId = targetUserId;
+        itemData.userId = null;
+      } else {
+        itemData.userId = targetUserId;
+        itemData.managedProfileId = null;
+      }
+
+      const item = await storage.createWishlistItem(itemData);
 
       res.json(item);
     } catch (error) {

@@ -289,6 +289,36 @@ export class DatabaseStorage implements IStorage {
     return member;
   }
 
+  async getFamilyMemberByAnyId(familyId: string, memberId: string): Promise<{ member: FamilyMember; matchedField: 'userId' | 'managedProfileId' } | undefined> {
+    // Check which field this ID belongs to by querying the family_members table
+    const [member] = await db
+      .select()
+      .from(familyMembers)
+      .where(
+        and(
+          eq(familyMembers.familyId, familyId),
+          or(
+            eq(familyMembers.userId, memberId),
+            eq(familyMembers.managedProfileId, memberId)
+          )
+        )
+      );
+    
+    if (!member) {
+      return undefined;
+    }
+
+    // Determine which field the memberId matches
+    if (member.userId === memberId) {
+      return { member, matchedField: 'userId' };
+    } else if (member.managedProfileId === memberId) {
+      return { member, matchedField: 'managedProfileId' };
+    }
+
+    // This should never happen due to the WHERE clause, but adding for safety
+    return undefined;
+  }
+
   async updateFamilyMemberDisplayName(familyId: string, userId: string, displayName: string | null, requesterId: string): Promise<FamilyMember> {
     // Check if requester is the family organizer
     const [family] = await db.select().from(families).where(eq(families.id, familyId));
