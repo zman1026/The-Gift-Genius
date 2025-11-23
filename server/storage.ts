@@ -22,7 +22,7 @@ import {
   type InsertManagedProfile,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, sql, desc, asc, inArray } from "drizzle-orm";
+import { eq, and, or, sql, desc, asc, inArray } from "drizzle-orm";
 
 // Custom error types for better error handling
 export class AuthorizationError extends Error {
