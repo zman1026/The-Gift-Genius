@@ -3,9 +3,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { 
   Home, 
   Search, 
-  ShoppingBag, 
-  Activity, 
-  Settings, 
   ChevronRight 
 } from "lucide-react";
 
@@ -26,13 +23,6 @@ export default function More() {
       description: "Find items to add to wishlist",
       path: "/search",
       testId: "menu-search",
-    },
-    {
-      icon: ShoppingBag,
-      label: "Purchased Items",
-      description: "Items you've bought for others",
-      path: "/purchased",
-      testId: "menu-purchased",
     },
   ];
 

@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Users, Gift, MoreHorizontal } from "lucide-react";
+import { Users, Gift, ShoppingBag, MoreHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function BottomNav() {
@@ -17,6 +17,12 @@ export function BottomNav() {
       icon: Users,
       label: "Family",
       testId: "nav-members",
+    },
+    {
+      path: "/purchased",
+      icon: ShoppingBag,
+      label: "Purchased",
+      testId: "nav-purchased",
     },
     {
       path: "/more",
