@@ -45,6 +45,33 @@ export const usersRelations = relations(users, ({ many }) => ({
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
 
+// Managed profiles table (for children/dependents without their own accounts)
+export const managedProfiles = pgTable("managed_profiles", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  createdById: varchar("created_by_id").notNull().references(() => users.id, { onDelete: 'cascade' }), // Parent/guardian
+  firstName: varchar("first_name").notNull(),
+  lastName: varchar("last_name"),
+  profileImageUrl: varchar("profile_image_url"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const managedProfilesRelations = relations(managedProfiles, ({ one, many }) => ({
+  createdBy: one(users, {
+    fields: [managedProfiles.createdById],
+    references: [users.id],
+  }),
+  familyMemberships: many(familyMembers),
+  wishlistItems: many(wishlistItems),
+}));
+
+export const insertManagedProfileSchema = createInsertSchema(managedProfiles).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertManagedProfile = z.infer<typeof insertManagedProfileSchema>;
+export type ManagedProfile = typeof managedProfiles.$inferSelect;
+
 // Families table
 export const families = pgTable("families", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -70,17 +97,19 @@ export const insertFamilySchema = createInsertSchema(families).omit({
 export type InsertFamily = z.infer<typeof insertFamilySchema>;
 export type Family = typeof families.$inferSelect;
 
-// Family members join table
+// Family members join table (supports both real users and managed profiles)
 export const familyMembers = pgTable("family_members", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   familyId: varchar("family_id").notNull().references(() => families.id, { onDelete: 'cascade' }),
-  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  userId: varchar("user_id").references(() => users.id, { onDelete: 'cascade' }), // Nullable - either userId OR managedProfileId
+  managedProfileId: varchar("managed_profile_id").references(() => managedProfiles.id, { onDelete: 'cascade' }), // Nullable - for children/dependents
   displayName: varchar("display_name", { length: 100 }), // Family-specific nickname
   giftBudget: decimal("gift_budget", { precision: 10, scale: 2 }), // Personal gift-buying budget for this family
   joinedAt: timestamp("joined_at").defaultNow(),
 }, (table) => [
   index("idx_family_members_user_lookup").on(table.userId, table.familyId),
   index("idx_family_members_family_lookup").on(table.familyId, table.userId),
+  index("idx_family_members_managed_lookup").on(table.managedProfileId, table.familyId),
 ]);
 
 export const familyMembersRelations = relations(familyMembers, ({ one }) => ({
@@ -92,6 +121,10 @@ export const familyMembersRelations = relations(familyMembers, ({ one }) => ({
     fields: [familyMembers.userId],
     references: [users.id],
   }),
+  managedProfile: one(managedProfiles, {
+    fields: [familyMembers.managedProfileId],
+    references: [managedProfiles.id],
+  }),
 }));
 
 export const insertFamilyMemberSchema = createInsertSchema(familyMembers).omit({
@@ -102,10 +135,11 @@ export const insertFamilyMemberSchema = createInsertSchema(familyMembers).omit({
 export type InsertFamilyMember = z.infer<typeof insertFamilyMemberSchema>;
 export type FamilyMember = typeof familyMembers.$inferSelect;
 
-// Wishlist items table
+// Wishlist items table (supports both real users and managed profiles)
 export const wishlistItems = pgTable("wishlist_items", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  userId: varchar("user_id").references(() => users.id, { onDelete: 'cascade' }), // Nullable - either userId OR managedProfileId
+  managedProfileId: varchar("managed_profile_id").references(() => managedProfiles.id, { onDelete: 'cascade' }), // Nullable - for children/dependents
   familyId: varchar("family_id").notNull().references(() => families.id, { onDelete: 'cascade' }),
   name: varchar("name", { length: 255 }).notNull(),
   description: text("description"),
@@ -121,12 +155,17 @@ export const wishlistItems = pgTable("wishlist_items", {
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
   index("idx_wishlist_items_lookup").on(table.familyId, table.userId, table.priority),
+  index("idx_wishlist_items_managed_lookup").on(table.familyId, table.managedProfileId, table.priority),
 ]);
 
 export const wishlistItemsRelations = relations(wishlistItems, ({ one, many }) => ({
   user: one(users, {
     fields: [wishlistItems.userId],
     references: [users.id],
+  }),
+  managedProfile: one(managedProfiles, {
+    fields: [wishlistItems.managedProfileId],
+    references: [managedProfiles.id],
   }),
   family: one(families, {
     fields: [wishlistItems.familyId],
