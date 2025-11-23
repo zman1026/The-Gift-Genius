@@ -1,5 +1,6 @@
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 interface FABProps {
@@ -9,17 +10,31 @@ interface FABProps {
 
 export function FAB({ onClick, className }: FABProps) {
   return (
-    <Button
-      size="icon"
-      onClick={onClick}
-      className={cn(
-        "fixed bottom-20 right-4 md:bottom-6 md:right-6 z-50 h-14 w-14 rounded-full shadow-lg hover:shadow-xl transition-all duration-200",
-        "hover:scale-110 active:scale-95",
-        className
-      )}
-      data-testid="fab-add-item"
-    >
-      <Plus className="w-6 h-6" />
-    </Button>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          size="icon"
+          onClick={onClick}
+          aria-label="Add wishlist item"
+          className={cn(
+            "fixed bottom-20 right-4 md:bottom-6 md:right-6 z-50",
+            "h-16 w-16 rounded-full shadow-2xl",
+            "bg-primary hover:bg-primary/90",
+            "transition-all duration-300 ease-out",
+            "hover:scale-110 hover:shadow-[0_0_30px_rgba(220,38,38,0.5)]",
+            "active:scale-95",
+            "group",
+            className
+          )}
+          data-testid="fab-add-item"
+        >
+          <Plus className="w-7 h-7 text-primary-foreground transition-transform group-hover:rotate-90 duration-300" />
+          <span className="absolute inset-0 rounded-full bg-primary/20 animate-ping opacity-75" />
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent side="left">
+        <p>Add item to wishlist</p>
+      </TooltipContent>
+    </Tooltip>
   );
 }
