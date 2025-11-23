@@ -150,6 +150,8 @@ export function CameraCapture({ onImageCaptured, isProcessing = false }: CameraC
     const sizeInBytes = Math.ceil((base64Image.length * 3) / 4);
     const sizeInMB = sizeInBytes / (1024 * 1024);
     
+    console.log(`Captured image: ${targetWidth}x${targetHeight}, ${sizeInMB.toFixed(2)}MB`);
+    
     if (sizeInMB > 10) {
       toast({
         title: "Image Too Large",
@@ -158,6 +160,12 @@ export function CameraCapture({ onImageCaptured, isProcessing = false }: CameraC
       });
       return;
     }
+
+    // Show feedback that photo was captured
+    toast({
+      title: "Photo Captured",
+      description: "Searching for products...",
+    });
 
     onImageCaptured(base64Image);
   };
