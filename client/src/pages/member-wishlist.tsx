@@ -12,7 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Gift, ArrowLeft, CheckCircle2, ExternalLink, MessageSquare, AlertCircle, Circle, ArrowUp, Edit } from "lucide-react";
+import { Gift, ArrowLeft, CheckCircle2, ExternalLink, MessageSquare, AlertCircle, Circle, ArrowUp, Edit, ShoppingBag } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ShoppingOptionsDialog } from "@/components/shopping-options-dialog";
 import { Input } from "@/components/ui/input";
@@ -176,51 +176,29 @@ export default function MemberWishlist() {
     },
   });
 
-  const bulkPurchaseMutation = useMutation({
-    mutationFn: async (itemIds: string[]) => {
-      const promises = itemIds.map(itemId => 
-        apiRequest("POST", `/api/wishlist/${itemId}/purchase`, { notes: "" })
-      );
-      return await Promise.all(promises);
+  const editMemberMutation = useMutation({
+    mutationFn: async (data: EditMemberForm) => {
+      if (!selectedFamilyId || !userId) throw new Error("Missing required data");
+      return apiRequest("PUT", `/api/families/${selectedFamilyId}/members/${userId}`, {
+        displayName: data.displayName || null,
+      });
     },
     onSuccess: () => {
-      const currentFamilyId = selectedFamilyIdRef.current;
-      queryClient.invalidateQueries({ queryKey: ["/api/members", userId, "wishlist", currentFamilyId] });
-      queryClient.invalidateQueries({ queryKey: ["/api/stats", currentFamilyId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/members", userId, selectedFamilyId] });
       toast({
-        title: "Success",
-        description: `${selectedItems.size} items marked as purchased!`,
+        title: "Updated",
+        description: "Member name has been updated successfully",
       });
-      setSelectedItems(new Set());
-      setShoppingMode(false);
+      setIsEditMemberDialogOpen(false);
     },
-    onError: (error: Error) => {
+    onError: (error: any) => {
       toast({
         title: "Error",
-        description: error.message || "Failed to mark items as purchased",
+        description: error.message || "Failed to update member name",
         variant: "destructive",
       });
     },
   });
-
-  const handleMarkPurchased = (itemId: string) => {
-    markPurchasedMutation.mutate({ itemId, notes: purchaseNotes[itemId] || "" });
-  };
-
-  const handleBulkPurchase = () => {
-    if (selectedItems.size === 0) return;
-    bulkPurchaseMutation.mutate(Array.from(selectedItems));
-  };
-
-  const toggleItemSelection = (itemId: string) => {
-    const newSelection = new Set(selectedItems);
-    if (newSelection.has(itemId)) {
-      newSelection.delete(itemId);
-    } else {
-      newSelection.add(itemId);
-    }
-    setSelectedItems(newSelection);
-  };
 
   const getInitials = (firstName?: string, lastName?: string) => {
     if (!firstName && !lastName) return "U";
@@ -228,13 +206,7 @@ export default function MemberWishlist() {
   };
 
   const handleCardClick = (item: any) => {
-    if (shoppingMode) {
-      // In shopping mode, toggle selection
-      toggleItemSelection(item.id);
-    } else {
-      // In normal mode, open detail view
-      setViewingItem(item);
-    }
+    setViewingItem(item);
   };
 
   const handleCloseDetailView = () => {
@@ -278,14 +250,13 @@ export default function MemberWishlist() {
   }
 
   const hasItems = items && items.length > 0;
-  const memberName = memberData?.firstName || memberData?.lastName
+  
+  // Compute primary display name: displayName > fullName > email
+  const fullName = memberData?.firstName || memberData?.lastName
     ? `${memberData.firstName || ""} ${memberData.lastName || ""}`.trim()
-    : memberData?.email || "Family Member";
-
-  // Filter items based on shopping mode
-  const displayedItems = shoppingMode 
-    ? items?.filter((item: any) => !item.purchase) || []
-    : items || [];
+    : "";
+  const primaryDisplayName = memberData?.displayName || fullName || memberData?.email || "Family Member";
+  const showEmailFallback = !memberData?.displayName && !fullName && memberData?.email;
 
   return (
     <div className="p-6 md:p-8 lg:p-12 space-y-6 pb-24">
@@ -300,41 +271,42 @@ export default function MemberWishlist() {
       </Button>
 
       {/* Member Header */}
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div className="flex items-center gap-4">
-          <Avatar className="h-16 w-16">
-            <AvatarImage src={memberData?.profileImageUrl || undefined} alt={memberName} />
-            <AvatarFallback className="text-2xl">
-              {getInitials(memberData?.firstName, memberData?.lastName)}
-            </AvatarFallback>
-          </Avatar>
-          <div>
+      <div className="flex items-center gap-4 flex-wrap">
+        <Avatar className="h-16 w-16">
+          <AvatarImage src={memberData?.profileImageUrl || undefined} alt={primaryDisplayName} />
+          <AvatarFallback className="text-2xl">
+            {getInitials(memberData?.firstName, memberData?.lastName)}
+          </AvatarFallback>
+        </Avatar>
+        <div className="flex-1">
+          <div className="flex items-center gap-2">
             <h1 className="font-serif text-3xl md:text-4xl font-semibold text-foreground" data-testid="member-name">
-              {memberName}'s Wishlist
+              {primaryDisplayName}'s Wishlist
             </h1>
-            <p className="text-muted-foreground mt-1">
-              {items?.length || 0} items on their list
-            </p>
+            {isOrganizer && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => {
+                  editMemberForm.reset({ displayName: memberData?.displayName || "" });
+                  setIsEditMemberDialogOpen(true);
+                }}
+                data-testid="button-edit-display-name"
+                className="h-8 w-8"
+              >
+                <Edit className="w-4 h-4" />
+              </Button>
+            )}
           </div>
+          {showEmailFallback ? (
+            <p className="text-muted-foreground text-xs mt-1">{memberData?.email}</p>
+          ) : memberData?.displayName && fullName ? (
+            <p className="text-muted-foreground text-sm mt-1">{fullName}</p>
+          ) : null}
+          <p className="text-muted-foreground mt-1">
+            {items?.length || 0} items on their list
+          </p>
         </div>
-        
-        {hasItems && (
-          <div className="flex items-center gap-2 p-3 rounded-lg border bg-card">
-            <ShoppingCart className="w-4 h-4 text-primary" />
-            <Label htmlFor="shopping-mode" className="cursor-pointer text-sm font-medium">
-              Shopping Mode
-            </Label>
-            <Switch
-              id="shopping-mode"
-              checked={shoppingMode}
-              onCheckedChange={(checked) => {
-                setShoppingMode(checked);
-                if (!checked) setSelectedItems(new Set());
-              }}
-              data-testid="switch-shopping-mode"
-            />
-          </div>
-        )}
       </div>
 
       {!hasItems ? (
@@ -345,55 +317,22 @@ export default function MemberWishlist() {
             </div>
             <h3 className="font-semibold text-xl mb-2 text-foreground">No Items Yet</h3>
             <p className="text-muted-foreground max-w-md">
-              {memberName} hasn't added any items to their wishlist yet.
+              {primaryDisplayName} hasn't added any items to their wishlist yet.
             </p>
-          </CardContent>
-        </Card>
-      ) : displayedItems.length === 0 && shoppingMode ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-              <CheckCircle2 className="w-10 h-10 text-primary" />
-            </div>
-            <h3 className="font-semibold text-xl mb-2 text-foreground">All Items Purchased!</h3>
-            <p className="text-muted-foreground max-w-md">
-              You've purchased all items on {memberName}'s wishlist. Great job! 🎉
-            </p>
-            <Button
-              variant="outline"
-              size="sm"
-              className="mt-4"
-              onClick={() => setShoppingMode(false)}
-              data-testid="button-exit-shopping-mode"
-            >
-              Show All Items
-            </Button>
           </CardContent>
         </Card>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3">
-          {displayedItems.map((item: any) => {
+          {items.map((item: any) => {
             const isPurchased = !!item.purchase;
-            const isPurchasedByMe = item.purchase?.purchasedById === memberData?.userId;
-            const isSelected = selectedItems.has(item.id);
 
             return (
               <Card
                 key={item.id}
-                className={`flex flex-col overflow-hidden ${isSelected ? 'ring-2 ring-primary' : 'hover-elevate'} cursor-pointer ${isPurchased ? 'opacity-75' : ''}`}
+                className={`flex flex-col overflow-hidden hover-elevate cursor-pointer ${isPurchased ? 'opacity-75' : ''}`}
                 onClick={() => handleCardClick(item)}
                 data-testid={`wishlist-item-${item.id}`}
               >
-                {shoppingMode && (
-                  <div className="absolute top-2 left-2 z-10" onClick={(e) => e.stopPropagation()}>
-                    <Checkbox
-                      checked={isSelected}
-                      onCheckedChange={() => toggleItemSelection(item.id)}
-                      className="bg-background border-2"
-                      data-testid={`checkbox-${item.id}`}
-                    />
-                  </div>
-                )}
                 <div className="aspect-square bg-muted relative overflow-hidden">
                   {item.imageUrl ? (
                     <img
@@ -447,23 +386,6 @@ export default function MemberWishlist() {
         </div>
       )}
 
-      {/* Floating Bulk Purchase Button */}
-      {shoppingMode && selectedItems.size > 0 && (
-        <div className="fixed bottom-20 md:bottom-6 right-6 z-50">
-          <Button
-            size="lg"
-            onClick={handleBulkPurchase}
-            disabled={bulkPurchaseMutation.isPending}
-            className="shadow-lg"
-            data-testid="button-bulk-purchase"
-          >
-            <CheckCircle2 className="w-5 h-5 mr-2" />
-            {bulkPurchaseMutation.isPending 
-              ? "Purchasing..." 
-              : `Mark ${selectedItems.size} as Purchased`}
-          </Button>
-        </div>
-      )}
 
       {/* Item Detail Sheet */}
       {viewingItem && (
@@ -575,7 +497,7 @@ export default function MemberWishlist() {
                     data-testid="input-purchase-notes-detail"
                   />
                   <p className="text-xs text-muted-foreground mt-1">
-                    {memberName} won't see this note.
+                    {primaryDisplayName} won't see this note.
                   </p>
                 </div>
               )}
@@ -647,6 +569,60 @@ export default function MemberWishlist() {
           familyId={selectedFamilyId}
         />
       )}
+
+      {/* Edit Member Dialog */}
+      <Dialog open={isEditMemberDialogOpen} onOpenChange={setIsEditMemberDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Rename Wishlist</DialogTitle>
+            <DialogDescription>
+              Set a custom nickname for {fullName || memberData?.email || "this member"}
+            </DialogDescription>
+          </DialogHeader>
+          <Form {...editMemberForm}>
+            <form onSubmit={editMemberForm.handleSubmit((data) => editMemberMutation.mutate(data))} className="space-y-4">
+              <FormField
+                control={editMemberForm.control}
+                name="displayName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Nickname (Optional)</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        value={field.value || ""}
+                        placeholder="e.g., Mom, Dad, Brother"
+                        data-testid="input-display-name"
+                      />
+                    </FormControl>
+                    <p className="text-xs text-muted-foreground">
+                      Leave blank to use their full name
+                    </p>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <div className="flex gap-2 justify-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsEditMemberDialogOpen(false)}
+                  data-testid="button-cancel-edit"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={editMemberMutation.isPending}
+                  data-testid="button-save-edit"
+                >
+                  {editMemberMutation.isPending ? "Saving..." : "Save"}
+                </Button>
+              </div>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
