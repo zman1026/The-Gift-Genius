@@ -1,17 +1,11 @@
 import { Link, useLocation } from "wouter";
-import { Home, Users, Gift, Search } from "lucide-react";
+import { Users, Gift, MoreHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function BottomNav() {
   const [location] = useLocation();
 
   const navItems = [
-    {
-      path: "/",
-      icon: Home,
-      label: "Home",
-      testId: "nav-home",
-    },
     {
       path: "/wishlist",
       icon: Gift,
@@ -25,10 +19,10 @@ export function BottomNav() {
       testId: "nav-members",
     },
     {
-      path: "/search",
-      icon: Search,
-      label: "Search",
-      testId: "nav-search",
+      path: "/more",
+      icon: MoreHorizontal,
+      label: "More",
+      testId: "nav-more",
     },
   ];
 
@@ -36,7 +30,10 @@ export function BottomNav() {
     <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 safe-area-inset-bottom">
       <div className="flex items-center justify-around h-16">
         {navItems.map((item) => {
-          const isActive = location === item.path || (item.path !== "/" && location.startsWith(item.path));
+          // Highlight "My List" for both "/" and "/wishlist" routes
+          const isActive = location === item.path || 
+                          (item.path === "/wishlist" && location === "/") ||
+                          (item.path !== "/" && location.startsWith(item.path));
           const Icon = item.icon;
           
           return (

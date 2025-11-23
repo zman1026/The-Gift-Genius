@@ -23,6 +23,7 @@ import Members from "@/pages/members";
 import MemberWishlist from "@/pages/member-wishlist";
 import Search from "@/pages/search";
 import Purchased from "@/pages/purchased";
+import More from "@/pages/more";
 import { AppErrorBoundary } from "@/components/error-boundary";
 
 function AppContent() {
@@ -81,7 +82,8 @@ function AppContent() {
             </header>
             <main className="flex-1 overflow-y-auto pb-20 md:pb-0">
               <Switch>
-                <Route path="/" component={Home} />
+                <Route path="/" component={Wishlist} />
+                <Route path="/dashboard" component={Home} />
                 <Route path="/families/create" component={CreateFamily} />
                 <Route path="/families/join" component={JoinFamily} />
                 <Route path="/wishlist" component={Wishlist} />
@@ -89,6 +91,7 @@ function AppContent() {
                 <Route path="/members/:userId" component={MemberWishlist} />
                 <Route path="/search" component={Search} />
                 <Route path="/purchased" component={Purchased} />
+                <Route path="/more" component={More} />
                 <Route component={NotFound} />
               </Switch>
             </main>
