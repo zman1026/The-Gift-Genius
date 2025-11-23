@@ -395,14 +395,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/members/:userId', isAuthenticated, async (req: any, res) => {
     try {
+      const viewerId = req.user.claims.sub;
       const { userId } = req.params;
+      const { familyId } = req.query;
       const user = await storage.getUser(userId);
       
       if (!user) {
         return res.status(404).json({ message: "User not found" });
       }
 
-      res.json(user);
+      // If familyId is provided, also get displayName from family_members
+      let displayName = null;
+      if (familyId && typeof familyId === 'string') {
+        const member = await storage.getFamilyMember(familyId, userId);
+        if (member) {
+          displayName = member.displayName;
+        }
+      }
+
+      res.json({ ...user, displayName });
     } catch (error) {
       console.error("Error fetching member:", error);
       res.status(500).json({ message: "Failed to fetch member" });

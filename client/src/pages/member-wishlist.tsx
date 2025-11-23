@@ -12,29 +12,40 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Gift, ArrowLeft, CheckCircle2, ExternalLink, MessageSquare, AlertCircle, Circle, ArrowUp, ShoppingCart, CheckSquare, Square, ShoppingBag } from "lucide-react";
+import { Gift, ArrowLeft, CheckCircle2, ExternalLink, MessageSquare, AlertCircle, Circle, ArrowUp, Edit } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ShoppingOptionsDialog } from "@/components/shopping-options-dialog";
-import { Switch } from "@/components/ui/switch";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+
+const editMemberSchema = z.object({
+  displayName: z.string().nullable().optional(),
+});
+
+type EditMemberForm = z.infer<typeof editMemberSchema>;
 
 export default function MemberWishlist() {
   const { toast } = useToast();
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
-  const { selectedFamilyId } = useFamily();
+  const { selectedFamilyId, families } = useFamily();
   const currentUserId = (user as any)?.id;
   const [, params] = useRoute("/members/:userId");
   const [, setLocation] = useLocation();
   const [purchaseNotes, setPurchaseNotes] = useState<Record<string, string>>({});
   const [openNoteDialog, setOpenNoteDialog] = useState<string | null>(null);
   const [selectedItemForShopping, setSelectedItemForShopping] = useState<any>(null);
-  const [shoppingMode, setShoppingMode] = useState(false);
-  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  const [isEditMemberDialogOpen, setIsEditMemberDialogOpen] = useState(false);
   
   // Detail view state
   const [viewingItem, setViewingItem] = useState<any>(null);
+  
+  const selectedFamily = families?.find((f: any) => f.id === selectedFamilyId);
+  const isOrganizer = selectedFamily?.createdById === currentUserId;
   
   // Use a ref to always get the current selectedFamilyId (prevents stale closure bugs)
   const selectedFamilyIdRef = useRef(selectedFamilyId);
@@ -43,6 +54,13 @@ export default function MemberWishlist() {
   }, [selectedFamilyId]);
 
   const userId = params?.userId;
+
+  const editMemberForm = useForm<EditMemberForm>({
+    resolver: zodResolver(editMemberSchema),
+    defaultValues: {
+      displayName: "",
+    },
+  });
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -61,8 +79,8 @@ export default function MemberWishlist() {
   const { data: memberData, isLoading: memberLoading} = useQuery({
     queryKey: ["/api/members", userId, selectedFamilyId],
     queryFn: async () => {
-      if (!userId) return null;
-      const response = await fetch(`/api/members/${userId}`, {
+      if (!userId || !selectedFamilyId) return null;
+      const response = await fetch(`/api/members/${userId}?familyId=${selectedFamilyId}`, {
         credentials: "include",
       });
       if (!response.ok) {
