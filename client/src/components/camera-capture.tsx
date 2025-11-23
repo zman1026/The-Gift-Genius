@@ -115,24 +115,45 @@ export function CameraCapture({ onImageCaptured, isProcessing = false }: CameraC
       return;
     }
 
-    // Set canvas size to match video
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-
-    // Draw video frame to canvas
-    context.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-    // Convert to base64
-    const base64Image = canvas.toDataURL('image/jpeg', 0.85);
+    // Calculate scaled dimensions (max 1024px on longest side for better compression)
+    const maxSize = 1024;
+    const videoWidth = video.videoWidth;
+    const videoHeight = video.videoHeight;
+    const aspectRatio = videoWidth / videoHeight;
     
-    // Validate size (max 10MB as mentioned in replit.md for image uploads)
+    let targetWidth = videoWidth;
+    let targetHeight = videoHeight;
+    
+    if (videoWidth > videoHeight) {
+      if (videoWidth > maxSize) {
+        targetWidth = maxSize;
+        targetHeight = maxSize / aspectRatio;
+      }
+    } else {
+      if (videoHeight > maxSize) {
+        targetHeight = maxSize;
+        targetWidth = maxSize * aspectRatio;
+      }
+    }
+
+    // Set canvas to scaled size
+    canvas.width = targetWidth;
+    canvas.height = targetHeight;
+
+    // Draw video frame to canvas with scaling
+    context.drawImage(video, 0, 0, targetWidth, targetHeight);
+
+    // Convert to base64 with lower quality for smaller file size
+    const base64Image = canvas.toDataURL('image/jpeg', 0.7);
+    
+    // Validate size (max 10MB)
     const sizeInBytes = Math.ceil((base64Image.length * 3) / 4);
     const sizeInMB = sizeInBytes / (1024 * 1024);
     
     if (sizeInMB > 10) {
       toast({
         title: "Image Too Large",
-        description: "Photo is too large. Please try again with better lighting.",
+        description: "Photo is too large. Please try again.",
         variant: "destructive",
       });
       return;
