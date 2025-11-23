@@ -18,6 +18,7 @@ import { ShoppingOptionsDialog } from "@/components/shopping-options-dialog";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 
 export default function MemberWishlist() {
   const { toast } = useToast();
@@ -30,6 +31,9 @@ export default function MemberWishlist() {
   const [selectedItemForShopping, setSelectedItemForShopping] = useState<any>(null);
   const [shoppingMode, setShoppingMode] = useState(false);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  
+  // Detail view state
+  const [viewingItem, setViewingItem] = useState<any>(null);
   
   // Use a ref to always get the current selectedFamilyId (prevents stale closure bugs)
   const selectedFamilyIdRef = useRef(selectedFamilyId);
@@ -204,6 +208,43 @@ export default function MemberWishlist() {
     return `${firstName?.[0] || ""}${lastName?.[0] || ""}`.toUpperCase();
   };
 
+  const handleCardClick = (item: any) => {
+    if (shoppingMode) {
+      // In shopping mode, toggle selection
+      toggleItemSelection(item.id);
+    } else {
+      // In normal mode, open detail view
+      setViewingItem(item);
+    }
+  };
+
+  const handleCloseDetailView = () => {
+    setViewingItem(null);
+    setPurchaseNotes({});
+  };
+
+  const handleMarkPurchasedFromDetail = () => {
+    if (!viewingItem) return;
+    const notes = purchaseNotes[viewingItem.id] || "";
+    markPurchasedMutation.mutate(
+      { itemId: viewingItem.id, notes },
+      {
+        onSuccess: () => {
+          handleCloseDetailView();
+        }
+      }
+    );
+  };
+
+  const handleUnmarkFromDetail = () => {
+    if (!viewingItem) return;
+    unmarkPurchasedMutation.mutate(viewingItem.id, {
+      onSuccess: () => {
+        handleCloseDetailView();
+      }
+    });
+  };
+
   if (memberLoading || itemsLoading) {
     return (
       <div className="p-4 md:p-8 lg:p-12 space-y-6">
@@ -321,13 +362,7 @@ export default function MemberWishlist() {
               <Card
                 key={item.id}
                 className={`flex flex-col overflow-hidden ${isSelected ? 'ring-2 ring-primary' : 'hover-elevate'} cursor-pointer ${isPurchased ? 'opacity-75' : ''}`}
-                onClick={() => {
-                  if (shoppingMode) {
-                    toggleItemSelection(item.id);
-                  } else if (!isPurchased) {
-                    setSelectedItemForShopping(item);
-                  }
-                }}
+                onClick={() => handleCardClick(item)}
                 data-testid={`wishlist-item-${item.id}`}
               >
                 {shoppingMode && (
@@ -386,92 +421,6 @@ export default function MemberWishlist() {
                   {item.description && (
                     <p className="text-xs text-muted-foreground line-clamp-2">{item.description}</p>
                   )}
-                  
-                  {isPurchased && item.purchase?.notes && (
-                    <div className="bg-muted p-2 rounded-md">
-                      <p className="text-xs text-muted-foreground flex items-start gap-1">
-                        <MessageSquare className="w-2.5 h-2.5 mt-0.5 flex-shrink-0" />
-                        <span className="line-clamp-2">{item.purchase.notes}</span>
-                      </p>
-                    </div>
-                  )}
-
-                  {!shoppingMode && (
-                    <div className="flex gap-1.5 mt-2" onClick={(e) => e.stopPropagation()}>
-                      {item.url && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="flex-1"
-                          onClick={() => window.open(item.url, '_blank')}
-                          data-testid={`button-view-${item.id}`}
-                        >
-                          <ExternalLink className="w-3 h-3 mr-1" />
-                          <span className="truncate">View</span>
-                        </Button>
-                      )}
-                      
-                      {!isPurchased ? (
-                      <Dialog open={openNoteDialog === item.id} onOpenChange={(open) => setOpenNoteDialog(open ? item.id : null)}>
-                        <DialogTrigger asChild>
-                          <Button
-                            variant="default"
-                            size="sm"
-                            className="flex-1"
-                            data-testid={`button-mark-purchased-${item.id}`}
-                          >
-                            <CheckCircle2 className="w-3 h-3 mr-1" />
-                            <span className="truncate">Purchase</span>
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                          <DialogHeader>
-                            <DialogTitle>Mark as Purchased</DialogTitle>
-                            <DialogDescription>
-                              Add private notes about this purchase (optional). {memberName} won't see this.
-                            </DialogDescription>
-                          </DialogHeader>
-                          <div className="space-y-4 pt-2">
-                            <Textarea
-                              placeholder="e.g., Bought from Amazon, arriving Dec 20th"
-                              value={purchaseNotes[item.id] || ""}
-                              onChange={(e) => setPurchaseNotes({ ...purchaseNotes, [item.id]: e.target.value })}
-                              className="resize-none h-24"
-                              data-testid={`input-purchase-notes-${item.id}`}
-                            />
-                            <div className="flex gap-3">
-                              <Button
-                                onClick={() => handleMarkPurchased(item.id)}
-                                disabled={markPurchasedMutation.isPending}
-                                data-testid={`button-confirm-purchase-${item.id}`}
-                              >
-                                {markPurchasedMutation.isPending ? "Saving..." : "Confirm Purchase"}
-                              </Button>
-                              <Button
-                                variant="outline"
-                                onClick={() => setOpenNoteDialog(null)}
-                                data-testid="button-cancel-purchase"
-                              >
-                                Cancel
-                              </Button>
-                            </div>
-                          </div>
-                        </DialogContent>
-                      </Dialog>
-                    ) : isPurchasedByMe ? (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="flex-1"
-                        onClick={() => unmarkPurchasedMutation.mutate(item.id)}
-                        disabled={unmarkPurchasedMutation.isPending}
-                        data-testid={`button-unmark-purchased-${item.id}`}
-                      >
-                        <span className="truncate">Unmark</span>
-                      </Button>
-                    ) : null}
-                    </div>
-                  )}
                 </CardContent>
               </Card>
             );
@@ -495,6 +444,163 @@ export default function MemberWishlist() {
               : `Mark ${selectedItems.size} as Purchased`}
           </Button>
         </div>
+      )}
+
+      {/* Item Detail Sheet */}
+      {viewingItem && (
+        <Sheet open={!!viewingItem} onOpenChange={(open) => !open && handleCloseDetailView()}>
+          <SheetContent className="overflow-y-auto w-full sm:max-w-lg">
+            <SheetHeader>
+              <SheetTitle data-testid="sheet-title-detail">{viewingItem.name}</SheetTitle>
+              <SheetDescription>View and manage your wishlist item</SheetDescription>
+            </SheetHeader>
+
+            <div className="space-y-6 py-6">
+              {/* Product Image */}
+              {viewingItem.imageUrl && (
+                <div className="aspect-square bg-muted rounded-lg overflow-hidden">
+                  <img
+                    src={viewingItem.imageUrl}
+                    alt={viewingItem.name}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              )}
+
+              {/* Price */}
+              {viewingItem.price && (
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-1">Price</h3>
+                  <p className="text-3xl font-bold text-primary" data-testid="text-price-detail">
+                    ${parseFloat(viewingItem.price).toFixed(2)}
+                  </p>
+                </div>
+              )}
+
+              {/* Description */}
+              {viewingItem.description && (
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-2">Description</h3>
+                  <p className="text-sm text-foreground" data-testid="text-description-detail">
+                    {viewingItem.description}
+                  </p>
+                </div>
+              )}
+
+              {/* Item Details */}
+              <div className="grid grid-cols-2 gap-4">
+                {viewingItem.priority && (
+                  <div>
+                    <h3 className="text-sm font-medium text-muted-foreground mb-1">Priority</h3>
+                    <Badge
+                      variant={viewingItem.priority === "high" ? "destructive" : viewingItem.priority === "medium" ? "default" : "secondary"}
+                      data-testid="badge-priority-detail"
+                    >
+                      {viewingItem.priority === "high" && <ArrowUp className="w-3 h-3 mr-1" />}
+                      {viewingItem.priority === "medium" && <Circle className="w-3 h-3 mr-1" />}
+                      {viewingItem.priority === "low" && <AlertCircle className="w-3 h-3 mr-1" />}
+                      {viewingItem.priority === "high" ? "Must-Have!" : viewingItem.priority === "medium" ? "Would Love" : "Just a Thought"}
+                    </Badge>
+                  </div>
+                )}
+                {viewingItem.quantity && viewingItem.quantity !== 1 && (
+                  <div>
+                    <h3 className="text-sm font-medium text-muted-foreground mb-1">Quantity</h3>
+                    <p className="text-sm text-foreground" data-testid="text-quantity-detail">
+                      {viewingItem.quantity}
+                    </p>
+                  </div>
+                )}
+                {viewingItem.itemType && (
+                  <div>
+                    <h3 className="text-sm font-medium text-muted-foreground mb-1">Type</h3>
+                    <Badge variant="outline" data-testid="badge-type-detail">
+                      {viewingItem.itemType.charAt(0).toUpperCase() + viewingItem.itemType.slice(1)}
+                    </Badge>
+                  </div>
+                )}
+                {viewingItem.category && (
+                  <div>
+                    <h3 className="text-sm font-medium text-muted-foreground mb-1">Category</h3>
+                    <p className="text-sm text-foreground" data-testid="text-category-detail">
+                      {viewingItem.category}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Purchase Status */}
+              {viewingItem.purchase && (
+                <div className="bg-muted p-4 rounded-lg">
+                  <div className="flex items-center gap-2 mb-2">
+                    <CheckCircle2 className="w-5 h-5 text-primary" />
+                    <h3 className="font-medium text-foreground">Purchased</h3>
+                  </div>
+                  {viewingItem.purchase.notes && (
+                    <p className="text-sm text-muted-foreground mt-2">
+                      <strong>Note:</strong> {viewingItem.purchase.notes}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Purchase Notes Input (if not yet purchased) */}
+              {!viewingItem.purchase && (
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-2">Private Purchase Notes (Optional)</h3>
+                  <Textarea
+                    placeholder="e.g., Bought from Amazon, arriving Dec 20th"
+                    value={purchaseNotes[viewingItem.id] || ""}
+                    onChange={(e) => setPurchaseNotes({ ...purchaseNotes, [viewingItem.id]: e.target.value })}
+                    className="resize-none h-24"
+                    data-testid="input-purchase-notes-detail"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {memberName} won't see this note.
+                  </p>
+                </div>
+              )}
+
+              {/* Product Link */}
+              {viewingItem.url && (
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => window.open(viewingItem.url, '_blank')}
+                  data-testid="button-view-product-detail"
+                >
+                  <ExternalLink className="w-4 h-4 mr-2" />
+                  View Product
+                </Button>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex gap-3 pt-4">
+                {!viewingItem.purchase ? (
+                  <Button
+                    className="flex-1"
+                    onClick={handleMarkPurchasedFromDetail}
+                    disabled={markPurchasedMutation.isPending}
+                    data-testid="button-mark-purchased-detail"
+                  >
+                    <CheckCircle2 className="w-4 h-4 mr-2" />
+                    {markPurchasedMutation.isPending ? "Marking..." : "Mark as Purchased"}
+                  </Button>
+                ) : viewingItem.purchase?.purchasedById === memberData?.userId ? (
+                  <Button
+                    variant="outline"
+                    className="flex-1"
+                    onClick={handleUnmarkFromDetail}
+                    disabled={unmarkPurchasedMutation.isPending}
+                    data-testid="button-unmark-purchased-detail"
+                  >
+                    {unmarkPurchasedMutation.isPending ? "Unmarking..." : "Unmark Purchase"}
+                  </Button>
+                ) : null}
+              </div>
+            </div>
+          </SheetContent>
+        </Sheet>
       )}
 
       {/* Shopping Options Dialog */}
