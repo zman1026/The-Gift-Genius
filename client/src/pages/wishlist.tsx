@@ -456,7 +456,7 @@ export default function Wishlist() {
 
   return (
     <div className="p-4 md:p-8 lg:p-12 space-y-6">
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h1 className="font-serif text-2xl md:text-4xl font-semibold text-foreground">
             My Wishlist
@@ -464,6 +464,12 @@ export default function Wishlist() {
           <p className="text-sm md:text-base text-muted-foreground mt-1">
             Add items you'd love to receive this Christmas
           </p>
+        </div>
+        <div className="hidden md:flex gap-2 md:gap-3">
+          <Button onClick={() => setIsAddDialogOpen(true)} data-testid="button-add-manually">
+            <Plus className="w-4 h-4 mr-2" />
+            Add Item
+          </Button>
         </div>
       </div>
 
@@ -787,15 +793,18 @@ export default function Wishlist() {
               <Gift className="w-12 h-12 text-primary" />
             </div>
             <h3 className="font-semibold text-xl mb-2 text-foreground">Your Wishlist is Empty</h3>
-            <p className="text-muted-foreground mb-8 max-w-md px-4">
+            <p className="text-muted-foreground mb-6 max-w-md px-4">
               Start adding items you'd love to receive this Christmas.
             </p>
             <div className="flex flex-col items-center gap-3 text-sm text-muted-foreground">
-              <div className="flex items-center gap-2">
+              <div className="md:hidden flex items-center gap-2">
                 <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
                   <Plus className="w-4 h-4 text-primary-foreground" />
                 </div>
                 <span>Tap the red button below to add your first item</span>
+              </div>
+              <div className="hidden md:block text-center">
+                <span>Click "Add Item" above to get started</span>
               </div>
             </div>
           </CardContent>
