@@ -1371,6 +1371,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Log the raw response structure for debugging
       console.log(`SerpApi response keys: ${Object.keys(data).join(', ')}`);
+      
+      // Check for error in response
+      if (data.error) {
+        console.error(`SerpApi error: ${JSON.stringify(data.error)}`);
+      }
+      
+      // Log search parameters sent
+      if (data.search_parameters) {
+        console.log(`Search params: ${JSON.stringify(data.search_parameters)}`);
+      }
+      
       console.log(`visual_matches count: ${data.visual_matches?.length || 0}`);
       console.log(`shopping_results count: ${data.shopping_results?.length || 0}`);
       
