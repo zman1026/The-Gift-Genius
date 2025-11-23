@@ -6,7 +6,7 @@ import { z } from "zod";
 import { randomBytes } from "crypto";
 import { sendInviteEmail } from "./emailService";
 import * as cheerio from "cheerio";
-import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
+import { ObjectStorageService, ObjectNotFoundError, objectStorageClient } from "./objectStorage";
 import { ObjectPermission } from "./objectAcl";
 import memoize from "memoizee";
 import { bulkDeleteItemsSchema, bulkUpdatePrioritySchema } from "@shared/schema";
@@ -1292,32 +1292,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Extract base64 payload (remove data:image/jpeg;base64, prefix)
-      const base64Match = image.match(/^data:image\/[^;]+;base64,(.+)$/);
-      if (!base64Match || !base64Match[1]) {
+      const base64Match = image.match(/^data:image\/([^;]+);base64,(.+)$/);
+      if (!base64Match || !base64Match[2]) {
         return res.status(400).json({ message: "Invalid image format" });
       }
-      const base64Payload = base64Match[1];
+      const imageFormat = base64Match[1]; // jpeg, png, webp
+      const base64Payload = base64Match[2];
 
-      console.log(`Image search: payload size ${Math.round(base64Payload.length / 1024)}KB`);
+      console.log(`Image search: ${imageFormat}, payload size ${Math.round(base64Payload.length / 1024)}KB`);
 
-      // Call SerpApi Google Lens API - use POST with encoded_image in body
-      const searchUrl = 'https://serpapi.com/search';
-      const requestBody = new URLSearchParams({
-        engine: 'google_lens',
-        api_key: apiKey,
-        encoded_image: base64Payload,
-      });
+      // Upload to object storage (public directory) to get a URL
+      const publicObjectSearchPaths = process.env.PUBLIC_OBJECT_SEARCH_PATHS || "";
+      const publicPaths = publicObjectSearchPaths.split(',').map(p => p.trim()).filter(Boolean);
+      if (publicPaths.length === 0) {
+        return res.status(500).json({ message: "Object storage not configured" });
+      }
+
+      // Use first public path
+      const publicPath = publicPaths[0];
+      const tempFileName = `camera-search-${Date.now()}.${imageFormat}`;
+      const fullPath = `${publicPath}/${tempFileName}`;
+
+      // Parse bucket and object name
+      const pathParts = fullPath.split('/').filter(Boolean);
+      const bucketName = pathParts[0];
+      const objectName = pathParts.slice(1).join('/');
+
+      console.log(`Uploading to: ${bucketName}/${objectName}`);
+
+      // Upload image to object storage
+      const bucket = objectStorageClient.bucket(bucketName);
+      const file = bucket.file(objectName);
       
-      const response = await fetch(searchUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
+      const imageBuffer = Buffer.from(base64Payload, 'base64');
+      await file.save(imageBuffer, {
+        metadata: {
+          contentType: `image/${imageFormat}`,
         },
-        body: requestBody.toString(),
+      });
+
+      console.log(`Image uploaded successfully`);
+
+      // Get public URL for the image
+      const imageUrl = `${req.protocol}://${req.get('host')}/objects/${tempFileName}`;
+      console.log(`Public URL: ${imageUrl}`);
+
+      // Call SerpApi Google Lens API with the public URL
+      const searchUrl = new URL('https://serpapi.com/search');
+      searchUrl.searchParams.set('engine', 'google_lens');
+      searchUrl.searchParams.set('api_key', apiKey);
+      searchUrl.searchParams.set('url', imageUrl);
+      
+      const response = await fetch(searchUrl.toString(), {
+        method: 'GET',
         signal: AbortSignal.timeout(15000), // 15 second timeout for image processing
       });
 
       console.log(`SerpApi response: ${response.status} ${response.statusText}`);
+
+      // Clean up the temporary file (best effort, don't fail if it errors)
+      file.delete().catch((err: any) => console.error(`Failed to cleanup temp file: ${err.message}`));
 
       if (!response.ok) {
         const errorText = await response.text();
