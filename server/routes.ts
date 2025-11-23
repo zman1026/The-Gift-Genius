@@ -819,10 +819,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "You cannot mark your own items as purchased" });
       }
 
-      // Check if already purchased
-      const existingPurchase = await storage.getItemPurchase(id);
-      if (existingPurchase) {
-        return res.status(400).json({ message: "This item is already marked as purchased" });
+      // Check if this user has already purchased this item
+      const existingUserPurchase = await storage.getUserPurchaseForItem(id, userId);
+      if (existingUserPurchase) {
+        return res.status(400).json({ message: "You have already marked this item as purchased" });
       }
 
       const purchase = await storage.markItemPurchased({
@@ -856,13 +856,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
       const { id } = req.params;
 
-      const purchase = await storage.getItemPurchase(id);
+      // Get this user's specific purchase for this item
+      const purchase = await storage.getUserPurchaseForItem(id, userId);
       if (!purchase) {
-        return res.status(404).json({ message: "Purchase record not found" });
-      }
-
-      if (purchase.purchasedById !== userId) {
-        return res.status(403).json({ message: "You can only unmark items you marked" });
+        return res.status(404).json({ message: "You have not marked this item as purchased" });
       }
 
       // Get item data for activity log before unmarking

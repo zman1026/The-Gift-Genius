@@ -662,7 +662,13 @@ export class DatabaseStorage implements IStorage {
         `,
       })
       .from(wishlistItems)
-      .leftJoin(itemPurchases, eq(wishlistItems.id, itemPurchases.itemId))
+      .leftJoin(
+        itemPurchases,
+        and(
+          eq(wishlistItems.id, itemPurchases.itemId),
+          eq(itemPurchases.purchasedById, viewerId)
+        )
+      )
       .where(whereConditions)
       .orderBy(sql`${wishlistItems.createdAt} desc`);
     
@@ -735,6 +741,14 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(itemPurchases)
       .where(eq(itemPurchases.itemId, itemId));
+    return purchase;
+  }
+
+  async getUserPurchaseForItem(itemId: string, userId: string): Promise<ItemPurchase | undefined> {
+    const [purchase] = await db
+      .select()
+      .from(itemPurchases)
+      .where(and(eq(itemPurchases.itemId, itemId), eq(itemPurchases.purchasedById, userId)));
     return purchase;
   }
 

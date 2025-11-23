@@ -12,7 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Gift, ArrowLeft, CheckCircle2, ExternalLink, MessageSquare, AlertCircle, Circle, ArrowUp, ShoppingCart, CheckSquare, Square } from "lucide-react";
+import { Gift, ArrowLeft, CheckCircle2, ExternalLink, MessageSquare, AlertCircle, Circle, ArrowUp, ShoppingCart, CheckSquare, Square, ShoppingBag } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ShoppingOptionsDialog } from "@/components/shopping-options-dialog";
 import { Switch } from "@/components/ui/switch";
@@ -22,8 +22,9 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "
 
 export default function MemberWishlist() {
   const { toast } = useToast();
-  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const { selectedFamilyId } = useFamily();
+  const currentUserId = (user as any)?.id;
   const [, params] = useRoute("/members/:userId");
   const [, setLocation] = useLocation();
   const [purchaseNotes, setPurchaseNotes] = useState<Record<string, string>>({});
@@ -575,10 +576,21 @@ export default function MemberWishlist() {
               )}
 
               {/* Action Buttons */}
-              <div className="flex gap-3 pt-4">
-                {!viewingItem.purchase ? (
+              <div className="flex flex-col gap-3 pt-4">
+                {/* Purchase Controls - Always show unless current user already purchased */}
+                {viewingItem.purchase?.purchasedById === currentUserId ? (
                   <Button
-                    className="flex-1"
+                    variant="outline"
+                    className="w-full"
+                    onClick={handleUnmarkFromDetail}
+                    disabled={unmarkPurchasedMutation.isPending}
+                    data-testid="button-unmark-purchased-detail"
+                  >
+                    {unmarkPurchasedMutation.isPending ? "Unmarking..." : "Unmark Purchase"}
+                  </Button>
+                ) : (
+                  <Button
+                    className="w-full"
                     onClick={handleMarkPurchasedFromDetail}
                     disabled={markPurchasedMutation.isPending}
                     data-testid="button-mark-purchased-detail"
@@ -586,17 +598,21 @@ export default function MemberWishlist() {
                     <CheckCircle2 className="w-4 h-4 mr-2" />
                     {markPurchasedMutation.isPending ? "Marking..." : "Mark as Purchased"}
                   </Button>
-                ) : viewingItem.purchase?.purchasedById === memberData?.userId ? (
-                  <Button
-                    variant="outline"
-                    className="flex-1"
-                    onClick={handleUnmarkFromDetail}
-                    disabled={unmarkPurchasedMutation.isPending}
-                    data-testid="button-unmark-purchased-detail"
-                  >
-                    {unmarkPurchasedMutation.isPending ? "Unmarking..." : "Unmark Purchase"}
-                  </Button>
-                ) : null}
+                )}
+
+                {/* Shopping Options Button */}
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => {
+                    setSelectedItemForShopping(viewingItem);
+                    setViewingItem(null);
+                  }}
+                  data-testid="button-shopping-options-detail"
+                >
+                  <ShoppingBag className="w-4 h-4 mr-2" />
+                  View Shopping Options
+                </Button>
               </div>
             </div>
           </SheetContent>
