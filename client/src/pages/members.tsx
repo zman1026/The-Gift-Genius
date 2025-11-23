@@ -19,10 +19,16 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { Users, Gift, Eye, UserPlus, Copy, Check, Lightbulb, Mail, Send, UserMinus, Edit, Settings } from "lucide-react";
+import { Users, Gift, Eye, UserPlus, Copy, Check, Lightbulb, Mail, Send, UserMinus, Edit, Settings, MoreVertical } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -464,56 +470,62 @@ export default function Members() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
           {members.map((member: any) => {
             const isCurrentUser = !!user && member.userId === (user as any).id;
             return (
-              <Card
-                key={member.userId}
-                className="hover-elevate cursor-pointer active-elevate-2"
-                onClick={() => !isCurrentUser ? setLocation(`/members/${member.userId}`) : setLocation('/wishlist')}
-                data-testid={`member-card-${member.userId}`}
-              >
-                <CardContent className="p-4 flex flex-col items-center text-center gap-2">
-                  <div className="relative">
-                    <Avatar className="h-16 w-16">
-                      <AvatarImage src={member.profileImageUrl || undefined} alt={member.firstName || "Member"} />
-                      <AvatarFallback className="text-lg">
-                        {getInitials(member.firstName, member.lastName)}
-                      </AvatarFallback>
-                    </Avatar>
-                    {isCurrentUser && (
-                      <div className="absolute -top-1 -right-1 w-5 h-5 bg-primary rounded-full flex items-center justify-center">
-                        <span className="text-[10px] text-primary-foreground font-bold">★</span>
-                      </div>
-                    )}
-                  </div>
-                  
-                  <div className="w-full">
-                    <h3 className="font-semibold text-sm text-foreground line-clamp-2" data-testid={`member-name-${member.userId}`}>
-                      {member.displayName || (member.firstName || member.lastName
-                        ? `${member.firstName || ""} ${member.lastName || ""}`.trim()
-                        : member.email || "Family Member")}
-                    </h3>
-                    <div className="flex items-center justify-center gap-1 text-muted-foreground text-xs mt-1">
-                      <Gift className="w-3 h-3" />
-                      <span data-testid={`member-items-${member.userId}`}>
-                        {member.itemCount || 0}
-                      </span>
+              <div key={member.userId} className="relative">
+                <Card
+                  className="hover-elevate cursor-pointer active-elevate-2"
+                  onClick={() => !isCurrentUser ? setLocation(`/members/${member.userId}`) : setLocation('/wishlist')}
+                  data-testid={`member-card-${member.userId}`}
+                >
+                  <CardContent className="p-3 flex flex-col items-center text-center gap-2">
+                    <div className="relative">
+                      <Avatar className="h-20 w-20">
+                        <AvatarImage src={member.profileImageUrl || undefined} alt={member.firstName || "Member"} />
+                        <AvatarFallback className="text-xl">
+                          {getInitials(member.firstName, member.lastName)}
+                        </AvatarFallback>
+                      </Avatar>
+                      {isCurrentUser && (
+                        <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-primary rounded-full flex items-center justify-center">
+                          <span className="text-xs text-primary-foreground font-bold">★</span>
+                        </div>
+                      )}
                     </div>
-                    {!isCurrentUser && purchaseMap.has(member.userId) && purchaseMap.get(member.userId)?.totalSpent > 0 && (
-                      <div className="text-primary text-xs font-medium mt-1" data-testid={`member-spent-${member.userId}`}>
-                        ${(purchaseMap.get(member.userId)?.totalSpent || 0).toFixed(0)}
+                    
+                    <div className="w-full">
+                      <h3 className="font-semibold text-xs text-foreground line-clamp-1" data-testid={`member-name-${member.userId}`}>
+                        {member.displayName || (member.firstName || member.lastName
+                          ? `${member.firstName || ""} ${member.lastName || ""}`.trim()
+                          : member.email || "Family Member")}
+                      </h3>
+                      <div className="flex items-center justify-center gap-1 text-muted-foreground text-xs mt-1">
+                        <Gift className="w-3 h-3" />
+                        <span data-testid={`member-items-${member.userId}`}>
+                          {member.itemCount || 0}
+                        </span>
                       </div>
-                    )}
-                  </div>
+                    </div>
+                  </CardContent>
+                </Card>
 
-                  {isOrganizer && !isCurrentUser && (
-                    <div className="flex gap-1 w-full mt-1">
+                {isOrganizer && !isCurrentUser && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
                       <Button
                         variant="ghost"
-                        size="sm"
-                        className="flex-1 h-7 text-xs"
+                        size="icon"
+                        className="absolute top-1 right-1 h-6 w-6"
+                        onClick={(e) => e.stopPropagation()}
+                        data-testid={`button-member-menu-${member.userId}`}
+                      >
+                        <MoreVertical className="w-4 h-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem
                         onClick={(e) => {
                           e.stopPropagation();
                           setMemberToEdit(member);
@@ -526,25 +538,25 @@ export default function Members() {
                         }}
                         data-testid={`button-edit-member-${member.userId}`}
                       >
-                        <Edit className="w-3 h-3" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="flex-1 h-7 text-xs text-destructive"
+                        <Edit className="w-4 h-4 mr-2" />
+                        Edit Member
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
                         onClick={(e) => {
                           e.stopPropagation();
                           setMemberToRemove(member);
                           setShowRemoveConfirm(true);
                         }}
+                        className="text-destructive"
                         data-testid={`button-remove-member-${member.userId}`}
                       >
-                        <UserMinus className="w-3 h-3" />
-                      </Button>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+                        <UserMinus className="w-4 h-4 mr-2" />
+                        Remove Member
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+              </div>
             );
           })}
         </div>
