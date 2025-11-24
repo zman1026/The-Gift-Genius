@@ -3,6 +3,12 @@
 ## Overview
 The Gift Genius is a mobile-first web application designed to facilitate collaborative wishlist management for families across various occasions. It allows users to create, share, and manage wishlists, add items, and secretly mark purchases to preserve gift surprises. The application aims to streamline gift coordination year-round, expanding beyond traditional holiday gift-giving.
 
+## Recent Changes (November 24, 2025)
+- **Event-Themed Mobile Headers**: Created ThemedMobileHeader component with unique designs for 7 event types (Christmas, Birthday, Wedding, Baby Shower, Hanukkah, Graduation, Other) using lucide-react icons and dynamic colors from event's themePrimary/themeAccent database fields.
+- **WCAG-Compliant Contrast**: Implemented proper WCAG AA contrast ratio calculation (4.5:1 minimum) with relative luminance computation, gamma correction, and automatic overlay application when mixed colors prevent adequate contrast across gradients.
+- **Comprehensive Accessibility**: Added aria-hidden="true" attributes to all decorative icons across app-sidebar.tsx, bottom-nav.tsx, themed-mobile-header.tsx, and home.tsx empty states. All icons now properly hidden from assistive technology while preserving text label accessibility.
+- **Robust Color Validation**: Created hex color normalization supporting both 3-digit and 6-digit formats with safe fallbacks for invalid colors, expanding shorthand notation and validating format before processing.
+
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 

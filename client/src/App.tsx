@@ -10,11 +10,11 @@ import { BottomNav } from "@/components/bottom-nav";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { UserSettingsDialog } from "@/components/user-settings-dialog";
-import { Gift } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { FamilyProvider, useFamily } from "@/contexts/FamilyContext";
 import { EventProvider } from "@/contexts/EventContext";
 import { CurrentMemberProvider, useCurrentMember } from "@/contexts/CurrentMemberContext";
+import { ThemedMobileHeader } from "@/components/themed-mobile-header";
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/landing";
 import Home from "@/pages/home";
@@ -71,11 +71,8 @@ function AuthenticatedContent() {
         <div className="flex flex-col flex-1 overflow-hidden">
           <header className="flex items-center justify-between p-2 md:p-4 border-b border-border gap-2 md:gap-4">
             <SidebarTrigger data-testid="button-sidebar-toggle" />
-            <div className="flex items-center gap-2 md:hidden" data-testid="mobile-header-logo">
-              <Gift className="w-5 h-5 text-primary" />
-              <span className="font-serif text-lg font-semibold text-foreground">
-                The Gift Genius
-              </span>
+            <div className="md:hidden">
+              <ThemedMobileHeader />
             </div>
             <div className="flex-1 hidden md:block"></div>
             <Button

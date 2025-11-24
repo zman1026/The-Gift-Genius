@@ -104,7 +104,7 @@ export function AppSidebar() {
                     data-testid={item.testId}
                   >
                     <a href={item.url}>
-                      <item.icon />
+                      <item.icon aria-hidden="true" />
                       <span>{item.title}</span>
                     </a>
                   </SidebarMenuButton>
@@ -133,7 +133,7 @@ export function AppSidebar() {
             </p>
             <p className="text-xs text-muted-foreground truncate">{(user as any)?.email}</p>
           </div>
-          <Settings className="w-4 h-4 text-muted-foreground" />
+          <Settings className="w-4 h-4 text-muted-foreground" aria-hidden="true" />
         </div>
         <Button
           variant="outline"
@@ -142,7 +142,7 @@ export function AppSidebar() {
           onClick={() => window.location.href = '/api/logout'}
           data-testid="button-logout"
         >
-          <LogOut className="w-4 h-4 mr-2" />
+          <LogOut className="w-4 h-4 mr-2" aria-hidden="true" />
           Log Out
         </Button>
       </SidebarFooter>

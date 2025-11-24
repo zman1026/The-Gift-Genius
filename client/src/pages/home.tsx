@@ -129,7 +129,7 @@ export default function Home() {
         <Card className="border-2 border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-12 text-center">
             <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-              <Users className="w-8 h-8 text-primary" />
+              <Users className="w-8 h-8 text-primary" aria-hidden="true" />
             </div>
             <h3 className="font-serif text-xl font-semibold mb-2 text-foreground">Welcome to The Gift Genius!</h3>
             <p className="text-sm text-muted-foreground mb-6 max-w-md">
@@ -140,7 +140,7 @@ export default function Home() {
                 onClick={() => setLocation('/families/create')}
                 data-testid="button-create-family-empty"
               >
-                <Plus className="w-4 h-4 mr-2" />
+                <Plus className="w-4 h-4 mr-2" aria-hidden="true" />
                 Create Family
               </Button>
               <Button
@@ -148,7 +148,7 @@ export default function Home() {
                 variant="outline"
                 data-testid="button-join-family-empty"
               >
-                <UserPlus className="w-4 h-4 mr-2" />
+                <UserPlus className="w-4 h-4 mr-2" aria-hidden="true" />
                 Join Family
               </Button>
             </div>
@@ -165,7 +165,7 @@ export default function Home() {
         <Card className="border-2 border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-12 text-center">
             <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-              <Users className="w-8 h-8 text-primary" />
+              <Users className="w-8 h-8 text-primary" aria-hidden="true" />
             </div>
             <h3 className="font-serif text-xl font-semibold mb-2 text-foreground">No Event Selected</h3>
             <p className="text-sm text-muted-foreground mb-6 max-w-md">

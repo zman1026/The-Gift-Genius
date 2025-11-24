@@ -54,7 +54,7 @@ export function BottomNav({ onAddItemClick, disabled = false }: BottomNavProps) 
                     : "text-muted-foreground hover-elevate active-elevate-2"
                 )}
               >
-                <Icon className="w-5 h-5" />
+                <Icon className="w-5 h-5" aria-hidden="true" />
                 <span className="text-xs font-medium">{item.label}</span>
               </div>
             </Link>
@@ -74,7 +74,7 @@ export function BottomNav({ onAddItemClick, disabled = false }: BottomNavProps) 
               ? "text-muted-foreground/50 cursor-not-allowed"
               : "text-primary hover-elevate active-elevate-2"
           )}>
-            <PlusCircle className="w-5 h-5" />
+            <PlusCircle className="w-5 h-5" aria-hidden="true" />
             <span className="text-xs font-medium">Add Item</span>
           </div>
         </button>
