@@ -1089,19 +1089,7 @@ export class DatabaseStorage implements IStorage {
           ${eventFilter}
         ) as items_to_purchase_count,
         (
-          SELECT COALESCE(
-            SUM(
-              CASE 
-                WHEN wi.price IS NULL OR wi.price = '' THEN 0
-                ELSE 
-                  COALESCE(
-                    NULLIF(REGEXP_REPLACE(wi.price, '[^0-9.]', '', 'g'), '')::numeric,
-                    0
-                  )
-              END
-            ), 
-            0
-          )::text
+          SELECT COALESCE(SUM(COALESCE(wi.price, 0)), 0)::text
           FROM ${itemPurchases} ip
           INNER JOIN ${wishlistItems} wi ON ip.item_id = wi.id
           WHERE ip.purchased_by_id = ${userId}
@@ -1131,19 +1119,7 @@ export class DatabaseStorage implements IStorage {
     const result = await db.execute(sql`
       SELECT 
         wi.user_id,
-        COALESCE(
-          SUM(
-            CASE 
-              WHEN wi.price IS NULL OR wi.price = '' THEN 0
-              ELSE 
-                COALESCE(
-                  NULLIF(REGEXP_REPLACE(wi.price, '[^0-9.]', '', 'g'), '')::numeric,
-                  0
-                )
-            END
-          ), 
-          0
-        )::text as total_spent,
+        COALESCE(SUM(COALESCE(wi.price, 0)), 0)::text as total_spent,
         COUNT(ip.id)::int as items_purchased
       FROM ${itemPurchases} ip
       INNER JOIN ${wishlistItems} wi ON ip.item_id = wi.id
