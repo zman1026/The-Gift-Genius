@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useFamily } from "@/contexts/FamilyContext";
+import { useEvent } from "@/contexts/EventContext";
 import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -50,12 +51,18 @@ interface PurchasedItem {
 
 export default function Purchased() {
   const { selectedFamilyId } = useFamily();
+  const { selectedEventId } = useEvent();
   const { user } = useAuth();
 
   const { data: purchases, isLoading } = useQuery<PurchasedItem[]>({
-    queryKey: ["/api/purchases", selectedFamilyId, (user as any)?.id],
+    queryKey: ["/api/purchases", selectedFamilyId, selectedEventId, (user as any)?.id],
     queryFn: async () => {
-      const response = await fetch(`/api/purchases?familyId=${selectedFamilyId}`);
+      const url = new URL('/api/purchases', window.location.origin);
+      url.searchParams.set('familyId', selectedFamilyId || '');
+      if (selectedEventId) {
+        url.searchParams.set('eventId', selectedEventId);
+      }
+      const response = await fetch(url.toString());
       if (!response.ok) {
         throw new Error("Failed to fetch purchased items");
       }

@@ -1447,6 +1447,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const purchase = await storage.markItemPurchased({
         itemId: id,
+        eventId: item.eventId,
         purchasedById: userId,
         notes: notes || null,
         itemSnapshot,
@@ -1531,6 +1532,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.claims.sub;
       const { familyId, eventId } = req.query;
+      
+      console.log('[DEBUG] GET /api/purchases called:', { userId, familyId, eventId });
 
       if (!familyId || typeof familyId !== 'string') {
         return res.status(400).json({ message: "familyId is required" });
@@ -1546,6 +1549,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         familyId, 
         eventId && typeof eventId === 'string' ? eventId : undefined
       );
+      
+      console.log('[DEBUG] Purchases found:', purchases.length);
       res.json(purchases);
     } catch (error) {
       console.error("Error fetching purchased items:", error);
