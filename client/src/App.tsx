@@ -25,6 +25,7 @@ import MemberWishlist from "@/pages/member-wishlist";
 import Search from "@/pages/search";
 import Purchased from "@/pages/purchased";
 import Budget from "@/pages/budget";
+import Activities from "@/pages/activities";
 import More from "@/pages/more";
 import { AppErrorBoundary } from "@/components/error-boundary";
 import { UnifiedAddItemDialog } from "@/components/unified-add-item-dialog";
@@ -88,6 +89,7 @@ function AuthenticatedContent() {
               <Route path="/search" component={Search} />
               <Route path="/purchased" component={Purchased} />
               <Route path="/budget" component={Budget} />
+              <Route path="/activities" component={Activities} />
               <Route path="/more" component={More} />
               <Route component={NotFound} />
             </Switch>

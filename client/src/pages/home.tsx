@@ -211,7 +211,7 @@ export default function Home() {
             <Button 
               variant="ghost" 
               size="sm"
-              onClick={() => setLocation('/more')} 
+              onClick={() => setLocation('/activities')} 
               data-testid="view-all-activity"
             >
               View All
