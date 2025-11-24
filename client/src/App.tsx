@@ -12,12 +12,15 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { UserSettingsDialog } from "@/components/user-settings-dialog";
 import { useAuth } from "@/hooks/useAuth";
 import { FamilyProvider, useFamily } from "@/contexts/FamilyContext";
+import { EventProvider } from "@/contexts/EventContext";
 import { FamilySwitcher } from "@/components/family-switcher";
+import { EventSwitcher } from "@/components/event-switcher";
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/landing";
 import Home from "@/pages/home";
 import CreateFamily from "@/pages/create-family";
 import JoinFamily from "@/pages/join-family";
+import CreateEvent from "@/pages/create-event";
 import Wishlist from "@/pages/wishlist";
 import Members from "@/pages/members";
 import MemberWishlist from "@/pages/member-wishlist";
@@ -59,8 +62,9 @@ function AuthenticatedContent() {
         <div className="flex flex-col flex-1 overflow-hidden">
           <header className="flex items-center justify-between p-2 md:p-4 border-b border-border gap-2 md:gap-4">
             <SidebarTrigger data-testid="button-sidebar-toggle" />
-            <div className="flex-1 md:flex-initial">
+            <div className="flex items-center gap-2 flex-1 md:flex-initial min-w-0">
               <FamilySwitcher />
+              <EventSwitcher />
             </div>
             <Button
               variant="ghost"
@@ -81,6 +85,7 @@ function AuthenticatedContent() {
               <Route path="/my-list" component={Wishlist} />
               <Route path="/families/create" component={CreateFamily} />
               <Route path="/families/join" component={JoinFamily} />
+              <Route path="/events/create" component={CreateEvent} />
               <Route path="/wishlist" component={Wishlist} />
               <Route path="/members" component={Members} />
               <Route path="/members/:userId" component={MemberWishlist} />
@@ -128,7 +133,9 @@ function AppContent() {
 
   return (
     <FamilyProvider>
-      <AuthenticatedContent />
+      <EventProvider>
+        <AuthenticatedContent />
+      </EventProvider>
     </FamilyProvider>
   );
 }
