@@ -62,7 +62,9 @@ export default function Purchased() {
       if (selectedEventId) {
         url.searchParams.set('eventId', selectedEventId);
       }
-      const response = await fetch(url.toString());
+      const response = await fetch(url.toString(), {
+        credentials: "include",
+      });
       if (!response.ok) {
         throw new Error("Failed to fetch purchased items");
       }
