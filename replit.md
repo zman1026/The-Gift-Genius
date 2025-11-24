@@ -76,22 +76,19 @@ The backend is built with **Express.js** and **TypeScript**, using **Drizzle ORM
 
 ### Event-Scoping Implementation Status (November 24, 2024)
 
-**✅ COMPLETED - Core Security & Viewing:**
-- Backend query endpoints (GET /api/wishlist, GET /api/members/:userId/wishlist) require and validate eventId
-- Purchase endpoints (POST/DELETE /api/wishlist/:id/purchase) validate event access before allowing purchase operations
-- Item creation endpoints (POST /api/wishlist, POST /api/wishlist/from-search) require eventId and validate event ownership
-- Frontend wishlist pages (wishlist.tsx, member-wishlist.tsx) pass selectedEventId in queries
-- Frontend item creation (UnifiedAddItemDialog) includes eventId in mutations
+**✅ COMPLETED - Full Event Isolation (Production Ready):**
+- All wishlist query endpoints require and validate eventId with family membership verification
+- All item creation, update, and delete endpoints validate event ownership and access
+- Purchase endpoints validate event access before allowing purchase operations
+- Bulk operations (bulk-delete, bulk-priority) require eventId and validate all items belong to the specified event
+- Dashboard queries (stats, activities) filter by selectedEventId when provided
+- Frontend passes selectedEventId to all queries and mutations
+- UI safeguards: "No event selected" message when user hasn't chosen an event
+- Event creation discoverability: Plus icon button when 1 event exists, "Create New Event" option in dropdown when 2+ events exist
+- Frontend cache invalidations use proper query keys for event-scoped data
 - Data migration completed - all existing items assigned to family default events
 
-**⚠️ REMAINING WORK - Full Event Isolation:**
-- Update/delete item endpoints need event access validation
-- Storage layer has optional eventId parameters that should be mandatory for strict isolation
-- Dashboard queries (stats, activities) need to filter by selectedEventId
-- Frontend cache invalidations should include eventId for proper cache management
-- UI safeguards needed (disable Add Item when no event selected, empty state messages)
-
-**Current State:** Core wishlist viewing and purchasing flows are event-scoped with proper authorization. Items created for Christmas won't appear in Birthday event views. However, some admin/management operations may still have cross-event access paths.
+**Security:** Complete event isolation enforced. Items from Christmas events cannot be viewed, modified, or deleted when viewing Birthday events. All cross-event access paths have been closed and verified through architect review.
 
 ## External Dependencies
 
