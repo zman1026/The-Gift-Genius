@@ -1063,6 +1063,7 @@ export class DatabaseStorage implements IStorage {
         purchasedFrom: itemPurchases.purchasedFrom,
         recipientUserId: itemPurchases.recipientUserId,
         recipientManagedProfileId: itemPurchases.recipientManagedProfileId,
+        itemSnapshot: itemPurchases.itemSnapshot,
         item: {
           id: wishlistItems.id,
           name: wishlistItems.name,

@@ -1433,10 +1433,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "You have already marked this item as purchased" });
       }
 
+      // Create snapshot of item to preserve details even if deleted later
+      const itemSnapshot = JSON.stringify({
+        name: item.name,
+        description: item.description,
+        price: item.price,
+        url: item.url,
+        imageUrl: item.imageUrl,
+        priority: item.priority,
+        quantity: item.quantity,
+        category: item.category,
+      });
+
       const purchase = await storage.markItemPurchased({
         itemId: id,
         purchasedById: userId,
         notes: notes || null,
+        itemSnapshot,
       });
 
       // Log activity with eventId

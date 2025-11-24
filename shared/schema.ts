@@ -263,7 +263,7 @@ export type WishlistItem = typeof wishlistItems.$inferSelect;
 // Supports both wishlist purchases and off-wishlist purchases
 export const itemPurchases = pgTable("item_purchases", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  itemId: varchar("item_id").references(() => wishlistItems.id, { onDelete: 'cascade' }), // Nullable for off-wishlist purchases
+  itemId: varchar("item_id").references(() => wishlistItems.id, { onDelete: 'set null' }), // Nullable - preserves purchase record if item is deleted
   eventId: varchar("event_id").references(() => events.id, { onDelete: 'cascade' }), // Nullable during migration, will be populated
   purchasedById: varchar("purchased_by_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
   recipientUserId: varchar("recipient_user_id").references(() => users.id, { onDelete: 'cascade' }), // For off-wishlist purchases
@@ -273,6 +273,8 @@ export const itemPurchases = pgTable("item_purchases", {
   purchasedFrom: text("purchased_from"), // Where it was purchased from
   notes: text("notes"), // Private notes about the purchase
   purchasedAt: timestamp("purchased_at").defaultNow(),
+  // Snapshot fields: preserve item details even if original item is deleted
+  itemSnapshot: text("item_snapshot"), // JSON snapshot of item at purchase time (name, imageUrl, url, priority)
 }, (table) => [
   index("idx_purchases_event").on(table.eventId),
   index("idx_purchases_recipient_user").on(table.recipientUserId),

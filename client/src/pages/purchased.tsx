@@ -20,6 +20,7 @@ interface PurchasedItem {
   purchasedFrom: string | null;
   recipientUserId: string | null;
   recipientManagedProfileId: string | null;
+  itemSnapshot: string | null;
   item: {
     id: string;
     name: string;
@@ -246,12 +247,29 @@ export default function Purchased() {
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3">
           {purchases.map((purchase) => {
-            const isOffWishlist = !purchase.item;
-            const itemName = isOffWishlist ? purchase.description : purchase.item?.name;
-            const itemPrice = isOffWishlist ? purchase.price : purchase.item?.price;
-            const itemImageUrl = purchase.item?.imageUrl;
-            const itemUrl = purchase.item?.url;
-            const itemDescription = isOffWishlist ? null : purchase.item?.description;
+            // Parse snapshot if item was deleted
+            let snapshot = null;
+            if (!purchase.item && purchase.itemSnapshot) {
+              try {
+                snapshot = JSON.parse(purchase.itemSnapshot);
+              } catch (e) {
+                console.error("Failed to parse item snapshot:", e);
+              }
+            }
+            
+            // Determine item type: deleted, off-wishlist, or regular
+            const isDeleted = !purchase.item && snapshot !== null;
+            const isOffWishlist = !purchase.item && !snapshot;
+            
+            // Get item details from snapshot (if deleted) or item (if exists) or off-wishlist fields
+            const itemName = snapshot?.name || purchase.item?.name || purchase.description;
+            const itemPrice = snapshot?.price || purchase.item?.price || purchase.price;
+            const itemImageUrl = snapshot?.imageUrl || purchase.item?.imageUrl;
+            const itemUrl = snapshot?.url || purchase.item?.url;
+            const itemDescription = snapshot?.description || purchase.item?.description;
+            const itemPriority = snapshot?.priority || purchase.item?.priority;
+            const itemQuantity = snapshot?.quantity || purchase.item?.quantity || 1;
+            
             const recipient = purchase.recipientUser || purchase.recipientManagedProfile;
             const recipientName = purchase.recipientUser 
               ? (purchase.recipientUser.firstName || purchase.recipientUser.lastName
@@ -279,6 +297,14 @@ export default function Purchased() {
                       <Gift className="w-12 h-12 text-muted-foreground" />
                     </div>
                   )}
+                  {isDeleted && (
+                    <Badge 
+                      variant="secondary"
+                      className="absolute top-2 left-2 text-xs h-5"
+                    >
+                      Item Removed
+                    </Badge>
+                  )}
                   {isOffWishlist && (
                     <Badge 
                       variant="secondary"
@@ -287,20 +313,20 @@ export default function Purchased() {
                       Off-Wishlist
                     </Badge>
                   )}
-                  {purchase.item?.priority && (
+                  {itemPriority && (
                     <Badge 
                       variant={
-                        purchase.item.priority === "high" ? "destructive" : 
-                        purchase.item.priority === "medium" ? "default" : 
+                        itemPriority === "high" ? "destructive" : 
+                        itemPriority === "medium" ? "default" : 
                         "secondary"
                       }
                       className="absolute top-2 right-2 text-xs h-5"
                     >
-                      {purchase.item.priority === "high" && <ArrowUp className="w-2.5 h-2.5 mr-0.5" />}
-                      {purchase.item.priority === "medium" && <Circle className="w-2.5 h-2.5 mr-0.5" />}
-                      {purchase.item.priority === "low" && <AlertCircle className="w-2.5 h-2.5 mr-0.5" />}
-                      {purchase.item.priority === "high" ? "Must-Have!" : 
-                       purchase.item.priority === "medium" ? "Would Love" : 
+                      {itemPriority === "high" && <ArrowUp className="w-2.5 h-2.5 mr-0.5" aria-hidden="true" />}
+                      {itemPriority === "medium" && <Circle className="w-2.5 h-2.5 mr-0.5" aria-hidden="true" />}
+                      {itemPriority === "low" && <AlertCircle className="w-2.5 h-2.5 mr-0.5" aria-hidden="true" />}
+                      {itemPriority === "high" ? "Must-Have!" : 
+                       itemPriority === "medium" ? "Would Love" : 
                        "Just a Thought"}
                     </Badge>
                   )}
@@ -316,9 +342,9 @@ export default function Purchased() {
                       </Badge>
                     )}
                   </CardTitle>
-                  {purchase.item && purchase.item.quantity > 1 && (
+                  {itemQuantity && itemQuantity > 1 && (
                     <Badge variant="outline" className="text-xs h-5">
-                      Qty: {purchase.item.quantity}
+                      Qty: {itemQuantity}
                     </Badge>
                   )}
                 </CardHeader>
