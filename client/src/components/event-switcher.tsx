@@ -71,7 +71,7 @@ export function EventSwitcher() {
 
   return (
     <Select value={selectedEventId || undefined} onValueChange={handleEventChange}>
-      <SelectTrigger className="w-[180px] sm:w-[220px]" data-testid="event-switcher">
+      <SelectTrigger className="w-full" data-testid="event-switcher">
         <div className="flex items-center gap-2 min-w-0">
           {selectedEventId && (
             <div 
