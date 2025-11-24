@@ -5,32 +5,34 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  SelectSeparator,
 } from "@/components/ui/select";
-import { Users } from "lucide-react";
+import { Users, Plus, UserPlus } from "lucide-react";
+import { useLocation } from "wouter";
 
 export function FamilySwitcher() {
   const { selectedFamilyId, setSelectedFamilyId, families, isLoading } = useFamily();
+  const [, setLocation] = useLocation();
 
   if (isLoading || families.length === 0) {
     return null;
   }
 
-  if (families.length === 1) {
-    return (
-      <div className="flex items-center gap-2 px-3 py-1.5 bg-muted rounded-md">
-        <Users className="w-4 h-4 text-muted-foreground" />
-        <span className="text-sm font-medium text-foreground" data-testid="single-family-name">
-          {families[0].name}
-        </span>
-      </div>
-    );
-  }
+  const handleFamilyChange = (value: string) => {
+    if (value === 'create-new') {
+      setLocation('/families/create');
+    } else if (value === 'join-family') {
+      setLocation('/families/join');
+    } else {
+      setSelectedFamilyId(value);
+    }
+  };
 
   return (
-    <Select value={selectedFamilyId || undefined} onValueChange={setSelectedFamilyId}>
-      <SelectTrigger className="w-[200px]" data-testid="family-switcher">
-        <div className="flex items-center gap-2">
-          <Users className="w-4 h-4 text-muted-foreground" />
+    <Select value={selectedFamilyId || undefined} onValueChange={handleFamilyChange}>
+      <SelectTrigger className="w-full" data-testid="family-switcher">
+        <div className="flex items-center gap-2 min-w-0">
+          <Users className="w-4 h-4 text-muted-foreground flex-shrink-0" />
           <SelectValue placeholder="Select family" />
         </div>
       </SelectTrigger>
@@ -44,6 +46,25 @@ export function FamilySwitcher() {
             {family.name}
           </SelectItem>
         ))}
+        <SelectSeparator />
+        <SelectItem 
+          value="create-new"
+          data-testid="family-option-create-new"
+        >
+          <div className="flex items-center gap-2 text-primary">
+            <Plus className="w-4 h-4" />
+            <span>Create New Family</span>
+          </div>
+        </SelectItem>
+        <SelectItem 
+          value="join-family"
+          data-testid="family-option-join"
+        >
+          <div className="flex items-center gap-2 text-primary">
+            <UserPlus className="w-4 h-4" />
+            <span>Join a Family</span>
+          </div>
+        </SelectItem>
       </SelectContent>
     </Select>
   );
