@@ -7,6 +7,12 @@ A mobile-first web application designed to help families collaboratively create,
 Preferred communication style: Simple, everyday language.
 
 ## Recent Changes (November 24, 2024)
+- **Activity Log Page**: Fixed navigation from dashboard "View All" button
+  - Created dedicated `/activities` page showing full activity log (up to 50 activities)
+  - Fixed incorrect navigation to "More" page - now correctly navigates to Activities page
+  - Displays activity cards with avatars, action icons, descriptions, and timestamps
+  - Includes proper loading states, error handling, and empty state messages
+  - Activity types: item additions, deletions, purchases, unpurchases, and member joins
 - **Off-Wishlist Purchase Tracking**: Added ability to log gifts bought outside the wishlist
   - New "Log Purchase" button on Budget page per family member
   - Captures price, description, purchased from store, and private notes
