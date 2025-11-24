@@ -283,7 +283,7 @@ export default function MemberWishlist() {
         <div className="flex-1">
           <div className="flex items-center gap-2 flex-wrap">
             <h1 className="font-serif text-3xl md:text-4xl font-semibold text-foreground" data-testid="member-name">
-              {primaryDisplayName}'s Wishlist
+              {primaryDisplayName}'s Wish List
             </h1>
             {isOrganizer && (
               <Button
@@ -315,7 +315,7 @@ export default function MemberWishlist() {
             data-testid="button-add-item-for-member"
           >
             <Plus className="w-4 h-4 mr-2" />
-            Add Item to {memberData?.firstName || "Their"} List
+            Add an item to {primaryDisplayName}'s list
           </Button>
         )}
       </div>

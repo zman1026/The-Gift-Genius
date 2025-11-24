@@ -524,7 +524,7 @@ export function UnifiedAddItemDialog({
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{targetUserName ? `Add to ${targetUserName}'s Wishlist` : "Add to Wishlist"}</DialogTitle>
+            <DialogTitle>{targetUserName ? `Add to ${targetUserName}'s Wish List` : "Add to Wishlist"}</DialogTitle>
             <DialogDescription>
               Search for a product or create a custom item
             </DialogDescription>
