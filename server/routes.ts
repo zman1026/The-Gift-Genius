@@ -468,14 +468,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const viewerId = req.user.claims.sub;
       const { userId } = req.params;
       const { familyId } = req.query;
-      const user = await storage.getUser(userId);
+      
+      // Try to fetch as a regular user first
+      let user = await storage.getUser(userId);
+      let displayName = null;
+      
+      // If not found as a user, try as a managed profile
+      if (!user) {
+        const managedProfile = await storage.getManagedProfile(userId);
+        if (managedProfile) {
+          // Convert managed profile to user-like format
+          user = {
+            id: managedProfile.id,
+            email: null,
+            firstName: managedProfile.firstName,
+            lastName: managedProfile.lastName,
+            profileImageUrl: managedProfile.profileImageUrl,
+            createdAt: null,
+            updatedAt: null,
+          } as any;
+        }
+      }
       
       if (!user) {
-        return res.status(404).json({ message: "User not found" });
+        return res.status(404).json({ message: "Member not found" });
       }
 
       // If familyId is provided, also get displayName from family_members
-      let displayName = null;
       if (familyId && typeof familyId === 'string') {
         const member = await storage.getFamilyMember(familyId, userId);
         if (member) {

@@ -1044,10 +1044,10 @@ export class DatabaseStorage implements IStorage {
               CASE 
                 WHEN wi.price IS NULL OR wi.price = '' THEN 0
                 ELSE 
-                  CASE 
-                    WHEN REGEXP_REPLACE(wi.price, '[^0-9.]', '', 'g') = '' THEN 0
-                    ELSE REGEXP_REPLACE(wi.price, '[^0-9.]', '', 'g')::numeric
-                  END
+                  COALESCE(
+                    NULLIF(REGEXP_REPLACE(wi.price, '[^0-9.]', '', 'g'), '')::numeric,
+                    0
+                  )
               END
             ), 
             0
@@ -1085,10 +1085,10 @@ export class DatabaseStorage implements IStorage {
             CASE 
               WHEN wi.price IS NULL OR wi.price = '' THEN 0
               ELSE 
-                CASE 
-                  WHEN REGEXP_REPLACE(wi.price, '[^0-9.]', '', 'g') = '' THEN 0
-                  ELSE REGEXP_REPLACE(wi.price, '[^0-9.]', '', 'g')::numeric
-                END
+                COALESCE(
+                  NULLIF(REGEXP_REPLACE(wi.price, '[^0-9.]', '', 'g'), '')::numeric,
+                  0
+                )
             END
           ), 
           0
