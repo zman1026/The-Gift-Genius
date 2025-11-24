@@ -72,9 +72,6 @@ export function AppSidebar() {
         </SidebarGroup>
         
         <SidebarGroup>
-          <SidebarGroupLabel className="px-4 text-xs text-muted-foreground">
-            Context
-          </SidebarGroupLabel>
           <SidebarGroupContent className="px-4 space-y-3">
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-sidebar-foreground">Family</label>
