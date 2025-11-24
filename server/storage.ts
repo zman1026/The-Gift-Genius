@@ -1489,23 +1489,30 @@ export class DatabaseStorage implements IStorage {
       .from(budgetAllocations)
       .where(eq(budgetAllocations.eventId, eventId));
 
-    // Get spending per member (sum of prices for purchased items)
+    // Get spending per member
+    // For wishlist purchases: get price from wishlist_items
+    // For off-wishlist purchases: get price from item_purchases
     const spendingQuery = await db
       .select({
-        userId: wishlistItems.userId,
-        managedProfileId: wishlistItems.managedProfileId,
-        totalSpent: sql<number>`COALESCE(SUM(CAST(${wishlistItems.price} AS NUMERIC)), 0)`,
+        recipientUserId: sql<string>`COALESCE(${wishlistItems.userId}, ${itemPurchases.recipientUserId})`,
+        recipientManagedProfileId: sql<string>`COALESCE(${wishlistItems.managedProfileId}, ${itemPurchases.recipientManagedProfileId})`,
+        totalSpent: sql<number>`COALESCE(SUM(CAST(COALESCE(${wishlistItems.price}, ${itemPurchases.price}) AS NUMERIC)), 0)`,
       })
-      .from(wishlistItems)
-      .innerJoin(itemPurchases, eq(wishlistItems.id, itemPurchases.itemId))
-      .where(eq(wishlistItems.eventId, eventId))
-      .groupBy(wishlistItems.userId, wishlistItems.managedProfileId);
+      .from(itemPurchases)
+      .leftJoin(wishlistItems, eq(wishlistItems.id, itemPurchases.itemId))
+      .where(eq(itemPurchases.eventId, eventId))
+      .groupBy(
+        sql`COALESCE(${wishlistItems.userId}, ${itemPurchases.recipientUserId})`,
+        sql`COALESCE(${wishlistItems.managedProfileId}, ${itemPurchases.recipientManagedProfileId})`
+      );
 
     // Build spending map
     const spendingMap = new Map<string, number>();
     for (const row of spendingQuery) {
-      const key = row.userId || row.managedProfileId || '';
-      spendingMap.set(key, Number(row.totalSpent));
+      const key = row.recipientUserId || row.recipientManagedProfileId || '';
+      if (key) {
+        spendingMap.set(key, Number(row.totalSpent));
+      }
     }
 
     // Build allocation map
