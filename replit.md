@@ -11,6 +11,14 @@ Preferred communication style: Simple, everyday language.
 ### UI/UX Decisions
 The application combines Pinterest-style visual cards with Notion-style data presentation, featuring a warm, family-oriented aesthetic. It utilizes Inter and Playfair Display fonts with a festive red and green color scheme. The UI is responsive, employing compact grid layouts (2-6 columns) for wishlist items, featuring square aspect-ratio images, reduced spacing, optimized typography, and priority badge overlays. The design prioritizes mobile with a 4-tab bottom navigation bar and a dashboard optimized for single-column stacking. The "Add Item" button in the bottom navigation is always accessible, intelligently enabled/disabled based on family membership, and meets accessibility standards. The member wishlist page is streamlined, showing display name hierarchy, allowing organizers to rename wishlists, and simplifying interactions to focus on individual item detail sheets. Camera-based product search, powered by SerpApi's Google Lens API, allows users to add products by photographing them.
 
+**Dashboard Architecture (November 24, 2024):** Event-centric three-tier layout featuring:
+- **EventHero:** Displays event theme colors, countdown to event date, and quick stats (items added, members participating, high priority items)
+- **QuickActions:** Action hub with primary buttons (Add to Wishlist, View All Items, Browse Members)
+- **MemberSpotlight:** Horizontal scrolling carousel showing family members with event-scoped item counts and profile images, with proper loading states to prevent cross-event data leakage
+- **GiftCoordination:** Actionable insights showing top priority items from other members' wishlists
+- **Activity Feed:** Real-time updates of family actions promoted to primary column
+- **Budget Tracker:** Optional component (only displays when budget is set on event)
+
 ### Technical Implementations
 The frontend uses **React 18**, **TypeScript**, **Wouter** for routing, **TanStack Query v5** for server state, and **Vite**. UI components are built with **shadcn/ui**, **Radix UI**, and **Tailwind CSS**. Form management is handled by **react-hook-form** with **Zod** validation.
 
