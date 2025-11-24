@@ -366,39 +366,39 @@ export default function Members() {
 
   return (
     <div className="p-6 md:p-8 lg:p-12 space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div>
-            <h1 className="font-serif text-3xl md:text-4xl font-semibold text-foreground">
-              {selectedFamily?.name || "Family Members"}
-            </h1>
-            <p className="text-muted-foreground mt-1">
-              View wishlists from all your family members
-            </p>
-          </div>
-          {isOrganizer && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => {
-                editFamilyNameForm.reset({ name: selectedFamily?.name || "" });
-                setIsEditFamilyNameDialogOpen(true);
-              }}
-              data-testid="button-edit-family-name"
-              className="ml-2"
-            >
-              <Edit className="w-4 h-4" />
-            </Button>
-          )}
+      <div className="flex items-center gap-3">
+        <div>
+          <h1 className="font-serif text-3xl md:text-4xl font-semibold text-foreground">
+            {selectedFamily?.name || "Family Members"}
+          </h1>
+          <p className="text-muted-foreground mt-1">
+            View wishlists from all your family members
+          </p>
         </div>
-        <div className="flex gap-2">
-          <Dialog open={isAddChildDialogOpen} onOpenChange={setIsAddChildDialogOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline" data-testid="button-add-child">
-                <UserPlus className="w-4 h-4 mr-2" />
-                Add Child
-              </Button>
-            </DialogTrigger>
+        {isOrganizer && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => {
+              editFamilyNameForm.reset({ name: selectedFamily?.name || "" });
+              setIsEditFamilyNameDialogOpen(true);
+            }}
+            data-testid="button-edit-family-name"
+            className="ml-2"
+          >
+            <Edit className="w-4 h-4" />
+          </Button>
+        )}
+      </div>
+      
+      <div className="flex gap-2">
+        <Dialog open={isAddChildDialogOpen} onOpenChange={setIsAddChildDialogOpen}>
+          <DialogTrigger asChild>
+            <Button variant="outline" data-testid="button-add-child">
+              <UserPlus className="w-4 h-4 mr-2" />
+              Add Child
+            </Button>
+          </DialogTrigger>
             <DialogContent className="max-w-md">
               <DialogHeader>
                 <DialogTitle>Add Child Profile</DialogTitle>
@@ -590,7 +590,6 @@ export default function Members() {
             </div>
           </DialogContent>
         </Dialog>
-        </div>
       </div>
 
       {!hasMembers ? (
