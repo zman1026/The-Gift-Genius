@@ -1092,6 +1092,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const item = await storage.createWishlistItem(itemData);
 
+      // Log activity with recipient information
+      await storage.createActivityLog({
+        familyId,
+        eventId,
+        actorId: organizerId,
+        action: "item_added",
+        itemId: item.id,
+        metadata: {
+          itemName: name,
+          priority: priority || "medium",
+          itemType: category || "product",
+          recipientUserId: targetInfo.matchedField === 'userId' ? targetUserId : null,
+          recipientManagedProfileId: targetInfo.matchedField === 'managedProfileId' ? targetUserId : null,
+          recipientDisplayName: targetInfo.member.displayName,
+        },
+      });
+
       res.json(item);
     } catch (error) {
       console.error("Error adding item to member's wishlist:", error);

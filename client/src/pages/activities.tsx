@@ -82,13 +82,27 @@ export default function Activities() {
       ? `${activity.actor.firstName || ""} ${activity.actor.lastName || ""}`.trim()
       : activity.actor?.email || "Someone";
 
+    const recipientName = activity.metadata?.recipientDisplayName;
+
     switch (activity.action) {
       case "item_added":
+        if (recipientName) {
+          return {
+            text: `${actorName} added "${activity.metadata?.itemName || "an item"}" to ${recipientName}'s wishlist`,
+            color: "text-primary",
+          };
+        }
         return {
           text: `${actorName} added "${activity.metadata?.itemName || "an item"}" to their wishlist`,
           color: "text-primary",
         };
       case "item_deleted":
+        if (recipientName) {
+          return {
+            text: `${actorName} removed "${activity.metadata?.itemName || "an item"}" from ${recipientName}'s wishlist`,
+            color: "text-muted-foreground",
+          };
+        }
         return {
           text: `${actorName} removed "${activity.metadata?.itemName || "an item"}" from their wishlist`,
           color: "text-muted-foreground",
