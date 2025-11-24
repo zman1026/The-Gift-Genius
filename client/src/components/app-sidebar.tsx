@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Home, Gift, Users, Search, Settings, LogOut, ShoppingBag } from "lucide-react";
+import { Home, Gift, Users, Settings, LogOut, ShoppingBag } from "lucide-react";
 import { useLocation } from "wouter";
 import {
   Sidebar,
@@ -43,12 +43,6 @@ const menuItems = [
     url: "/purchased",
     icon: ShoppingBag,
     testId: "nav-purchased",
-  },
-  {
-    title: "Search Products",
-    url: "/search",
-    icon: Search,
-    testId: "nav-search",
   },
 ];
 
