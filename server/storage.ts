@@ -249,12 +249,13 @@ export class DatabaseStorage implements IStorage {
     const result = await db.execute(sql`
       SELECT 
         COALESCE(u.id, mp.id) as "userId",
+        mp.id as "managedProfileId",
         COALESCE(u.email, NULL) as email,
         COALESCE(u.first_name, mp.first_name) as "firstName",
         COALESCE(u.last_name, mp.last_name) as "lastName",
         COALESCE(u.profile_image_url, mp.profile_image_url) as "profileImageUrl",
         fm.display_name as "displayName",
-        mp.created_by_id as "createdById",
+        mp.created_by_id as "createdBy",
         CASE WHEN mp.id IS NOT NULL THEN true ELSE false END as "isManagedProfile",
         COUNT(DISTINCT wi.id)::int as "itemCount"
       FROM family_members fm
