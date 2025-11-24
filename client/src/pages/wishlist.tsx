@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useFamily } from "@/contexts/FamilyContext";
+import { useEvent } from "@/contexts/EventContext";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -50,6 +51,7 @@ export default function Wishlist() {
   const { toast } = useToast();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { selectedFamilyId } = useFamily();
+  const { selectedEventId } = useEvent();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
   const [uploadedImageUrl, setUploadedImageUrl] = useState<string>("");
@@ -121,12 +123,15 @@ export default function Wishlist() {
   }, [isAuthenticated, authLoading, toast]);
 
   const { data: items, isLoading } = useQuery({
-    queryKey: ["/api/wishlist", selectedFamilyId, sortBy, sortOrder, priorityFilter, itemTypeFilter],
+    queryKey: ["/api/wishlist", selectedFamilyId, selectedEventId, sortBy, sortOrder, priorityFilter, itemTypeFilter],
     queryFn: async () => {
-      if (!selectedFamilyId) return [];
+      if (!selectedFamilyId || !selectedEventId) return [];
       
       // Build query string with filters
-      const params = new URLSearchParams({ familyId: selectedFamilyId });
+      const params = new URLSearchParams({ 
+        familyId: selectedFamilyId,
+        eventId: selectedEventId,
+      });
       if (sortBy) params.append("sort", sortBy);
       if (sortOrder) params.append("order", sortOrder);
       if (priorityFilter && priorityFilter !== "all") params.append("priority", priorityFilter);
@@ -140,7 +145,7 @@ export default function Wishlist() {
       }
       return response.json();
     },
-    enabled: !!selectedFamilyId,
+    enabled: !!selectedFamilyId && !!selectedEventId,
     retry: false,
   });
 

@@ -47,6 +47,7 @@ export interface WishlistFilterOptions {
   order?: 'asc' | 'desc';
   priority?: 'high' | 'medium' | 'low';
   itemType?: 'product' | 'experience' | 'service' | 'membership' | 'other';
+  eventId?: string; // Filter by specific event
 }
 
 export interface IStorage {
@@ -85,9 +86,9 @@ export interface IStorage {
   bulkUpdateWishlistPriority(userId: string, familyId: string, itemIds: string[], priority: 'low' | 'medium' | 'high'): Promise<WishlistItem[]>;
   getUserWishlistItems(userId: string, options?: WishlistFilterOptions): Promise<WishlistItem[]>;
   getUserWishlistItemsByFamily(userId: string, familyId: string, options?: WishlistFilterOptions): Promise<WishlistItem[]>;
-  getMemberWishlistItems(userId: string, viewerId: string, familyId?: string): Promise<any[]>;
+  getMemberWishlistItems(userId: string, viewerId: string, familyId?: string, eventId?: string): Promise<any[]>;
   getWishlistItem(id: string): Promise<WishlistItem | undefined>;
-  findDuplicateWishlistItem(userId: string, familyId: string, url?: string, productId?: string): Promise<WishlistItem | undefined>;
+  findDuplicateWishlistItem(userId: string, familyId: string, eventId?: string, url?: string, productId?: string): Promise<WishlistItem | undefined>;
   
   // Purchase operations
   markItemPurchased(purchase: InsertItemPurchase): Promise<ItemPurchase>;
@@ -610,6 +611,10 @@ export class DatabaseStorage implements IStorage {
     // Build where conditions
     const whereConditions = [eq(wishlistItems.userId, userId)];
     
+    if (options?.eventId) {
+      whereConditions.push(eq(wishlistItems.eventId, options.eventId));
+    }
+    
     if (options?.priority) {
       whereConditions.push(eq(wishlistItems.priority, options.priority));
     }
@@ -682,6 +687,10 @@ export class DatabaseStorage implements IStorage {
       eq(wishlistItems.familyId, familyId)
     ];
     
+    if (options?.eventId) {
+      whereConditions.push(eq(wishlistItems.eventId, options.eventId));
+    }
+    
     if (options?.priority) {
       whereConditions.push(eq(wishlistItems.priority, options.priority));
     }
@@ -741,7 +750,7 @@ export class DatabaseStorage implements IStorage {
     return items as WishlistItem[];
   }
 
-  async getMemberWishlistItems(memberId: string, viewerId: string, familyId?: string): Promise<any[]> {
+  async getMemberWishlistItems(memberId: string, viewerId: string, familyId?: string, eventId?: string): Promise<any[]> {
     // First, determine if this is a userId or managedProfileId by checking the family_members table
     const memberCheck = await db
       .select({ 
@@ -803,7 +812,13 @@ export class DatabaseStorage implements IStorage {
       ? eq(wishlistItems.familyId, familyId)
       : sql`${wishlistItems.familyId} = ANY(${sharedFamilyIds})`;
 
-    const whereConditions = and(memberCondition, familyCondition);
+    const conditions = [memberCondition, familyCondition];
+    
+    if (eventId) {
+      conditions.push(eq(wishlistItems.eventId, eventId));
+    }
+
+    const whereConditions = and(...conditions);
 
     // Only return items from shared families (or specific family if provided)
     const items = await db
@@ -859,6 +874,7 @@ export class DatabaseStorage implements IStorage {
   async findDuplicateWishlistItem(
     userId: string,
     familyId: string,
+    eventId?: string,
     url?: string,
     productId?: string
   ): Promise<WishlistItem | undefined> {
@@ -867,11 +883,17 @@ export class DatabaseStorage implements IStorage {
       return undefined;
     }
 
-    // Base conditions (user and family must match)
-    const baseConditions = and(
+    // Base conditions (user, family, and event must match)
+    const conditions = [
       eq(wishlistItems.userId, userId),
       eq(wishlistItems.familyId, familyId)
-    );
+    ];
+    
+    if (eventId) {
+      conditions.push(eq(wishlistItems.eventId, eventId));
+    }
+    
+    const baseConditions = and(...conditions);
 
     // Build OR condition for URL and/or productId
     const matchConditions = [];

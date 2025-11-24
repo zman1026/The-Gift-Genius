@@ -513,14 +513,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const viewerId = req.user.claims.sub;
       const { userId } = req.params;
-      const { familyId } = req.query;
+      const { familyId, eventId } = req.query;
 
       // Don't allow viewing own wishlist this way
       if (userId === viewerId) {
         return res.status(400).json({ message: "Use /api/wishlist to view your own items" });
       }
 
-      const items = await storage.getMemberWishlistItems(userId, viewerId, familyId as string | undefined);
+      // eventId is required for event-scoped wishlists
+      if (!eventId || typeof eventId !== 'string') {
+        return res.status(400).json({ message: "Event ID is required" });
+      }
+
+      // Verify event exists
+      const event = await storage.getEvent(eventId);
+      if (!event) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+
+      // Verify viewer is a member of the event's family
+      const membership = await storage.getFamilyMember(event.familyId, viewerId);
+      if (!membership) {
+        return res.status(403).json({ message: "You are not a member of this event's family" });
+      }
+
+      const items = await storage.getMemberWishlistItems(
+        userId, 
+        viewerId, 
+        familyId as string | undefined,
+        eventId
+      );
       res.json(items);
     } catch (error) {
       console.error("Error fetching member wishlist:", error);
@@ -685,7 +707,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/wishlist', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const { familyId, sort, order, priority, itemType } = req.query;
+      const { familyId, eventId, sort, order, priority, itemType } = req.query;
+      
+      // eventId is required for event-scoped wishlists
+      if (!eventId || typeof eventId !== 'string') {
+        return res.status(400).json({ message: "Event ID is required" });
+      }
       
       // Validate and sanitize query params
       const validSorts = ['name', 'price', 'priority', 'createdAt'];
@@ -693,8 +720,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validPriorities = ['high', 'medium', 'low'];
       const validItemTypes = ['product', 'experience', 'service', 'membership', 'other'];
       
+      // Verify event exists and user has access via family membership
+      const event = await storage.getEvent(eventId);
+      if (!event) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+      
+      // Verify user is a member of the event's family
+      const membership = await storage.getFamilyMember(event.familyId, userId);
+      if (!membership) {
+        return res.status(403).json({ message: "You are not a member of this event's family" });
+      }
+      
       // Build filter options with validation
       const options = {
+        eventId,
         sort: sort && validSorts.includes(sort as string) ? (sort as 'name' | 'price' | 'priority' | 'createdAt') : undefined,
         order: order && validOrders.includes(order as string) ? (order as 'asc' | 'desc') : undefined,
         priority: priority && validPriorities.includes(priority as string) ? (priority as 'high' | 'medium' | 'low') : undefined,
@@ -702,6 +742,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
       
       if (familyId && typeof familyId === 'string') {
+        // Verify familyId matches event's family
+        if (familyId !== event.familyId) {
+          return res.status(400).json({ message: "Event does not belong to this family" });
+        }
         const items = await storage.getUserWishlistItemsByFamily(userId, familyId, options);
         res.json(items);
       } else {
@@ -717,10 +761,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/wishlist', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const { name, description, price, url, imageUrl, priority, quantity, category, itemType, familyId, override } = req.body;
+      const { name, description, price, url, imageUrl, priority, quantity, category, itemType, familyId, eventId, override } = req.body;
 
       if (!name || typeof name !== 'string') {
         return res.status(400).json({ message: "Item name is required" });
+      }
+
+      if (!eventId || typeof eventId !== 'string') {
+        return res.status(400).json({ message: "Event ID is required" });
       }
 
       // Use provided familyId or get user's first family
@@ -739,12 +787,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "You are not a member of this family" });
       }
 
+      // Verify event exists and belongs to the family
+      const event = await storage.getEvent(eventId);
+      if (!event || event.familyId !== targetFamilyId) {
+        return res.status(400).json({ message: "Invalid event for this family" });
+      }
+
       // Check for duplicate items by URL (if provided and not overriding)
       if (url && !override) {
-        const duplicate = await storage.findDuplicateWishlistItem(userId, targetFamilyId, url);
+        const duplicate = await storage.findDuplicateWishlistItem(userId, targetFamilyId, eventId, url);
         if (duplicate) {
           return res.status(409).json({ 
-            message: "This item is already on your wishlist",
+            message: "This item is already on your wishlist for this event",
             duplicateItem: {
               id: duplicate.id,
               name: duplicate.name,
@@ -757,6 +811,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const item = await storage.createWishlistItem({
         userId,
         familyId: targetFamilyId,
+        eventId,
         name,
         description: description || null,
         price: price ? String(price) : null,
@@ -773,6 +828,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Log activity
       await storage.createActivityLog({
         familyId: targetFamilyId,
+        eventId,
         actorId: userId,
         action: "item_added",
         itemId: item.id,
@@ -793,10 +849,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/wishlist/from-search', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const { name, description, price, url, imageUrl, productId, source, priority, quantity, category, itemType, familyId, override } = req.body;
+      const { name, description, price, url, imageUrl, productId, source, priority, quantity, category, itemType, familyId, eventId, override } = req.body;
 
       if (!name || typeof name !== 'string') {
         return res.status(400).json({ message: "Item name is required" });
+      }
+
+      if (!eventId || typeof eventId !== 'string') {
+        return res.status(400).json({ message: "Event ID is required" });
       }
 
       // Use provided familyId or get user's first family
@@ -815,12 +875,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "You are not a member of this family" });
       }
 
+      // Verify event exists and belongs to the family
+      const event = await storage.getEvent(eventId);
+      if (!event || event.familyId !== targetFamilyId) {
+        return res.status(400).json({ message: "Invalid event for this family" });
+      }
+
       // Check for duplicate items by URL or productId (if provided and not overriding)
       if ((url || productId) && !override) {
-        const duplicate = await storage.findDuplicateWishlistItem(userId, targetFamilyId, url, productId);
+        const duplicate = await storage.findDuplicateWishlistItem(userId, targetFamilyId, eventId, url, productId);
         if (duplicate) {
           return res.status(409).json({ 
-            message: "This item is already on your wishlist",
+            message: "This item is already on your wishlist for this event",
             duplicateItem: {
               id: duplicate.id,
               name: duplicate.name,
@@ -834,6 +900,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const item = await storage.createWishlistItem({
         userId,
         familyId: targetFamilyId,
+        eventId,
         name,
         description: description || null,
         price: price ? String(price) : null,
@@ -850,6 +917,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Log activity
       await storage.createActivityLog({
         familyId: targetFamilyId,
+        eventId,
         actorId: userId,
         action: "item_added",
         itemId: item.id,
@@ -873,16 +941,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const organizerId = req.user.claims.sub;
       const { familyId, targetUserId } = req.params;
-      const { name, description, price, url, imageUrl, productId, source, priority, quantity, category } = req.body;
+      const { name, description, price, url, imageUrl, productId, source, priority, quantity, category, eventId } = req.body;
 
       if (!name || typeof name !== 'string') {
         return res.status(400).json({ message: "Item name is required" });
+      }
+
+      if (!eventId || typeof eventId !== 'string') {
+        return res.status(400).json({ message: "Event ID is required" });
       }
 
       // Verify requester is the organizer of the family
       const family = await storage.getFamily(familyId);
       if (!family || family.createdById !== organizerId) {
         return res.status(403).json({ message: "Only the family organizer can add items to other members' wishlists" });
+      }
+
+      // Verify event exists and belongs to the family
+      const event = await storage.getEvent(eventId);
+      if (!event || event.familyId !== familyId) {
+        return res.status(400).json({ message: "Invalid event for this family" });
       }
 
       // Verify target is a member of the family (could be user or managed profile)
@@ -894,6 +972,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Create item with correct field based on which field matched
       const itemData: any = {
         familyId,
+        eventId,
         name,
         description: description || null,
         price: price ? String(price) : null,
@@ -1083,6 +1162,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "You cannot mark your own items as purchased" });
       }
 
+      // Verify item has an eventId
+      if (!item.eventId) {
+        return res.status(400).json({ message: "Item is not associated with an event" });
+      }
+
+      // Verify event exists and user has access via family membership
+      const event = await storage.getEvent(item.eventId);
+      if (!event) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+
+      const membership = await storage.getFamilyMember(event.familyId, userId);
+      if (!membership) {
+        return res.status(403).json({ message: "You are not a member of this event's family" });
+      }
+
       // Check if this user has already purchased this item
       const existingUserPurchase = await storage.getUserPurchaseForItem(id, userId);
       if (existingUserPurchase) {
@@ -1095,9 +1190,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         notes: notes || null,
       });
 
-      // Log activity
+      // Log activity with eventId
       await storage.createActivityLog({
         familyId: item.familyId,
+        eventId: item.eventId,
         actorId: userId,
         targetUserId: item.userId,
         itemId: id,
@@ -1126,20 +1222,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "You have not marked this item as purchased" });
       }
 
-      // Get item data for activity log before unmarking
+      // Get item data for security verification and activity log
       const item = await storage.getWishlistItem(id);
-      if (item) {
-        await storage.createActivityLog({
-          familyId: item.familyId,
-          actorId: userId,
-          targetUserId: item.userId,
-          itemId: id,
-          action: "item_unpurchased",
-          metadata: {
-            itemName: item.name,
-          },
-        });
+      if (!item) {
+        return res.status(404).json({ message: "Item not found" });
       }
+
+      // Verify item has an eventId
+      if (!item.eventId) {
+        return res.status(400).json({ message: "Item is not associated with an event" });
+      }
+
+      // Verify event exists and user has access via family membership
+      const event = await storage.getEvent(item.eventId);
+      if (!event) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+
+      const membership = await storage.getFamilyMember(event.familyId, userId);
+      if (!membership) {
+        return res.status(403).json({ message: "You are not a member of this event's family" });
+      }
+
+      // Log activity with eventId before unmarking
+      await storage.createActivityLog({
+        familyId: item.familyId,
+        eventId: item.eventId,
+        actorId: userId,
+        targetUserId: item.userId,
+        itemId: id,
+        action: "item_unpurchased",
+        metadata: {
+          itemName: item.name,
+        },
+      });
 
       await storage.unmarkItemPurchased(id, userId);
       res.json({ message: "Purchase marking removed" });
