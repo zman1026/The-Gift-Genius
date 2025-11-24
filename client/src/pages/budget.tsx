@@ -9,9 +9,11 @@ import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { DollarSign, TrendingUp, TrendingDown, AlertCircle, Edit2, Check, X } from "lucide-react";
+import { DollarSign, TrendingUp, TrendingDown, AlertCircle, Edit2, Check, X, ShoppingBag } from "lucide-react";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 
 export default function Budget() {
   const { selectedFamilyId, families } = useFamily();
@@ -20,6 +22,18 @@ export default function Budget() {
   const [isEditing, setIsEditing] = useState(false);
   const [allocations, setAllocations] = useState<Record<string, string>>({});
   const { toast } = useToast();
+  
+  // Log Purchase dialog state
+  const [logPurchaseDialog, setLogPurchaseDialog] = useState<{
+    open: boolean;
+    member: any | null;
+  }>({ open: false, member: null });
+  const [purchaseForm, setPurchaseForm] = useState({
+    price: '',
+    description: '',
+    purchasedFrom: '',
+    notes: '',
+  });
 
   const { data: budgetData, isLoading } = useQuery({
     queryKey: ['/api/events', selectedEventId, 'budget'],
@@ -58,6 +72,43 @@ export default function Budget() {
     },
   });
 
+  const logPurchaseMutation = useMutation({
+    mutationFn: async (data: {
+      eventId: string;
+      recipientUserId: string | null;
+      recipientManagedProfileId: string | null;
+      price: number;
+      description: string;
+      purchasedFrom?: string;
+      notes?: string;
+    }) => {
+      const response = await fetch('/api/purchases/off-list', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) throw new Error('Failed to log purchase');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/events', selectedEventId, 'budget'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/purchases'] });
+      setLogPurchaseDialog({ open: false, member: null });
+      setPurchaseForm({ price: '', description: '', purchasedFrom: '', notes: '' });
+      toast({
+        title: "Purchase logged",
+        description: "Off-wishlist purchase has been successfully logged",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to log purchase",
+        variant: "destructive",
+      });
+    },
+  });
+
   if (!selectedEventId) {
     return (
       <div className="flex items-center justify-center h-full p-4">
@@ -89,6 +140,48 @@ export default function Budget() {
       initialAllocations[key] = member.allocated.toString();
     });
     setAllocations(initialAllocations);
+  };
+
+  const handleOpenLogPurchase = (member: any) => {
+    setLogPurchaseDialog({ open: true, member });
+    setPurchaseForm({ price: '', description: '', purchasedFrom: '', notes: '' });
+  };
+
+  const handleCloseLogPurchase = () => {
+    setLogPurchaseDialog({ open: false, member: null });
+    setPurchaseForm({ price: '', description: '', purchasedFrom: '', notes: '' });
+  };
+
+  const handleSubmitLogPurchase = () => {
+    const price = parseFloat(purchaseForm.price);
+    
+    if (!purchaseForm.price || isNaN(price) || price <= 0) {
+      toast({
+        title: "Invalid price",
+        description: "Please enter a valid price",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!purchaseForm.description.trim()) {
+      toast({
+        title: "Missing description",
+        description: "Please describe what you purchased",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    logPurchaseMutation.mutate({
+      eventId: selectedEventId!,
+      recipientUserId: logPurchaseDialog.member.userId || null,
+      recipientManagedProfileId: logPurchaseDialog.member.managedProfileId || null,
+      price,
+      description: purchaseForm.description.trim(),
+      purchasedFrom: purchaseForm.purchasedFrom.trim() || undefined,
+      notes: purchaseForm.notes.trim() || undefined,
+    });
   };
 
   const handleSaveAllocations = () => {
@@ -296,6 +389,18 @@ export default function Budget() {
                       className="h-1.5"
                       data-testid={`progress-${key}`}
                     />
+                    <div className="pt-1">
+                      <Button
+                        onClick={() => handleOpenLogPurchase(member)}
+                        variant="outline"
+                        size="sm"
+                        className="w-full"
+                        data-testid={`button-log-purchase-${key}`}
+                      >
+                        <ShoppingBag className="w-4 h-4 mr-2" />
+                        Log Purchase
+                      </Button>
+                    </div>
                   </div>
                 ) : (
                   <div className="flex items-center gap-3">
@@ -335,6 +440,81 @@ export default function Budget() {
           );
         })}
       </div>
+
+      {/* Log Purchase Dialog */}
+      <Dialog open={logPurchaseDialog.open} onOpenChange={(open) => !open && handleCloseLogPurchase()}>
+        <DialogContent data-testid="dialog-log-purchase">
+          <DialogHeader>
+            <DialogTitle>Log Off-Wishlist Purchase</DialogTitle>
+            <DialogDescription>
+              Record a gift you bought for {logPurchaseDialog.member?.displayName} that wasn't on their wishlist.
+              This will count toward their budget.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="purchase-price">Price *</Label>
+              <Input
+                id="purchase-price"
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="0.00"
+                value={purchaseForm.price}
+                onChange={(e) => setPurchaseForm({ ...purchaseForm, price: e.target.value })}
+                data-testid="input-purchase-price"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="purchase-description">What did you buy? *</Label>
+              <Input
+                id="purchase-description"
+                placeholder="e.g., Blue sweater, Board game, etc."
+                value={purchaseForm.description}
+                onChange={(e) => setPurchaseForm({ ...purchaseForm, description: e.target.value })}
+                data-testid="input-purchase-description"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="purchase-from">Where purchased from</Label>
+              <Input
+                id="purchase-from"
+                placeholder="e.g., Amazon, Target, etc."
+                value={purchaseForm.purchasedFrom}
+                onChange={(e) => setPurchaseForm({ ...purchaseForm, purchasedFrom: e.target.value })}
+                data-testid="input-purchase-from"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="purchase-notes">Private notes</Label>
+              <Textarea
+                id="purchase-notes"
+                placeholder="Optional notes (only you can see these)"
+                value={purchaseForm.notes}
+                onChange={(e) => setPurchaseForm({ ...purchaseForm, notes: e.target.value })}
+                rows={3}
+                data-testid="textarea-purchase-notes"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={handleCloseLogPurchase}
+              data-testid="button-cancel-log-purchase"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSubmitLogPurchase}
+              disabled={logPurchaseMutation.isPending}
+              data-testid="button-submit-log-purchase"
+            >
+              {logPurchaseMutation.isPending ? 'Logging...' : 'Log Purchase'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
