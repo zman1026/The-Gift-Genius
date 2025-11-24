@@ -11,7 +11,7 @@ export default function Landing() {
           <div className="flex items-center gap-2">
             <Gift className="w-6 h-6 text-primary" />
             <span className="font-serif text-lg font-semibold text-foreground">
-              Family Christmas Wishlist
+              The Gift Genius
             </span>
           </div>
           <div className="flex items-center gap-3">
@@ -53,10 +53,10 @@ export default function Landing() {
               <Gift className="w-16 h-16 md:w-20 md:h-20 text-primary" />
             </div>
             <h1 className="font-serif text-4xl md:text-6xl lg:text-7xl font-bold text-white tracking-tight">
-              Family Christmas Wishlist
+              The Gift Genius
             </h1>
             <p className="text-xl md:text-2xl text-white/90 max-w-2xl mx-auto">
-              Share the joy of giving with your family. Create wishlists, coordinate gifts, and make holiday shopping delightful for everyone.
+              Share the joy of giving with your family. Create wishlists for any occasion, coordinate gifts, and make celebrations delightful all year round.
             </p>
             <div className="pt-4">
               <Button

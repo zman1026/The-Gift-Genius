@@ -528,6 +528,159 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Event routes
+  app.get('/api/families/:familyId/events', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { familyId } = req.params;
+      const { activeOnly } = req.query;
+
+      // Verify user is a member of the family
+      const membership = await storage.getFamilyMember(familyId, userId);
+      if (!membership) {
+        return res.status(403).json({ message: "You must be a family member to view events" });
+      }
+
+      const events = activeOnly === 'true' 
+        ? await storage.getActiveEventsByFamily(familyId)
+        : await storage.getEventsByFamily(familyId);
+      
+      res.json(events);
+    } catch (error) {
+      console.error("Error fetching events:", error);
+      res.status(500).json({ message: "Failed to fetch events" });
+    }
+  });
+
+  app.post('/api/families/:familyId/events', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { familyId } = req.params;
+
+      // Verify user is the family organizer (only organizers can create events)
+      const family = await storage.getFamily(familyId);
+      if (!family) {
+        return res.status(404).json({ message: "Family not found" });
+      }
+      if (family.createdById !== userId) {
+        return res.status(403).json({ message: "Only the family organizer can create events" });
+      }
+
+      // Validate input with Zod schema
+      const createEventSchema = z.object({
+        name: z.string().min(1, "Event name is required").max(255),
+        date: z.string().datetime().optional().nullable(),
+        eventType: z.enum(['christmas', 'birthday', 'wedding', 'baby_shower', 'hanukkah', 'graduation', 'anniversary', 'holiday', 'other']),
+        themePrimary: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Must be a valid hex color").optional(),
+        themeAccent: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Must be a valid hex color").optional(),
+        isActive: z.boolean().optional(),
+      });
+
+      const validatedData = createEventSchema.parse(req.body);
+
+      const event = await storage.createEvent({
+        ...validatedData,
+        date: validatedData.date ? new Date(validatedData.date) : null,
+        familyId,
+      });
+
+      res.status(201).json(event);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid event data", errors: error.errors });
+      }
+      console.error("Error creating event:", error);
+      res.status(500).json({ message: "Failed to create event" });
+    }
+  });
+
+  app.get('/api/events/:eventId', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { eventId } = req.params;
+
+      const event = await storage.getEvent(eventId);
+      if (!event) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+
+      // Verify user is a member of the event's family
+      const membership = await storage.getFamilyMember(event.familyId, userId);
+      if (!membership) {
+        return res.status(403).json({ message: "You must be a family member to view this event" });
+      }
+
+      res.json(event);
+    } catch (error) {
+      console.error("Error fetching event:", error);
+      res.status(500).json({ message: "Failed to fetch event" });
+    }
+  });
+
+  app.put('/api/events/:eventId', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { eventId } = req.params;
+
+      // Validate input
+      const updateEventSchema = z.object({
+        name: z.string().min(1).max(255).optional(),
+        date: z.string().datetime().optional().nullable(),
+        eventType: z.enum(['christmas', 'birthday', 'wedding', 'baby_shower', 'hanukkah', 'graduation', 'anniversary', 'holiday', 'other']).optional(),
+        themePrimary: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
+        themeAccent: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
+        isActive: z.boolean().optional(),
+      });
+
+      const validatedData = updateEventSchema.parse(req.body);
+
+      // Convert date string to Date object if present
+      const updates: any = { ...validatedData };
+      if (validatedData.date !== undefined) {
+        updates.date = validatedData.date ? new Date(validatedData.date) : null;
+      }
+
+      const event = await storage.updateEvent(eventId, updates, userId);
+      res.json(event);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid event data", errors: error.errors });
+      }
+      if (error instanceof AuthorizationError) {
+        return res.status(403).json({ message: error.message });
+      }
+      if (error instanceof NotFoundError) {
+        return res.status(404).json({ message: error.message });
+      }
+      console.error("Error updating event:", error);
+      res.status(500).json({ message: "Failed to update event" });
+    }
+  });
+
+  app.delete('/api/events/:eventId', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { eventId } = req.params;
+
+      const event = await storage.getEvent(eventId);
+      if (!event) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+
+      await storage.deleteEvent(eventId, event.familyId, userId);
+      res.status(204).send();
+    } catch (error) {
+      if (error instanceof AuthorizationError) {
+        return res.status(403).json({ message: error.message });
+      }
+      if (error instanceof Error && error.message.includes("Cannot delete the last event")) {
+        return res.status(400).json({ message: error.message });
+      }
+      console.error("Error deleting event:", error);
+      res.status(500).json({ message: "Failed to delete event" });
+    }
+  });
+
   // Wishlist routes
   app.get('/api/wishlist', isAuthenticated, async (req: any, res) => {
     try {

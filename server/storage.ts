@@ -6,6 +6,7 @@ import {
   itemPurchases,
   activityLogs,
   managedProfiles,
+  events,
   type User,
   type UpsertUser,
   type Family,
@@ -20,6 +21,8 @@ import {
   type InsertActivityLog,
   type ManagedProfile,
   type InsertManagedProfile,
+  type Event,
+  type InsertEvent,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, or, sql, desc, asc, inArray } from "drizzle-orm";
@@ -98,6 +101,14 @@ export interface IStorage {
   // Activity log operations
   createActivityLog(log: InsertActivityLog): Promise<ActivityLog>;
   getRecentActivities(familyId: string, limit?: number): Promise<any[]>;
+  
+  // Event operations
+  createEvent(event: InsertEvent): Promise<Event>;
+  getEventsByFamily(familyId: string): Promise<Event[]>;
+  getActiveEventsByFamily(familyId: string): Promise<Event[]>;
+  getEvent(id: string): Promise<Event | undefined>;
+  updateEvent(id: string, updates: Partial<InsertEvent>, requesterId: string): Promise<Event>;
+  deleteEvent(id: string, familyId: string, requesterId: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1139,6 +1150,73 @@ export class DatabaseStorage implements IStorage {
       .limit(limit);
 
     return activities;
+  }
+
+  // Event operations
+  async createEvent(eventData: InsertEvent): Promise<Event> {
+    const [event] = await db.insert(events).values(eventData).returning();
+    return event;
+  }
+
+  async getEventsByFamily(familyId: string): Promise<Event[]> {
+    const eventsList = await db
+      .select()
+      .from(events)
+      .where(eq(events.familyId, familyId))
+      .orderBy(desc(events.createdAt));
+    return eventsList;
+  }
+
+  async getActiveEventsByFamily(familyId: string): Promise<Event[]> {
+    const eventsList = await db
+      .select()
+      .from(events)
+      .where(and(eq(events.familyId, familyId), eq(events.isActive, true)))
+      .orderBy(desc(events.createdAt));
+    return eventsList;
+  }
+
+  async getEvent(id: string): Promise<Event | undefined> {
+    const [event] = await db.select().from(events).where(eq(events.id, id));
+    return event;
+  }
+
+  async updateEvent(id: string, updates: Partial<InsertEvent>, requesterId: string): Promise<Event> {
+    // First get the event to verify it exists and get familyId
+    const event = await this.getEvent(id);
+    if (!event) {
+      throw new NotFoundError("Event not found");
+    }
+
+    // Verify requester is a member of the family
+    const membership = await this.getFamilyMember(event.familyId, requesterId);
+    if (!membership) {
+      throw new AuthorizationError("You must be a family member to update this event");
+    }
+
+    const [updatedEvent] = await db
+      .update(events)
+      .set(updates)
+      .where(eq(events.id, id))
+      .returning();
+    
+    return updatedEvent;
+  }
+
+  async deleteEvent(id: string, familyId: string, requesterId: string): Promise<void> {
+    // Verify requester is a member of the family
+    const membership = await this.getFamilyMember(familyId, requesterId);
+    if (!membership) {
+      throw new AuthorizationError("You must be a family member to delete this event");
+    }
+
+    // Check if this is the only event for the family
+    const allEvents = await this.getEventsByFamily(familyId);
+    if (allEvents.length === 1) {
+      throw new Error("Cannot delete the last event in a family");
+    }
+
+    await db.delete(events).where(eq(events.id, id));
   }
 }
 

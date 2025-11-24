@@ -65,7 +65,7 @@ export function AppSidebar() {
       <SidebarContent className="pb-20 md:pb-0">
         <SidebarGroup>
           <SidebarGroupLabel className="text-lg font-serif text-primary px-4 py-4">
-            Christmas Wishlist
+            The Gift Genius
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>

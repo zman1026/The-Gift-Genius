@@ -1,7 +1,7 @@
-# Family Christmas Wishlist Manager
+# The Gift Genius
 
 ## Overview
-A mobile-first web application designed to help families collaboratively create, share, and manage Christmas wishlists. It streamlines gift coordination by allowing members to add personal wishes, view others' wishlists, and secretly mark items as purchased, ensuring gift surprises are maintained. The application emphasizes quick access to item addition through a persistent floating action button.
+A mobile-first web application designed to help families collaboratively create, share, and manage wishlists for any occasion throughout the year. From birthdays and weddings to holidays and celebrations, The Gift Genius makes gift coordination delightful. It streamlines gift coordination by allowing members to add personal wishes, view others' wishlists, and secretly mark items as purchased, ensuring gift surprises are maintained. The application emphasizes quick access to item addition through a persistent floating action button.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
@@ -36,9 +36,42 @@ The backend is built with **Express.js** and **TypeScript**, using **Drizzle ORM
 - **Backend API:** RESTful `/api/*` design with structured error handling and input validation.
 - **Authentication:** Replit Auth for secure OIDC authentication with session storage.
 - **Data Access:** Drizzle ORM for type-safe database operations.
-- **Database Schema:** Core tables include `users`, `families`, `family_members`, `wishlist_items`, `item_purchases`, `activity_logs`, `managed_profiles`, and `sessions` with UUIDs and JSONB metadata for activity logs. The `family_members` and `wishlist_items` tables support both regular users (via `userId`) and managed profiles (via `managedProfileId`), with exactly one field set per row.
+- **Database Schema:** Core tables include `users`, `families`, `family_members`, `events`, `wishlist_items`, `item_purchases`, `activity_logs`, `managed_profiles`, and `sessions` with UUIDs and JSONB metadata for activity logs. The `family_members` and `wishlist_items` tables support both regular users (via `userId`) and managed profiles (via `managedProfileId`), with exactly one field set per row. The `events` table enables multi-occasion support with customizable themes.
+- **Event System:** Each family can have multiple events (birthdays, weddings, holidays, etc.) with their own themes, dates, and wishlists. Wishlist items and activity logs are event-scoped for better organization.
 - **Security:** Open redirect prevention, robust authorization, and secure cookie management. Authenticated error logging with payload limits.
 - **Performance Optimizations:** Server-side caching for SerpApi, optimized search results, database indexes, batched dashboard queries, and smart React Query cache invalidation. API responses use Zod schema validation for robust error handling.
+
+## Recent Architecture Changes (November 2024)
+
+### App Rebranding
+- **New Name:** "The Gift Genius" (formerly "Family Christmas Wishlist")
+- **Domain:** thegiftgeniusapp.com
+- **Purpose:** Expanded from Christmas-only to year-round gift coordination
+
+### Event-Based System
+- **Multi-Occasion Support:** Families can now create multiple events (birthdays, weddings, holidays, etc.)
+- **Event Themes:** Pre-configured themes for different occasions with customizable colors:
+  - Christmas (Red/Green)
+  - Birthday (Purple/Gold)
+  - Wedding (White/Gold)
+  - Baby Shower (Pink/Blue)
+  - Hanukkah (Blue/Silver)
+  - Graduation (Navy/Gold)
+  - Anniversary (Red/White)
+  - Holiday (Red/Green)
+  - Custom Events (Violet/Pink)
+
+### Database Schema Updates
+- **events table:** Stores event details (name, date, type, theme colors, active status)
+- **eventId field:** Added to `wishlist_items` and `activity_logs` tables for event scoping
+- **Migration:** All existing families migrated to default "Holiday 2024" events
+
+### Backend API Additions
+- `GET /api/families/:familyId/events` - List all events for a family
+- `POST /api/families/:familyId/events` - Create a new event
+- `GET /api/events/:eventId` - Get specific event details
+- `PUT /api/events/:eventId` - Update event
+- `DELETE /api/events/:eventId` - Delete event (requires at least one event per family)
 
 ## External Dependencies
 

@@ -1,7 +1,7 @@
 {
-  "name": "Family Christmas Wishlist",
-  "short_name": "Wishlist",
-  "description": "Create and share Christmas wishlists with your family",
+  "name": "The Gift Genius",
+  "short_name": "Gift Genius",
+  "description": "Create and share wishlists for any occasion with your family",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",

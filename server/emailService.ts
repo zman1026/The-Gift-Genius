@@ -23,9 +23,9 @@ export async function sendInviteEmail({
     }
 
     const { data, error } = await resend.emails.send({
-      from: 'Christmas Wishlist <onboarding@resend.dev>',
+      from: 'The Gift Genius <onboarding@resend.dev>',
       to: [to],
-      subject: `You're invited to join ${familyName} on Christmas Wishlist!`,
+      subject: `You're invited to join ${familyName} on The Gift Genius!`,
       html: `
         <!DOCTYPE html>
         <html>

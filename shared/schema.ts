@@ -97,6 +97,38 @@ export const insertFamilySchema = createInsertSchema(families).omit({
 export type InsertFamily = z.infer<typeof insertFamilySchema>;
 export type Family = typeof families.$inferSelect;
 
+// Events table (for occasions like birthdays, weddings, Christmas, etc.)
+export const events = pgTable("events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  familyId: varchar("family_id").notNull().references(() => families.id, { onDelete: 'cascade' }),
+  name: varchar("name", { length: 255 }).notNull(),
+  date: timestamp("date"), // Optional date for the event
+  eventType: varchar("event_type", { length: 50 }).notNull(), // christmas, birthday, wedding, baby_shower, hanukkah, graduation, other
+  themePrimary: varchar("theme_primary", { length: 7 }).default("#DC2626"), // Hex color code for primary
+  themeAccent: varchar("theme_accent", { length: 7 }).default("#15803D"), // Hex color code for accent
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_events_family_lookup").on(table.familyId, table.isActive),
+]);
+
+export const eventsRelations = relations(events, ({ one, many }) => ({
+  family: one(families, {
+    fields: [events.familyId],
+    references: [families.id],
+  }),
+  wishlistItems: many(wishlistItems),
+  activityLogs: many(activityLogs),
+}));
+
+export const insertEventSchema = createInsertSchema(events).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertEvent = z.infer<typeof insertEventSchema>;
+export type Event = typeof events.$inferSelect;
+
 // Family members join table (supports both real users and managed profiles)
 export const familyMembers = pgTable("family_members", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -141,6 +173,7 @@ export const wishlistItems = pgTable("wishlist_items", {
   userId: varchar("user_id").references(() => users.id, { onDelete: 'cascade' }), // Nullable - either userId OR managedProfileId
   managedProfileId: varchar("managed_profile_id").references(() => managedProfiles.id, { onDelete: 'cascade' }), // Nullable - for children/dependents
   familyId: varchar("family_id").notNull().references(() => families.id, { onDelete: 'cascade' }),
+  eventId: varchar("event_id").references(() => events.id, { onDelete: 'cascade' }), // Nullable for backward compatibility
   name: varchar("name", { length: 255 }).notNull(),
   description: text("description"),
   price: decimal("price", { precision: 10, scale: 2 }),
@@ -156,6 +189,7 @@ export const wishlistItems = pgTable("wishlist_items", {
 }, (table) => [
   index("idx_wishlist_items_lookup").on(table.familyId, table.userId, table.priority),
   index("idx_wishlist_items_managed_lookup").on(table.familyId, table.managedProfileId, table.priority),
+  index("idx_wishlist_items_event_lookup").on(table.eventId, table.familyId),
 ]);
 
 export const wishlistItemsRelations = relations(wishlistItems, ({ one, many }) => ({
@@ -170,6 +204,10 @@ export const wishlistItemsRelations = relations(wishlistItems, ({ one, many }) =
   family: one(families, {
     fields: [wishlistItems.familyId],
     references: [families.id],
+  }),
+  event: one(events, {
+    fields: [wishlistItems.eventId],
+    references: [events.id],
   }),
   purchases: many(itemPurchases),
 }));
@@ -214,6 +252,7 @@ export type ItemPurchase = typeof itemPurchases.$inferSelect;
 export const activityLogs = pgTable("activity_logs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   familyId: varchar("family_id").notNull().references(() => families.id, { onDelete: 'cascade' }),
+  eventId: varchar("event_id").references(() => events.id, { onDelete: 'cascade' }), // Nullable for backward compatibility
   actorId: varchar("actor_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
   targetUserId: varchar("target_user_id").references(() => users.id, { onDelete: 'cascade' }), // Optional: user affected by action
   itemId: varchar("item_id").references(() => wishlistItems.id, { onDelete: 'cascade' }), // Optional: related wishlist item
@@ -222,12 +261,17 @@ export const activityLogs = pgTable("activity_logs", {
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
   index("idx_activity_logs_family_created").on(table.familyId, table.createdAt),
+  index("idx_activity_logs_event_created").on(table.eventId, table.createdAt),
 ]);
 
 export const activityLogsRelations = relations(activityLogs, ({ one }) => ({
   family: one(families, {
     fields: [activityLogs.familyId],
     references: [families.id],
+  }),
+  event: one(events, {
+    fields: [activityLogs.eventId],
+    references: [events.id],
   }),
   actor: one(users, {
     fields: [activityLogs.actorId],
