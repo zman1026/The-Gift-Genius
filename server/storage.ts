@@ -1148,8 +1148,9 @@ export class DatabaseStorage implements IStorage {
       throw new Error("You are not a member of this family");
     }
 
-    // Build event filter for SQL queries
-    const eventFilter = eventId ? sql`AND event_id = ${eventId}` : sql``;
+    // Build event filter for SQL queries (qualified with table alias where needed)
+    const eventFilterWishlistItems = eventId ? sql`AND wishlist_items.event_id = ${eventId}` : sql``;
+    const eventFilterWi = eventId ? sql`AND wi.event_id = ${eventId}` : sql``;
 
     // Single optimized query using raw SQL for maximum performance
     const result = await db.execute(sql`
@@ -1159,7 +1160,7 @@ export class DatabaseStorage implements IStorage {
           FROM ${wishlistItems}
           WHERE user_id = ${userId}
           AND family_id = ${familyId}
-          ${eventFilter}
+          ${eventFilterWishlistItems}
         ) as my_items_count,
         (
           SELECT COUNT(DISTINCT user_id)::int
@@ -1174,7 +1175,7 @@ export class DatabaseStorage implements IStorage {
           AND wi.user_id != ${userId}
           AND ip.id IS NULL
           AND wi.priority = 'high'
-          ${eventFilter}
+          ${eventFilterWi}
         ) as items_to_purchase_count,
         (
           SELECT COALESCE(SUM(COALESCE(wi.price, 0)), 0)::text
@@ -1182,7 +1183,7 @@ export class DatabaseStorage implements IStorage {
           INNER JOIN ${wishlistItems} wi ON ip.item_id = wi.id
           WHERE ip.purchased_by_id = ${userId}
           AND wi.family_id = ${familyId}
-          ${eventFilter}
+          ${eventFilterWi}
         ) as total_purchased
     `);
 
@@ -1230,7 +1231,7 @@ export class DatabaseStorage implements IStorage {
       throw new Error("You are not a member of this family");
     }
 
-    const eventFilter = eventId ? sql`AND event_id = ${eventId}` : sql``;
+    const eventFilter = eventId ? sql`AND wi.event_id = ${eventId}` : sql``;
 
     // Get item counts for each member (both users and managed profiles)
     const result = await db.execute(sql`
@@ -1269,7 +1270,7 @@ export class DatabaseStorage implements IStorage {
     }
 
     const insights: any[] = [];
-    const eventFilter = eventId ? sql`AND event_id = ${eventId}` : sql``;
+    const eventFilter = eventId ? sql`AND wi.event_id = ${eventId}` : sql``;
 
     // Get high-priority items that need gifts
     const highPriorityResult = await db.execute(sql`
