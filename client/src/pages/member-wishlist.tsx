@@ -7,6 +7,7 @@ import { isUnauthorizedError } from "@/lib/authUtils";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useFamily } from "@/contexts/FamilyContext";
 import { useEvent } from "@/contexts/EventContext";
+import { useCurrentMember } from "@/contexts/CurrentMemberContext";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -36,6 +37,7 @@ export default function MemberWishlist() {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const { selectedFamilyId, families } = useFamily();
   const { selectedEventId } = useEvent();
+  const { setCurrentMember, clearCurrentMember } = useCurrentMember();
   const currentUserId = (user as any)?.id;
   const [, params] = useRoute("/members/:userId");
   const [, setLocation] = useLocation();
@@ -111,6 +113,19 @@ export default function MemberWishlist() {
     enabled: !!userId && !!selectedFamilyId && !!selectedEventId,
     retry: false,
   });
+
+  // Set/clear current member context when viewing this page
+  useEffect(() => {
+    if (userId && memberData) {
+      const displayName = memberData.displayName || 
+        (memberData.firstName ? `${memberData.firstName} ${memberData.lastName || ''}`.trim() : '') ||
+        memberData.email;
+      setCurrentMember(userId, displayName);
+    }
+    return () => {
+      clearCurrentMember();
+    };
+  }, [userId, memberData, setCurrentMember, clearCurrentMember]);
 
   const markPurchasedMutation = useMutation({
     mutationFn: async ({ itemId, notes }: { itemId: string; notes: string }) => {

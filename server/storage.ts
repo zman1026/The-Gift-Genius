@@ -842,7 +842,7 @@ export class DatabaseStorage implements IStorage {
     
     const familyCondition = familyId
       ? eq(wishlistItems.familyId, familyId)
-      : sql`${wishlistItems.familyId} = ANY(${sharedFamilyIds})`;
+      : inArray(wishlistItems.familyId, sharedFamilyIds);
 
     const conditions = [memberCondition, familyCondition];
     

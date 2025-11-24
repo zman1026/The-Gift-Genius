@@ -11,6 +11,51 @@ import { ObjectPermission } from "./objectAcl";
 import memoize from "memoizee";
 import { bulkDeleteItemsSchema, bulkUpdatePrioritySchema, setBudgetAllocationsSchema, logOffWishlistPurchaseSchema } from "@shared/schema";
 
+/**
+ * Helper function to compute recipient display name for activity logs
+ * Checks family_members.displayName first, then falls back to firstName + lastName
+ */
+async function getRecipientDisplayName(
+  familyId: string,
+  userId: string | null,
+  managedProfileId: string | null
+): Promise<string | null> {
+  if (!userId && !managedProfileId) {
+    return null;
+  }
+
+  const targetId = userId || managedProfileId;
+  if (!targetId) {
+    return null;
+  }
+
+  // Get family member info (includes displayName from family_members table)
+  const targetInfo = await storage.getFamilyMemberByAnyId(familyId, targetId);
+  if (!targetInfo) {
+    return null;
+  }
+
+  // If displayName is set in family_members table, use it
+  if (targetInfo.member.displayName) {
+    return targetInfo.member.displayName;
+  }
+
+  // Fall back to firstName + lastName from user or managed profile
+  if (targetInfo.matchedField === 'managedProfileId') {
+    const profile = await storage.getManagedProfile(targetId);
+    if (profile) {
+      return `${profile.firstName || ""} ${profile.lastName || ""}`.trim() || null;
+    }
+  } else {
+    const user = await storage.getUser(targetId);
+    if (user) {
+      return `${user.firstName || ""} ${user.lastName || ""}`.trim() || null;
+    }
+  }
+
+  return null;
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
   await setupAuth(app);
@@ -921,6 +966,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         itemType: itemType || "product",
       });
 
+      // Compute recipient display name for activity log
+      const recipientDisplayName = await getRecipientDisplayName(
+        targetFamilyId,
+        item.userId,
+        item.managedProfileId
+      );
+
       // Log activity
       await storage.createActivityLog({
         familyId: targetFamilyId,
@@ -932,6 +984,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           itemName: name,
           priority: priority || "medium",
           itemType: itemType || "product",
+          recipientUserId: item.userId,
+          recipientManagedProfileId: item.managedProfileId,
+          recipientDisplayName,
         },
       });
 
@@ -1010,6 +1065,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         itemType: itemType || "product",
       });
 
+      // Compute recipient display name for activity log
+      const recipientDisplayName = await getRecipientDisplayName(
+        targetFamilyId,
+        item.userId,
+        item.managedProfileId
+      );
+
       // Log activity
       await storage.createActivityLog({
         familyId: targetFamilyId,
@@ -1022,6 +1084,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           priority: priority || "medium",
           itemType: itemType || "product",
           source: source || "google_shopping",
+          recipientUserId: item.userId,
+          recipientManagedProfileId: item.managedProfileId,
+          recipientDisplayName,
         },
       });
 
@@ -1092,6 +1157,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const item = await storage.createWishlistItem(itemData);
 
+      // Compute recipient display name for activity log
+      const recipientDisplayName = await getRecipientDisplayName(
+        familyId,
+        item.userId,
+        item.managedProfileId
+      );
+
       // Log activity with recipient information
       await storage.createActivityLog({
         familyId,
@@ -1103,9 +1175,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           itemName: name,
           priority: priority || "medium",
           itemType: category || "product",
-          recipientUserId: targetInfo.matchedField === 'userId' ? targetUserId : null,
-          recipientManagedProfileId: targetInfo.matchedField === 'managedProfileId' ? targetUserId : null,
-          recipientDisplayName: targetInfo.member.displayName,
+          recipientUserId: item.userId,
+          recipientManagedProfileId: item.managedProfileId,
+          recipientDisplayName,
         },
       });
 

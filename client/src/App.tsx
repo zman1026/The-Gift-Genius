@@ -13,6 +13,7 @@ import { UserSettingsDialog } from "@/components/user-settings-dialog";
 import { useAuth } from "@/hooks/useAuth";
 import { FamilyProvider, useFamily } from "@/contexts/FamilyContext";
 import { EventProvider } from "@/contexts/EventContext";
+import { CurrentMemberProvider, useCurrentMember } from "@/contexts/CurrentMemberContext";
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/landing";
 import Home from "@/pages/home";
@@ -33,12 +34,19 @@ import { UnifiedAddItemDialog } from "@/components/unified-add-item-dialog";
 function AuthenticatedContent() {
   const { user } = useAuth();
   const { selectedFamilyId } = useFamily();
+  const { currentMemberId, currentMemberName } = useCurrentMember();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAddItemDialogOpen, setIsAddItemDialogOpen] = useState(false);
   
   const handleAddItemSuccess = () => {
-    // Invalidate wishlist query when an item is added
+    // Invalidate wishlist queries when an item is added
     queryClient.invalidateQueries({ queryKey: ["/api/wishlist"] });
+    // If adding to a member's wishlist, also invalidate their wishlist
+    if (currentMemberId) {
+      queryClient.invalidateQueries({ queryKey: ["/api/members", currentMemberId, "wishlist"] });
+    }
+    // Invalidate activities to show the new activity log
+    queryClient.invalidateQueries({ queryKey: ["/api/activities"] });
     setIsAddItemDialogOpen(false);
   };
 
@@ -105,6 +113,8 @@ function AuthenticatedContent() {
           open={isAddItemDialogOpen} 
           onOpenChange={setIsAddItemDialogOpen}
           familyId={selectedFamilyId}
+          targetUserId={currentMemberId || undefined}
+          targetUserName={currentMemberName || undefined}
           onSuccess={handleAddItemSuccess}
         />
       )}
@@ -133,7 +143,9 @@ function AppContent() {
   return (
     <FamilyProvider>
       <EventProvider>
-        <AuthenticatedContent />
+        <CurrentMemberProvider>
+          <AuthenticatedContent />
+        </CurrentMemberProvider>
       </EventProvider>
     </FamilyProvider>
   );

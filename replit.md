@@ -1,153 +1,48 @@
 # The Gift Genius
 
 ## Overview
-A mobile-first web application designed to help families collaboratively create, share, and manage wishlists for any occasion throughout the year. From birthdays and weddings to holidays and celebrations, The Gift Genius makes gift coordination delightful. It streamlines gift coordination by allowing members to add personal wishes, view others' wishlists, and secretly mark items as purchased, ensuring gift surprises are maintained. The application emphasizes quick access to item addition through a persistent floating action button.
+The Gift Genius is a mobile-first web application designed to facilitate collaborative wishlist management for families across various occasions. It allows users to create, share, and manage wishlists, add items, and secretly mark purchases to preserve gift surprises. The application aims to streamline gift coordination year-round, expanding beyond traditional holiday gift-giving.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 
-## Recent Changes (November 24, 2024)
-- **Activity Logging for Managed Profiles**: Enhanced activity logs to track organizer actions on child wishlists
-  - Activity logs now record when organizers add items to managed profiles' (children's) wishlists
-  - Activity text displays recipient name: "Daniel added Fisher Price Train to Austin's wishlist"
-  - Metadata includes recipientDisplayName, recipientUserId, and recipientManagedProfileId
-  - Works consistently in both dashboard Activity Feed and full Activities page
-- **Dashboard Stats SQL Fixes**: Resolved ambiguous column errors causing intermittent 500 responses
-  - Qualified event_id with proper table aliases (wi.event_id, wishlist_items.event_id) in all dashboard queries
-  - Fixed getUserStatsByFamily, getItemCountsByMember, and getCoordinationInsights functions
-  - Eliminated SQL ambiguity when joining wishlist_items with item_purchases tables
-- **Activity Log Page**: Fixed navigation from dashboard "View All" button
-  - Created dedicated `/activities` page showing full activity log (up to 50 activities)
-  - Fixed incorrect navigation to "More" page - now correctly navigates to Activities page
-  - Displays activity cards with avatars, action icons, descriptions, and timestamps
-  - Includes proper loading states, error handling, and empty state messages
-  - Activity types: item additions, deletions, purchases, unpurchases, and member joins
-- **Off-Wishlist Purchase Tracking**: Added ability to log gifts bought outside the wishlist
-  - New "Log Purchase" button on Budget page per family member
-  - Captures price, description, purchased from store, and private notes
-  - Affects budget calculations (spending tracked across both wishlist and off-wishlist purchases)
-  - Displayed separately on Purchased Items page with "Off-Wishlist" badge
-  - Maintains gift secrecy - hidden from recipients
-  - Uses COALESCE for SQL aggregation of mixed purchase types
-- **Mobile-Optimized Budget Page**: Redesigned budget tracker for better mobile usability
-  - Consolidated 3 overview cards into 1 compact summary card
-  - Streamlined member budget cards with cleaner layout
-  - Reduced spacing and text sizes for mobile
-  - Maintained full currency precision (2 decimals) for accuracy
-  - Proper touch targets (44px minimum) for all interactive elements
-  - Icon-only buttons on mobile with full labels on desktop
-  - Color-coded status indicators (green/yellow/red percentages)
-
 ## System Architecture
 
 ### UI/UX Decisions
-The application combines Pinterest-style visual cards with Notion-style data presentation, featuring a warm, family-oriented aesthetic. It utilizes Inter and Playfair Display fonts with a festive red and green color scheme. The UI is responsive, employing compact grid layouts (2-6 columns) for wishlist items, featuring square aspect-ratio images, reduced spacing, optimized typography, and priority badge overlays. The design prioritizes mobile with a 4-tab bottom navigation bar and a dashboard optimized for single-column stacking. The "Add Item" button in the bottom navigation is always accessible, intelligently enabled/disabled based on family membership, and meets accessibility standards. The member wishlist page is streamlined, showing display name hierarchy, allowing organizers to rename wishlists, and simplifying interactions to focus on individual item detail sheets. Camera-based product search, powered by SerpApi's Google Lens API, allows users to add products by photographing them.
-
-**Navigation & Context Selection (November 24, 2024):** Family and event selectors have been relocated from the top header to the sidebar menu under a dedicated "Context" section. This reorganization frees up valuable header space (especially on mobile) and logically groups global scope controls together. Users access these selectors by opening the sidebar via the hamburger menu button.
-
-**Dashboard Architecture (November 24, 2024):** Event-centric three-tier layout featuring:
-- **EventHero:** Displays event theme colors, countdown to event date, and quick stats (items added, members participating, high priority items)
-- **QuickActions:** Action hub with primary buttons (Add to Wishlist, View All Items, Browse Members)
-- **MemberSpotlight:** Horizontal scrolling carousel showing family members with event-scoped item counts and profile images, with proper loading states to prevent cross-event data leakage
-- **GiftCoordination:** Actionable insights showing top priority items from other members' wishlists
-- **Activity Feed:** Real-time updates of family actions promoted to primary column
-- **Budget Tracker:** Optional component (only displays when budget is set on event)
+The application features a warm, family-oriented aesthetic with a responsive design optimized for mobile. It uses a Pinterest-style visual card layout combined with Notion-style data presentation. Key UI elements include a 4-tab bottom navigation bar, an always-accessible "Add Item" button, and a dashboard with an EventHero, QuickActions, MemberSpotlight, GiftCoordination insights, Activity Feed, and an optional Budget Tracker. Navigation and context selection (family/event) are managed via a sidebar menu. Wishlist items are displayed in compact grid layouts with square aspect-ratio images and priority badge overlays.
 
 ### Technical Implementations
-The frontend uses **React 18**, **TypeScript**, **Wouter** for routing, **TanStack Query v5** for server state, and **Vite**. UI components are built with **shadcn/ui**, **Radix UI**, and **Tailwind CSS**. Form management is handled by **react-hook-form** with **Zod** validation.
+The frontend is built with **React 18**, **TypeScript**, **Wouter** for routing, **TanStack Query v5** for server state, and **Vite**. UI components leverage **shadcn/ui**, **Radix UI**, and **Tailwind CSS**. Form management uses **react-hook-form** with **Zod** validation.
 
-The backend is built with **Express.js** and **TypeScript**, using **Drizzle ORM** for database interactions with **Neon Serverless PostgreSQL**. It provides a RESTful JSON API with session-based authentication via **Replit Auth** (Passport.js/OIDC), and all endpoints feature comprehensive **Zod** validation.
+The backend utilizes **Express.js** and **TypeScript**, with **Drizzle ORM** for database interactions with **Neon Serverless PostgreSQL**. It provides a RESTful JSON API with session-based authentication via **Replit Auth** (Passport.js/OIDC) and comprehensive **Zod** validation for all endpoints.
 
 ### Feature Specifications
-- **User Profiles:** Users can update personal information and profile images.
-- **Managed Profiles (Child Profiles):** Parents can create wishlist profiles for their children without requiring separate accounts. Child profiles appear seamlessly in the family member list alongside regular users, with parents able to add items to their children's wishlists as organizers. Edit and remove options are available for child profiles created by the current user.
-- **Unified Add Item Dialog:** Offers three modes:
-    - **Search:** Find products via SerpApi by text or URL, with smart detection for non-product queries.
-    - **Camera:** Use device camera for visual product search via Google Lens API.
-    - **Manual:** Manually create various item types (product, experience, service, membership, other).
-- **Shopping Options:** Simplified viewing of products via Google Shopping.
-- **Wishlist Image Upload:** Integrates **Uppy v5** for image uploads to Replit Object Storage (10MB limit).
-- **Wishlist Organization:** Items are filterable and sortable by priority and support multiple types.
-- **Family Management:** Invite system via email or codes, with organizer controls for renaming families, setting member display names, updating profiles, and removing members.
-- **Purchased Items:** A privacy-focused section for users to view their own marked purchases and private notes.
-- **Activity Feed:** Real-time tracking of family actions (additions, purchases, new members) displayed on the dashboard.
-- **Budget Tracker:** Parent-focused budget management tool for tracking gift spending per family member per event. Features include:
-    - **Total Budget Overview:** Shows total allocated, spent, and remaining budget for the event
-    - **Per-Person Allocations:** Organizers can set individual budget allocations for each family member (including managed profiles)
-    - **Real-Time Spending Tracking:** Automatically calculates spending based on purchased wishlist items
-    - **Visual Indicators:** Progress bars and status indicators (green/yellow/red) based on budget usage
-    - **Budget Insights:** Displays remaining budget, percentage used, and spending status per member
-    - **Organizer Controls:** Only family organizers can set and edit budget allocations, ensuring proper financial oversight
-- **Error Handling:** App-level error boundary with logging to an authenticated endpoint.
+- **User & Managed Profiles:** Supports individual user profiles and "managed profiles" for children, allowing parents to manage wishlists without separate accounts.
+- **Unified Add Item Dialog:** Offers multiple item addition methods: text/URL search (SerpApi), camera-based visual search (Google Lens API), and manual entry.
+- **Wishlist Management:** Items are filterable, sortable, and support image uploads via Uppy v5.
+- **Family & Event Management:** Includes an invitation system, organizer controls for family settings, and support for multiple, event-specific wishlists (e.g., birthdays, holidays) with customizable themes.
+- **Purchase Tracking:** Users can privately mark wishlist items as purchased and log off-wishlist purchases, impacting budget calculations.
+- **Activity Feed:** Real-time tracking of family actions.
+- **Budget Tracker:** An event-scoped, parent-focused tool for allocating and tracking gift spending per family member, with visual indicators and organizer-only controls.
+- **Error Handling:** App-level error boundary with authenticated logging.
 
 ### System Design Choices
 - **Frontend State:** React Query for server state, custom hooks for logic.
-- **Backend API:** RESTful `/api/*` design with structured error handling and input validation.
+- **Backend API:** RESTful API with structured error handling and Zod validation.
 - **Authentication:** Replit Auth for secure OIDC authentication with session storage.
-- **Data Access:** Drizzle ORM for type-safe database operations with transaction support for critical operations.
-- **Database Schema:** Core tables include `users`, `families`, `family_members`, `events`, `wishlist_items`, `item_purchases`, `activity_logs`, `managed_profiles`, `budget_allocations`, and `sessions` with UUIDs and JSONB metadata for activity logs. The `family_members`, `wishlist_items`, and `budget_allocations` tables support both regular users (via `userId`) and managed profiles (via `managedProfileId`), with exactly one field set per row. The `events` table enables multi-occasion support with customizable themes.
-- **Event System:** Each family can have multiple events (birthdays, weddings, holidays, etc.) with their own themes, dates, and wishlists. Wishlist items, activity logs, and budget allocations are event-scoped for better organization.
-- **Budget System:** Event-scoped budget allocations with server-side validation (Zod schemas), transaction-wrapped updates, and family membership verification. Only family organizers can modify budget allocations, with comprehensive validation preventing negative values, NaN entries, and invalid member references.
-- **Security:** Open redirect prevention, robust authorization with role-based access control, and secure cookie management. Authenticated error logging with payload limits. Budget modifications restricted to family organizers with validation of all allocation targets.
-- **Performance Optimizations:** Server-side caching for SerpApi, optimized search results, database indexes, batched dashboard queries, transactional budget updates, and smart React Query cache invalidation. API responses use Zod schema validation for robust error handling.
-
-## Recent Architecture Changes (November 2024)
-
-### App Rebranding
-- **New Name:** "The Gift Genius" (formerly "Family Christmas Wishlist")
-- **Domain:** thegiftgeniusapp.com
-- **Purpose:** Expanded from Christmas-only to year-round gift coordination
-
-### Event-Based System
-- **Multi-Occasion Support:** Families can now create multiple events (birthdays, weddings, holidays, etc.)
-- **Event-Specific Wishlists:** Wishlist items are event-scoped - each event has its own separate wishlist (partial implementation - see status below)
-- **Event Themes:** Pre-configured themes for different occasions with customizable colors:
-  - Christmas (Red/Green)
-  - Birthday (Purple/Gold)
-  - Wedding (White/Gold)
-  - Baby Shower (Pink/Blue)
-  - Hanukkah (Blue/Silver)
-  - Graduation (Navy/Gold)
-  - Anniversary (Red/White)
-  - Holiday (Red/Green)
-  - Custom Events (Violet/Pink)
-
-### Database Schema Updates
-- **events table:** Stores event details (name, date, type, theme colors, active status)
-- **eventId field:** Added to `wishlist_items` and `activity_logs` tables for event scoping
-- **Migration:** All existing families migrated to default "Holiday 2024" events
-
-### Backend API Additions
-- `GET /api/families/:familyId/events` - List all events for a family
-- `POST /api/families/:familyId/events` - Create a new event
-- `GET /api/events/:eventId` - Get specific event details
-- `PUT /api/events/:eventId` - Update event
-- `DELETE /api/events/:eventId` - Delete event (requires at least one event per family)
-
-### Event-Scoping Implementation Status (November 24, 2024)
-
-**✅ COMPLETED - Full Event Isolation (Production Ready):**
-- All wishlist query endpoints require and validate eventId with family membership verification
-- All item creation, update, and delete endpoints validate event ownership and access
-- Purchase endpoints validate event access before allowing purchase operations
-- Bulk operations (bulk-delete, bulk-priority) require eventId and validate all items belong to the specified event
-- Dashboard queries (stats, activities) filter by selectedEventId when provided
-- Frontend passes selectedEventId to all queries and mutations
-- UI safeguards: "No event selected" message when user hasn't chosen an event
-- Event creation discoverability: Plus icon button when 1 event exists, "Create New Event" option in dropdown when 2+ events exist
-- Frontend cache invalidations use proper query keys for event-scoped data
-- Data migration completed - all existing items assigned to family default events
-
-**Security:** Complete event isolation enforced. Items from Christmas events cannot be viewed, modified, or deleted when viewing Birthday events. All cross-event access paths have been closed and verified through architect review.
+- **Data Access:** Drizzle ORM for type-safe database operations and transactions.
+- **Database Schema:** Core tables include `users`, `families`, `family_members`, `events`, `wishlist_items`, `item_purchases`, `activity_logs`, `managed_profiles`, `budget_allocations`, and `sessions`. Key fields like `eventId` enable multi-occasion support and event-scoped data isolation.
+- **Security:** Robust authorization with role-based access control, open redirect prevention, secure cookie management, and strict validation for budget modifications.
+- **Performance Optimizations:** Server-side caching for external APIs, optimized search, database indexing, batched queries, and smart React Query cache invalidation.
 
 ## External Dependencies
 
--   **Authentication Service:** **Replit Auth** (OpenID Connect via Passport.js)
--   **Database:** **Neon Serverless PostgreSQL**
--   **Email Service:** **Resend** (for invitations)
--   **Product Search:** **SerpApi** (Google Shopping & Google Lens API)
--   **Object Storage:** **Replit Object Storage**
--   **UI Components:** **Radix UI**, **shadcn/ui**, **Tailwind CSS**
--   **File Uploader:** **Uppy v5**
--   **Icons:** **lucide-react**
--   **Date Manipulation:** **date-fns**
+-   **Authentication Service:** Replit Auth
+-   **Database:** Neon Serverless PostgreSQL
+-   **Email Service:** Resend
+-   **Product Search:** SerpApi (Google Shopping & Google Lens API)
+-   **Object Storage:** Replit Object Storage
+-   **UI Components:** Radix UI, shadcn/ui, Tailwind CSS
+-   **File Uploader:** Uppy v5
+-   **Icons:** lucide-react
+-   **Date Manipulation:** date-fns
