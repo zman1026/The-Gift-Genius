@@ -12,7 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Gift, ArrowLeft, CheckCircle2, ExternalLink, MessageSquare, AlertCircle, Circle, ArrowUp, Edit, ShoppingBag } from "lucide-react";
+import { Gift, ArrowLeft, CheckCircle2, ExternalLink, MessageSquare, AlertCircle, Circle, ArrowUp, Edit, ShoppingBag, Plus } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ShoppingOptionsDialog } from "@/components/shopping-options-dialog";
 import { Input } from "@/components/ui/input";
@@ -22,6 +22,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { UnifiedAddItemDialog } from "@/components/unified-add-item-dialog";
 
 const editMemberSchema = z.object({
   displayName: z.string().nullable().optional(),
@@ -43,6 +44,7 @@ export default function MemberWishlist() {
   
   // Detail view state
   const [viewingItem, setViewingItem] = useState<any>(null);
+  const [isAddItemDialogOpen, setIsAddItemDialogOpen] = useState(false);
   
   const selectedFamily = families?.find((f: any) => f.id === selectedFamilyId);
   const isOrganizer = selectedFamily?.createdById === currentUserId;
@@ -279,7 +281,7 @@ export default function MemberWishlist() {
           </AvatarFallback>
         </Avatar>
         <div className="flex-1">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <h1 className="font-serif text-3xl md:text-4xl font-semibold text-foreground" data-testid="member-name">
               {primaryDisplayName}'s Wishlist
             </h1>
@@ -307,6 +309,15 @@ export default function MemberWishlist() {
             {items?.length || 0} items on their list
           </p>
         </div>
+        {isOrganizer && (
+          <Button 
+            onClick={() => setIsAddItemDialogOpen(true)}
+            data-testid="button-add-item-for-member"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Add Item to {memberData?.firstName || "Their"} List
+          </Button>
+        )}
       </div>
 
       {!hasItems ? (
@@ -623,6 +634,20 @@ export default function MemberWishlist() {
           </Form>
         </DialogContent>
       </Dialog>
+      
+      {selectedFamilyId && userId && (
+        <UnifiedAddItemDialog 
+          open={isAddItemDialogOpen} 
+          onOpenChange={setIsAddItemDialogOpen}
+          familyId={selectedFamilyId}
+          targetUserId={userId}
+          targetUserName={primaryDisplayName}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ["/api/members", userId, "wishlist", selectedFamilyId] });
+            setIsAddItemDialogOpen(false);
+          }}
+        />
+      )}
     </div>
   );
 }

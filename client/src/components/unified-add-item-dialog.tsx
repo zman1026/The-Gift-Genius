@@ -70,6 +70,8 @@ interface UnifiedAddItemDialogProps {
   onOpenChange: (open: boolean) => void;
   familyId: string;
   onSuccess: () => void;
+  targetUserId?: string;
+  targetUserName?: string;
 }
 
 export function UnifiedAddItemDialog({
@@ -77,6 +79,8 @@ export function UnifiedAddItemDialog({
   onOpenChange,
   familyId,
   onSuccess,
+  targetUserId,
+  targetUserName,
 }: UnifiedAddItemDialogProps) {
   const [activeTab, setActiveTab] = useState("quick");
   const [searchQuery, setSearchQuery] = useState("");
@@ -258,7 +262,12 @@ export function UnifiedAddItemDialog({
         override, // Pass override flag to bypass duplicate check if needed
       };
 
-      const response = await fetch("/api/wishlist/from-search", {
+      // Use organizer endpoint if adding for another user
+      const endpoint = targetUserId 
+        ? `/api/families/${familyId}/members/${targetUserId}/wishlist`
+        : "/api/wishlist/from-search";
+
+      const response = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -301,7 +310,12 @@ export function UnifiedAddItemDialog({
         override, // Pass override flag to bypass duplicate check if needed
       };
 
-      const response = await fetch("/api/wishlist", {
+      // Use organizer endpoint if adding for another user
+      const endpoint = targetUserId 
+        ? `/api/families/${familyId}/members/${targetUserId}/wishlist`
+        : "/api/wishlist";
+
+      const response = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -510,7 +524,7 @@ export function UnifiedAddItemDialog({
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Add to Wishlist</DialogTitle>
+            <DialogTitle>{targetUserName ? `Add to ${targetUserName}'s Wishlist` : "Add to Wishlist"}</DialogTitle>
             <DialogDescription>
               Search for a product or create a custom item
             </DialogDescription>
