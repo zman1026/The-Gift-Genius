@@ -39,17 +39,25 @@ The backend is built with **Express.js** and **TypeScript**, using **Drizzle ORM
 - **Family Management:** Invite system via email or codes, with organizer controls for renaming families, setting member display names, updating profiles, and removing members.
 - **Purchased Items:** A privacy-focused section for users to view their own marked purchases and private notes.
 - **Activity Feed:** Real-time tracking of family actions (additions, purchases, new members) displayed on the dashboard.
+- **Budget Tracker:** Parent-focused budget management tool for tracking gift spending per family member per event. Features include:
+    - **Total Budget Overview:** Shows total allocated, spent, and remaining budget for the event
+    - **Per-Person Allocations:** Organizers can set individual budget allocations for each family member (including managed profiles)
+    - **Real-Time Spending Tracking:** Automatically calculates spending based on purchased wishlist items
+    - **Visual Indicators:** Progress bars and status indicators (green/yellow/red) based on budget usage
+    - **Budget Insights:** Displays remaining budget, percentage used, and spending status per member
+    - **Organizer Controls:** Only family organizers can set and edit budget allocations, ensuring proper financial oversight
 - **Error Handling:** App-level error boundary with logging to an authenticated endpoint.
 
 ### System Design Choices
 - **Frontend State:** React Query for server state, custom hooks for logic.
 - **Backend API:** RESTful `/api/*` design with structured error handling and input validation.
 - **Authentication:** Replit Auth for secure OIDC authentication with session storage.
-- **Data Access:** Drizzle ORM for type-safe database operations.
-- **Database Schema:** Core tables include `users`, `families`, `family_members`, `events`, `wishlist_items`, `item_purchases`, `activity_logs`, `managed_profiles`, and `sessions` with UUIDs and JSONB metadata for activity logs. The `family_members` and `wishlist_items` tables support both regular users (via `userId`) and managed profiles (via `managedProfileId`), with exactly one field set per row. The `events` table enables multi-occasion support with customizable themes.
-- **Event System:** Each family can have multiple events (birthdays, weddings, holidays, etc.) with their own themes, dates, and wishlists. Wishlist items and activity logs are event-scoped for better organization.
-- **Security:** Open redirect prevention, robust authorization, and secure cookie management. Authenticated error logging with payload limits.
-- **Performance Optimizations:** Server-side caching for SerpApi, optimized search results, database indexes, batched dashboard queries, and smart React Query cache invalidation. API responses use Zod schema validation for robust error handling.
+- **Data Access:** Drizzle ORM for type-safe database operations with transaction support for critical operations.
+- **Database Schema:** Core tables include `users`, `families`, `family_members`, `events`, `wishlist_items`, `item_purchases`, `activity_logs`, `managed_profiles`, `budget_allocations`, and `sessions` with UUIDs and JSONB metadata for activity logs. The `family_members`, `wishlist_items`, and `budget_allocations` tables support both regular users (via `userId`) and managed profiles (via `managedProfileId`), with exactly one field set per row. The `events` table enables multi-occasion support with customizable themes.
+- **Event System:** Each family can have multiple events (birthdays, weddings, holidays, etc.) with their own themes, dates, and wishlists. Wishlist items, activity logs, and budget allocations are event-scoped for better organization.
+- **Budget System:** Event-scoped budget allocations with server-side validation (Zod schemas), transaction-wrapped updates, and family membership verification. Only family organizers can modify budget allocations, with comprehensive validation preventing negative values, NaN entries, and invalid member references.
+- **Security:** Open redirect prevention, robust authorization with role-based access control, and secure cookie management. Authenticated error logging with payload limits. Budget modifications restricted to family organizers with validation of all allocation targets.
+- **Performance Optimizations:** Server-side caching for SerpApi, optimized search results, database indexes, batched dashboard queries, transactional budget updates, and smart React Query cache invalidation. API responses use Zod schema validation for robust error handling.
 
 ## Recent Architecture Changes (November 2024)
 

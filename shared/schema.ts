@@ -129,6 +129,45 @@ export const insertEventSchema = createInsertSchema(events).omit({
 export type InsertEvent = z.infer<typeof insertEventSchema>;
 export type Event = typeof events.$inferSelect;
 
+// Budget allocations table (per-person budget tracking for events)
+export const budgetAllocations = pgTable("budget_allocations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  eventId: varchar("event_id").notNull().references(() => events.id, { onDelete: 'cascade' }),
+  userId: varchar("user_id").references(() => users.id, { onDelete: 'cascade' }), // Nullable - either userId OR managedProfileId
+  managedProfileId: varchar("managed_profile_id").references(() => managedProfiles.id, { onDelete: 'cascade' }), // Nullable - for children/dependents
+  allocatedAmount: decimal("allocated_amount", { precision: 10, scale: 2 }).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_budget_allocations_event").on(table.eventId),
+  index("idx_budget_allocations_user").on(table.userId, table.eventId),
+  index("idx_budget_allocations_managed").on(table.managedProfileId, table.eventId),
+]);
+
+export const budgetAllocationsRelations = relations(budgetAllocations, ({ one }) => ({
+  event: one(events, {
+    fields: [budgetAllocations.eventId],
+    references: [events.id],
+  }),
+  user: one(users, {
+    fields: [budgetAllocations.userId],
+    references: [users.id],
+  }),
+  managedProfile: one(managedProfiles, {
+    fields: [budgetAllocations.managedProfileId],
+    references: [managedProfiles.id],
+  }),
+}));
+
+export const insertBudgetAllocationSchema = createInsertSchema(budgetAllocations).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertBudgetAllocation = z.infer<typeof insertBudgetAllocationSchema>;
+export type BudgetAllocation = typeof budgetAllocations.$inferSelect;
+
 // Family members join table (supports both real users and managed profiles)
 export const familyMembers = pgTable("family_members", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -312,3 +351,22 @@ export const bulkUpdatePrioritySchema = z.object({
 });
 
 export type BulkUpdatePriority = z.infer<typeof bulkUpdatePrioritySchema>;
+
+export const budgetAllocationItemSchema = z.object({
+  userId: z.string().min(1).nullable(),
+  managedProfileId: z.string().min(1).nullable(),
+  allocatedAmount: z.number().min(0, "Budget allocation must be non-negative"),
+}).refine(
+  (data) => {
+    const hasUserId = data.userId !== null && data.userId !== undefined && data.userId.trim() !== '';
+    const hasManagedProfileId = data.managedProfileId !== null && data.managedProfileId !== undefined && data.managedProfileId.trim() !== '';
+    return hasUserId !== hasManagedProfileId; // XOR: exactly one must be true
+  },
+  { message: "Exactly one of userId or managedProfileId must be provided" }
+);
+
+export const setBudgetAllocationsSchema = z.object({
+  allocations: z.array(budgetAllocationItemSchema),
+});
+
+export type SetBudgetAllocations = z.infer<typeof setBudgetAllocationsSchema>;

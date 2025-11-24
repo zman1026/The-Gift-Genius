@@ -7,6 +7,7 @@ import {
   activityLogs,
   managedProfiles,
   events,
+  budgetAllocations,
   type User,
   type UpsertUser,
   type Family,
@@ -115,6 +116,10 @@ export interface IStorage {
   getEvent(id: string): Promise<Event | undefined>;
   updateEvent(id: string, updates: Partial<InsertEvent>, requesterId: string): Promise<Event>;
   deleteEvent(id: string, familyId: string, requesterId: string): Promise<void>;
+  
+  // Budget operations
+  getEventBudgetOverview(eventId: string): Promise<any>;
+  setBudgetAllocations(eventId: string, allocations: any[]): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -338,6 +343,19 @@ export class DatabaseStorage implements IStorage {
 
     // This should never happen due to the WHERE clause, but adding for safety
     return undefined;
+  }
+
+  async getFamilyMembersByFamilyId(familyId: string): Promise<Array<{ userId: string | null; managedProfileId: string | null }>> {
+    // Get all members (users and managed profiles) for a specific family
+    const members = await db
+      .select({
+        userId: familyMembers.userId,
+        managedProfileId: familyMembers.managedProfileId,
+      })
+      .from(familyMembers)
+      .where(eq(familyMembers.familyId, familyId));
+    
+    return members;
   }
 
   async updateFamilyMemberDisplayName(familyId: string, userId: string, displayName: string | null, requesterId: string): Promise<FamilyMember> {
@@ -1370,6 +1388,133 @@ export class DatabaseStorage implements IStorage {
     }
 
     await db.delete(events).where(eq(events.id, id));
+  }
+
+  // Budget operations
+  async getEventBudgetOverview(eventId: string): Promise<any> {
+    // Get event details
+    const event = await this.getEvent(eventId);
+    if (!event) {
+      throw new Error("Event not found");
+    }
+
+    // Get all family members for this event's family
+    const membersQuery = await db
+      .select({
+        userId: familyMembers.userId,
+        managedProfileId: familyMembers.managedProfileId,
+        displayName: familyMembers.displayName,
+        firstName: sql<string>`COALESCE(${users.firstName}, ${managedProfiles.firstName})`,
+        lastName: sql<string>`COALESCE(${users.lastName}, ${managedProfiles.lastName})`,
+        profileImageUrl: sql<string>`COALESCE(${users.profileImageUrl}, ${managedProfiles.profileImageUrl})`,
+      })
+      .from(familyMembers)
+      .leftJoin(users, eq(familyMembers.userId, users.id))
+      .leftJoin(managedProfiles, eq(familyMembers.managedProfileId, managedProfiles.id))
+      .where(eq(familyMembers.familyId, event.familyId));
+
+    // Get budget allocations for this event
+    const allocations = await db
+      .select()
+      .from(budgetAllocations)
+      .where(eq(budgetAllocations.eventId, eventId));
+
+    // Get spending per member (sum of prices for purchased items)
+    const spendingQuery = await db
+      .select({
+        userId: wishlistItems.userId,
+        managedProfileId: wishlistItems.managedProfileId,
+        totalSpent: sql<number>`COALESCE(SUM(CAST(${wishlistItems.price} AS NUMERIC)), 0)`,
+      })
+      .from(wishlistItems)
+      .innerJoin(itemPurchases, eq(wishlistItems.id, itemPurchases.itemId))
+      .where(eq(wishlistItems.eventId, eventId))
+      .groupBy(wishlistItems.userId, wishlistItems.managedProfileId);
+
+    // Build spending map
+    const spendingMap = new Map<string, number>();
+    for (const row of spendingQuery) {
+      const key = row.userId || row.managedProfileId || '';
+      spendingMap.set(key, Number(row.totalSpent));
+    }
+
+    // Build allocation map
+    const allocationMap = new Map<string, number>();
+    for (const allocation of allocations) {
+      const key = allocation.userId || allocation.managedProfileId || '';
+      allocationMap.set(key, parseFloat(allocation.allocatedAmount));
+    }
+
+    // Build member budget data
+    const memberBudgets = membersQuery.map(member => {
+      const key = member.userId || member.managedProfileId || '';
+      const allocated = allocationMap.get(key) || 0;
+      const spent = spendingMap.get(key) || 0;
+      const remaining = allocated - spent;
+      const percentUsed = allocated > 0 ? (spent / allocated) * 100 : 0;
+
+      let status: 'good' | 'warning' | 'over' = 'good';
+      if (percentUsed >= 100) {
+        status = 'over';
+      } else if (percentUsed >= 80) {
+        status = 'warning';
+      }
+
+      return {
+        userId: member.userId,
+        managedProfileId: member.managedProfileId,
+        displayName: member.displayName || `${member.firstName} ${member.lastName || ''}`.trim(),
+        firstName: member.firstName,
+        lastName: member.lastName,
+        profileImageUrl: member.profileImageUrl,
+        allocated,
+        spent,
+        remaining,
+        percentUsed,
+        status,
+      };
+    });
+
+    // Calculate totals
+    const totalAllocated = memberBudgets.reduce((sum, m) => sum + m.allocated, 0);
+    const totalSpent = memberBudgets.reduce((sum, m) => sum + m.spent, 0);
+    const totalRemaining = totalAllocated - totalSpent;
+
+    return {
+      event,
+      totalAllocated,
+      totalSpent,
+      totalRemaining,
+      memberBudgets,
+    };
+  }
+
+  async setBudgetAllocations(eventId: string, allocations: any[]): Promise<void> {
+    // Validate all allocations have valid numbers
+    for (const allocation of allocations) {
+      const amount = parseFloat(allocation.allocatedAmount);
+      if (isNaN(amount) || amount < 0) {
+        throw new Error("Invalid allocation amount: must be a non-negative number");
+      }
+    }
+
+    // Use transaction to ensure atomic delete + insert
+    await db.transaction(async (tx) => {
+      // Delete existing allocations for this event
+      await tx.delete(budgetAllocations).where(eq(budgetAllocations.eventId, eventId));
+
+      // Insert new allocations
+      if (allocations.length > 0) {
+        await tx.insert(budgetAllocations).values(
+          allocations.map(allocation => ({
+            eventId,
+            userId: allocation.userId || null,
+            managedProfileId: allocation.managedProfileId || null,
+            allocatedAmount: allocation.allocatedAmount.toString(),
+          }))
+        );
+      }
+    });
   }
 }
 

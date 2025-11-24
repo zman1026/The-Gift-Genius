@@ -9,7 +9,7 @@ import * as cheerio from "cheerio";
 import { ObjectStorageService, ObjectNotFoundError, objectStorageClient } from "./objectStorage";
 import { ObjectPermission } from "./objectAcl";
 import memoize from "memoizee";
-import { bulkDeleteItemsSchema, bulkUpdatePrioritySchema } from "@shared/schema";
+import { bulkDeleteItemsSchema, bulkUpdatePrioritySchema, setBudgetAllocationsSchema } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
@@ -700,6 +700,102 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       console.error("Error deleting event:", error);
       res.status(500).json({ message: "Failed to delete event" });
+    }
+  });
+
+  // Budget routes
+  app.get('/api/events/:eventId/budget', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { eventId } = req.params;
+
+      // Verify event exists
+      const event = await storage.getEvent(eventId);
+      if (!event) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+
+      // Verify user is a member of the event's family
+      const membership = await storage.getFamilyMember(event.familyId, userId);
+      if (!membership) {
+        return res.status(403).json({ message: "You are not a member of this event's family" });
+      }
+
+      const budgetData = await storage.getEventBudgetOverview(eventId);
+      res.json(budgetData);
+    } catch (error) {
+      console.error("Error getting budget overview:", error);
+      res.status(500).json({ message: "Failed to get budget overview" });
+    }
+  });
+
+  app.put('/api/events/:eventId/budget/allocations', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { eventId } = req.params;
+
+      // Verify event exists
+      const event = await storage.getEvent(eventId);
+      if (!event) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+
+      // Verify user is an organizer of the event's family
+      const membership = await storage.getFamilyMember(event.familyId, userId);
+      if (!membership) {
+        return res.status(403).json({ message: "You are not a member of this event's family" });
+      }
+
+      const family = await storage.getFamily(event.familyId);
+      if (!family) {
+        return res.status(404).json({ message: "Family not found" });
+      }
+
+      if (family.createdById !== userId) {
+        return res.status(403).json({ message: "Only family organizers can set budget allocations" });
+      }
+
+      // Validate payload with Zod
+      const validatedData = setBudgetAllocationsSchema.parse(req.body);
+
+      // Verify all allocation targets belong to the event's family
+      const familyMembersData = await storage.getFamilyMembersByFamilyId(event.familyId);
+      const familyMemberIds = new Set<string>();
+      
+      // Build set of valid member IDs (both userId and managedProfileId)
+      for (const member of familyMembersData) {
+        if (member.userId) familyMemberIds.add(member.userId);
+        if (member.managedProfileId) familyMemberIds.add(member.managedProfileId);
+      }
+
+      // Validate each allocation target exists in the family
+      for (const allocation of validatedData.allocations) {
+        const targetId = allocation.userId || allocation.managedProfileId;
+        
+        // Explicitly reject if targetId is falsy (shouldn't happen due to Zod, but extra safety)
+        if (!targetId || typeof targetId !== 'string' || targetId.trim() === '') {
+          return res.status(400).json({ 
+            message: "Invalid allocation: each allocation must have a valid userId or managedProfileId" 
+          });
+        }
+        
+        // Verify the target is a member of this family
+        if (!familyMemberIds.has(targetId)) {
+          return res.status(400).json({ 
+            message: "All budget allocations must be for members of this event's family" 
+          });
+        }
+      }
+
+      await storage.setBudgetAllocations(eventId, validatedData.allocations);
+      const updatedBudget = await storage.getEventBudgetOverview(eventId);
+      res.json(updatedBudget);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid budget allocation data", errors: error.errors });
+      }
+      console.error("Error setting budget allocations:", error);
+      res.status(500).json({ message: "Failed to set budget allocations" });
     }
   });
 
