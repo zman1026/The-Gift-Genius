@@ -18,6 +18,7 @@ The backend is built with **Express.js** and **TypeScript**, using **Drizzle ORM
 
 ### Feature Specifications
 - **User Profiles:** Users can update personal information and profile images.
+- **Managed Profiles (Child Profiles):** Parents can create wishlist profiles for their children without requiring separate accounts. Child profiles appear seamlessly in the family member list alongside regular users, with parents able to add items to their children's wishlists as organizers. Edit and remove options are available for child profiles created by the current user.
 - **Unified Add Item Dialog:** Offers three modes:
     - **Search:** Find products via SerpApi by text or URL, with smart detection for non-product queries.
     - **Camera:** Use device camera for visual product search via Google Lens API.
@@ -35,7 +36,7 @@ The backend is built with **Express.js** and **TypeScript**, using **Drizzle ORM
 - **Backend API:** RESTful `/api/*` design with structured error handling and input validation.
 - **Authentication:** Replit Auth for secure OIDC authentication with session storage.
 - **Data Access:** Drizzle ORM for type-safe database operations.
-- **Database Schema:** Core tables include `users`, `families`, `family_members`, `wishlist_items`, `item_purchases`, `activity_logs`, and `sessions` with UUIDs and JSONB metadata for activity logs.
+- **Database Schema:** Core tables include `users`, `families`, `family_members`, `wishlist_items`, `item_purchases`, `activity_logs`, `managed_profiles`, and `sessions` with UUIDs and JSONB metadata for activity logs. The `family_members` and `wishlist_items` tables support both regular users (via `userId`) and managed profiles (via `managedProfileId`), with exactly one field set per row.
 - **Security:** Open redirect prevention, robust authorization, and secure cookie management. Authenticated error logging with payload limits.
 - **Performance Optimizations:** Server-side caching for SerpApi, optimized search results, database indexes, batched dashboard queries, and smart React Query cache invalidation. API responses use Zod schema validation for robust error handling.
 
