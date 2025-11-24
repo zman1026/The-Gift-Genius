@@ -9,7 +9,7 @@ import * as cheerio from "cheerio";
 import { ObjectStorageService, ObjectNotFoundError, objectStorageClient } from "./objectStorage";
 import { ObjectPermission } from "./objectAcl";
 import memoize from "memoizee";
-import { bulkDeleteItemsSchema, bulkUpdatePrioritySchema, setBudgetAllocationsSchema } from "@shared/schema";
+import { bulkDeleteItemsSchema, bulkUpdatePrioritySchema, setBudgetAllocationsSchema, logOffWishlistPurchaseSchema } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
@@ -1428,7 +1428,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/purchases', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const { familyId } = req.query;
+      const { familyId, eventId } = req.query;
 
       if (!familyId || typeof familyId !== 'string') {
         return res.status(400).json({ message: "familyId is required" });
@@ -1439,11 +1439,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "You are not a member of this family" });
       }
 
-      const purchases = await storage.getPurchasedItemsByUser(userId, familyId);
+      const purchases = await storage.getPurchasedItemsByUser(
+        userId, 
+        familyId, 
+        eventId && typeof eventId === 'string' ? eventId : undefined
+      );
       res.json(purchases);
     } catch (error) {
       console.error("Error fetching purchased items:", error);
       res.status(500).json({ message: "Failed to fetch purchased items" });
+    }
+  });
+
+  // Log off-wishlist purchase (gifts bought outside the wishlist)
+  app.post('/api/purchases/off-list', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      // Validate request body using Zod schema
+      const validation = logOffWishlistPurchaseSchema.safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({ 
+          message: "Invalid purchase data", 
+          errors: validation.error.errors 
+        });
+      }
+
+      const purchase = await storage.logOffWishlistPurchase(validation.data, userId);
+      res.status(201).json(purchase);
+    } catch (error) {
+      console.error("Error logging off-wishlist purchase:", error);
+      if (error instanceof AuthorizationError) {
+        return res.status(403).json({ message: error.message });
+      }
+      if (error instanceof NotFoundError) {
+        return res.status(404).json({ message: error.message });
+      }
+      res.status(500).json({ message: "Failed to log purchase" });
     }
   });
 

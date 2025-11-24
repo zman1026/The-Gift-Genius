@@ -18,6 +18,7 @@ import {
   type InsertWishlistItem,
   type ItemPurchase,
   type InsertItemPurchase,
+  type LogOffWishlistPurchase,
   type ActivityLog,
   type InsertActivityLog,
   type ManagedProfile,
@@ -95,7 +96,8 @@ export interface IStorage {
   markItemPurchased(purchase: InsertItemPurchase): Promise<ItemPurchase>;
   unmarkItemPurchased(itemId: string, userId: string): Promise<void>;
   getItemPurchase(itemId: string): Promise<ItemPurchase | undefined>;
-  getPurchasedItemsByUser(userId: string, familyId: string): Promise<any[]>;
+  getPurchasedItemsByUser(userId: string, familyId: string, eventId?: string): Promise<any[]>;
+  logOffWishlistPurchase(purchase: LogOffWishlistPurchase, purchasedById: string): Promise<ItemPurchase>;
   
   // Stats operations
   getUserStats(userId: string): Promise<any>;
@@ -980,13 +982,87 @@ export class DatabaseStorage implements IStorage {
     return purchase;
   }
 
-  async getPurchasedItemsByUser(userId: string, familyId: string): Promise<any[]> {
+  async logOffWishlistPurchase(purchase: LogOffWishlistPurchase, purchasedById: string): Promise<ItemPurchase> {
+    // Validate that the purchaser is a member of the family associated with the event
+    const event = await this.getEvent(purchase.eventId);
+    if (!event) {
+      throw new NotFoundError("Event not found");
+    }
+
+    const membership = await this.getFamilyMember(event.familyId, purchasedById);
+    if (!membership) {
+      throw new AuthorizationError("You must be a member of the family to log purchases");
+    }
+
+    // Validate recipient is a member or managed profile in the family
+    if (purchase.recipientUserId) {
+      const recipientMembership = await this.getFamilyMember(event.familyId, purchase.recipientUserId);
+      if (!recipientMembership) {
+        throw new AuthorizationError("Recipient must be a member of the family");
+      }
+    } else if (purchase.recipientManagedProfileId) {
+      const managedProfile = await this.getManagedProfile(purchase.recipientManagedProfileId);
+      if (!managedProfile) {
+        throw new NotFoundError("Managed profile not found");
+      }
+      // Verify the managed profile belongs to a member of this family
+      const creatorMembership = await this.getFamilyMember(event.familyId, managedProfile.createdById);
+      if (!creatorMembership) {
+        throw new AuthorizationError("Managed profile must belong to a family member");
+      }
+    }
+
+    // Create the off-wishlist purchase
+    const [newPurchase] = await db
+      .insert(itemPurchases)
+      .values({
+        eventId: purchase.eventId,
+        purchasedById,
+        recipientUserId: purchase.recipientUserId || null,
+        recipientManagedProfileId: purchase.recipientManagedProfileId || null,
+        price: purchase.price.toString(),
+        description: purchase.description,
+        purchasedFrom: purchase.purchasedFrom || null,
+        notes: purchase.notes || null,
+        itemId: null, // No associated wishlist item
+      })
+      .returning();
+
+    return newPurchase;
+  }
+
+  async getPurchasedItemsByUser(userId: string, familyId: string, eventId?: string): Promise<any[]> {
+    // Get event IDs for this family to filter purchases
+    const familyEvents = await this.getEventsByFamily(familyId);
+    const eventIds = familyEvents.map(e => e.id);
+
+    if (eventIds.length === 0) {
+      return [];
+    }
+
+    // Build where conditions
+    const conditions = [
+      inArray(itemPurchases.eventId, eventIds),
+      eq(itemPurchases.purchasedById, userId)
+    ];
+
+    if (eventId) {
+      conditions.push(eq(itemPurchases.eventId, eventId));
+    }
+
+    // Query with LEFT JOIN to support both wishlist and off-wishlist purchases
     const purchases = await db
       .select({
         id: itemPurchases.id,
         itemId: itemPurchases.itemId,
+        eventId: itemPurchases.eventId,
         notes: itemPurchases.notes,
         purchasedAt: itemPurchases.purchasedAt,
+        price: itemPurchases.price,
+        description: itemPurchases.description,
+        purchasedFrom: itemPurchases.purchasedFrom,
+        recipientUserId: itemPurchases.recipientUserId,
+        recipientManagedProfileId: itemPurchases.recipientManagedProfileId,
         item: {
           id: wishlistItems.id,
           name: wishlistItems.name,
@@ -998,33 +1074,27 @@ export class DatabaseStorage implements IStorage {
           quantity: wishlistItems.quantity,
           category: wishlistItems.category,
           userId: wishlistItems.userId,
+          managedProfileId: wishlistItems.managedProfileId,
         },
-        purchaser: {
-          id: sql<string>`purchaser.id`,
-          email: sql<string>`purchaser.email`,
-          firstName: sql<string>`purchaser.first_name`,
-          lastName: sql<string>`purchaser.last_name`,
-          profileImageUrl: sql<string>`purchaser.profile_image_url`,
+        recipientUser: {
+          id: sql<string>`recipient_user.id`,
+          email: sql<string>`recipient_user.email`,
+          firstName: sql<string>`recipient_user.first_name`,
+          lastName: sql<string>`recipient_user.last_name`,
+          profileImageUrl: sql<string>`recipient_user.profile_image_url`,
         },
-        owner: {
-          id: sql<string>`owner.id`,
-          email: sql<string>`owner.email`,
-          firstName: sql<string>`owner.first_name`,
-          lastName: sql<string>`owner.last_name`,
-          profileImageUrl: sql<string>`owner.profile_image_url`,
+        recipientManagedProfile: {
+          id: sql<string>`recipient_managed.id`,
+          displayName: sql<string>`recipient_managed.display_name`,
+          profileImageUrl: sql<string>`recipient_managed.profile_image_url`,
         },
       })
       .from(itemPurchases)
-      .innerJoin(wishlistItems, eq(itemPurchases.itemId, wishlistItems.id))
-      .innerJoin(sql`users AS purchaser`, sql`${itemPurchases.purchasedById} = purchaser.id`)
-      .innerJoin(sql`users AS owner`, sql`${wishlistItems.userId} = owner.id`)
-      .where(
-        and(
-          eq(wishlistItems.familyId, familyId),
-          eq(itemPurchases.purchasedById, userId)
-        )
-      )
-      .orderBy(sql`${itemPurchases.purchasedAt} desc`);
+      .leftJoin(wishlistItems, eq(itemPurchases.itemId, wishlistItems.id))
+      .leftJoin(sql`users AS recipient_user`, sql`${itemPurchases.recipientUserId} = recipient_user.id`)
+      .leftJoin(sql`managed_profiles AS recipient_managed`, sql`${itemPurchases.recipientManagedProfileId} = recipient_managed.id`)
+      .where(and(...conditions))
+      .orderBy(desc(itemPurchases.purchasedAt));
 
     return purchases;
   }
