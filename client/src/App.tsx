@@ -13,8 +13,6 @@ import { UserSettingsDialog } from "@/components/user-settings-dialog";
 import { useAuth } from "@/hooks/useAuth";
 import { FamilyProvider, useFamily } from "@/contexts/FamilyContext";
 import { EventProvider } from "@/contexts/EventContext";
-import { FamilySwitcher } from "@/components/family-switcher";
-import { EventSwitcher } from "@/components/event-switcher";
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/landing";
 import Home from "@/pages/home";
@@ -62,10 +60,7 @@ function AuthenticatedContent() {
         <div className="flex flex-col flex-1 overflow-hidden">
           <header className="flex items-center justify-between p-2 md:p-4 border-b border-border gap-2 md:gap-4">
             <SidebarTrigger data-testid="button-sidebar-toggle" />
-            <div className="flex items-center gap-2 flex-1 md:flex-initial min-w-0">
-              <FamilySwitcher />
-              <EventSwitcher />
-            </div>
+            <div className="flex-1"></div>
             <Button
               variant="ghost"
               size="icon"

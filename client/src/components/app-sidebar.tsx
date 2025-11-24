@@ -16,6 +16,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { UserSettingsDialog } from "@/components/user-settings-dialog";
+import { FamilySwitcher } from "@/components/family-switcher";
+import { EventSwitcher } from "@/components/event-switcher";
 
 const menuItems = [
   {
@@ -67,6 +69,22 @@ export function AppSidebar() {
           <SidebarGroupLabel className="text-lg font-serif text-primary px-4 py-4">
             The Gift Genius
           </SidebarGroupLabel>
+        </SidebarGroup>
+        
+        <SidebarGroup>
+          <SidebarGroupLabel className="px-4 text-xs text-muted-foreground">
+            Context
+          </SidebarGroupLabel>
+          <SidebarGroupContent className="px-4 space-y-2">
+            <FamilySwitcher />
+            <EventSwitcher />
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel className="px-4 text-xs text-muted-foreground">
+            Navigation
+          </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {menuItems.map((item) => (
@@ -95,16 +113,16 @@ export function AppSidebar() {
           data-testid="button-open-settings"
         >
           <Avatar className="h-10 w-10">
-            <AvatarImage src={user?.profileImageUrl || undefined} alt={user?.firstName || "User"} />
-            <AvatarFallback>{getInitials(user?.firstName, user?.lastName)}</AvatarFallback>
+            <AvatarImage src={(user as any)?.profileImageUrl || undefined} alt={(user as any)?.firstName || "User"} />
+            <AvatarFallback>{getInitials((user as any)?.firstName, (user as any)?.lastName)}</AvatarFallback>
           </Avatar>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-sidebar-foreground truncate" data-testid="text-user-name">
-              {user?.firstName || user?.lastName
-                ? `${user.firstName || ""} ${user.lastName || ""}`.trim()
-                : user?.email || "User"}
+              {(user as any)?.firstName || (user as any)?.lastName
+                ? `${(user as any).firstName || ""} ${(user as any).lastName || ""}`.trim()
+                : (user as any)?.email || "User"}
             </p>
-            <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+            <p className="text-xs text-muted-foreground truncate">{(user as any)?.email}</p>
           </div>
           <Settings className="w-4 h-4 text-muted-foreground" />
         </div>
