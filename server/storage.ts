@@ -1077,22 +1077,22 @@ export class DatabaseStorage implements IStorage {
           managedProfileId: wishlistItems.managedProfileId,
         },
         recipientUser: {
-          id: sql<string>`recipient_user.id`,
-          email: sql<string>`recipient_user.email`,
-          firstName: sql<string>`recipient_user.first_name`,
-          lastName: sql<string>`recipient_user.last_name`,
-          profileImageUrl: sql<string>`recipient_user.profile_image_url`,
+          id: sql<string>`ru.id`,
+          email: sql<string>`ru.email`,
+          firstName: sql<string>`ru.first_name`,
+          lastName: sql<string>`ru.last_name`,
+          profileImageUrl: sql<string>`ru.profile_image_url`,
         },
         recipientManagedProfile: {
-          id: sql<string>`recipient_managed.id`,
-          displayName: sql<string>`recipient_managed.display_name`,
-          profileImageUrl: sql<string>`recipient_managed.profile_image_url`,
+          id: sql<string>`rmp.id`,
+          displayName: sql<string>`COALESCE(rmp.first_name || ' ' || rmp.last_name, rmp.first_name)`,
+          profileImageUrl: sql<string>`rmp.profile_image_url`,
         },
       })
       .from(itemPurchases)
       .leftJoin(wishlistItems, eq(itemPurchases.itemId, wishlistItems.id))
-      .leftJoin(sql`users AS recipient_user`, sql`${itemPurchases.recipientUserId} = recipient_user.id`)
-      .leftJoin(sql`managed_profiles AS recipient_managed`, sql`${itemPurchases.recipientManagedProfileId} = recipient_managed.id`)
+      .leftJoin(sql`users ru`, sql`${itemPurchases.recipientUserId} = ru.id`)
+      .leftJoin(sql`managed_profiles rmp`, sql`${itemPurchases.recipientManagedProfileId} = rmp.id`)
       .where(and(...conditions))
       .orderBy(desc(itemPurchases.purchasedAt));
 
