@@ -7,6 +7,15 @@ A mobile-first web application designed to help families collaboratively create,
 Preferred communication style: Simple, everyday language.
 
 ## Recent Changes (November 24, 2024)
+- **Activity Logging for Managed Profiles**: Enhanced activity logs to track organizer actions on child wishlists
+  - Activity logs now record when organizers add items to managed profiles' (children's) wishlists
+  - Activity text displays recipient name: "Daniel added Fisher Price Train to Austin's wishlist"
+  - Metadata includes recipientDisplayName, recipientUserId, and recipientManagedProfileId
+  - Works consistently in both dashboard Activity Feed and full Activities page
+- **Dashboard Stats SQL Fixes**: Resolved ambiguous column errors causing intermittent 500 responses
+  - Qualified event_id with proper table aliases (wi.event_id, wishlist_items.event_id) in all dashboard queries
+  - Fixed getUserStatsByFamily, getItemCountsByMember, and getCoordinationInsights functions
+  - Eliminated SQL ambiguity when joining wishlist_items with item_purchases tables
 - **Activity Log Page**: Fixed navigation from dashboard "View All" button
   - Created dedicated `/activities` page showing full activity log (up to 50 activities)
   - Fixed incorrect navigation to "More" page - now correctly navigates to Activities page
