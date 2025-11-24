@@ -10,7 +10,6 @@ import { Badge } from "@/components/ui/badge";
 import { Gift, Users, Plus, UserPlus, ChevronRight, Clock, ListTodo, Sparkles, X } from "lucide-react";
 import { useLocation } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { ChristmasCountdown } from "@/components/christmas-countdown";
 import { BudgetTracker } from "@/components/budget-tracker";
 import { BudgetDialog } from "@/components/budget-dialog";
 import { ActivityFeed } from "@/components/activity-feed";
@@ -273,9 +272,6 @@ export default function Home() {
             </CardContent>
           </Card>
         )}
-
-        {/* Christmas Countdown - Compact Version */}
-        <ChristmasCountdown />
       </div>
 
       {/* No Family State */}
