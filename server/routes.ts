@@ -1909,7 +1909,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { familyId, eventId } = req.query;
       
       if (familyId && typeof familyId === 'string') {
-        const stats = await storage.getUserStatsByFamily(userId, familyId, eventId as string | undefined);
+        // Convert empty string to undefined to avoid SQL errors
+        const validEventId = eventId && typeof eventId === 'string' && eventId.trim() !== '' ? eventId : undefined;
+        const stats = await storage.getUserStatsByFamily(userId, familyId, validEventId);
         res.json(stats);
       } else {
         const stats = await storage.getUserStats(userId);
@@ -1918,6 +1920,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching stats:", error);
       res.status(500).json({ message: "Failed to fetch stats" });
+    }
+  });
+
+  // Member item counts route
+  app.get('/api/wishlist/member-counts', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { familyId, eventId } = req.query;
+      
+      if (!familyId || typeof familyId !== 'string') {
+        return res.status(400).json({ message: "Family ID is required" });
+      }
+      
+      // Convert empty string to undefined to avoid SQL errors
+      const validEventId = eventId && typeof eventId === 'string' && eventId.trim() !== '' ? eventId : undefined;
+      const counts = await storage.getMemberItemCounts(userId, familyId, validEventId);
+      res.json(counts);
+    } catch (error) {
+      console.error("Error fetching member counts:", error);
+      if ((error as Error).message === "You are not a member of this family") {
+        return res.status(403).json({ message: "You are not a member of this family" });
+      }
+      res.status(500).json({ message: "Failed to fetch member counts" });
+    }
+  });
+
+  // Coordination insights route
+  app.get('/api/coordination-insights', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { familyId, eventId } = req.query;
+      
+      if (!familyId || typeof familyId !== 'string') {
+        return res.status(400).json({ message: "Family ID is required" });
+      }
+      
+      // Convert empty string to undefined to avoid SQL errors
+      const validEventId = eventId && typeof eventId === 'string' && eventId.trim() !== '' ? eventId : undefined;
+      const insights = await storage.getCoordinationInsights(userId, familyId, validEventId);
+      res.json(insights);
+    } catch (error) {
+      console.error("Error fetching coordination insights:", error);
+      if ((error as Error).message === "You are not a member of this family") {
+        return res.status(403).json({ message: "You are not a member of this family" });
+      }
+      if ((error as Error).message === "Event not found or does not belong to this family") {
+        return res.status(404).json({ message: "Event not found or does not belong to this family" });
+      }
+      res.status(500).json({ message: "Failed to fetch coordination insights" });
     }
   });
 

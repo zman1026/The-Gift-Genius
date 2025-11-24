@@ -101,6 +101,8 @@ export interface IStorage {
   getUserStatsByFamily(userId: string, familyId: string, eventId?: string): Promise<any>;
   getPurchaseTotalsByMember(userId: string, familyId: string): Promise<any[]>;
   getUserPurchaseForItem(itemId: string, userId: string): Promise<ItemPurchase | undefined>;
+  getMemberItemCounts(userId: string, familyId: string, eventId?: string): Promise<Record<string, number>>;
+  getCoordinationInsights(userId: string, familyId: string, eventId?: string): Promise<any[]>;
   
   // Activity log operations
   createActivityLog(log: InsertActivityLog): Promise<ActivityLog>;
@@ -1155,6 +1157,137 @@ export class DatabaseStorage implements IStorage {
       totalSpent: parseFloat(row.total_spent || '0'),
       itemsPurchased: row.items_purchased || 0,
     }));
+  }
+
+  async getMemberItemCounts(userId: string, familyId: string, eventId?: string): Promise<Record<string, number>> {
+    // Verify membership
+    const membership = await this.getFamilyMember(familyId, userId);
+    if (!membership) {
+      throw new Error("You are not a member of this family");
+    }
+
+    const eventFilter = eventId ? sql`AND event_id = ${eventId}` : sql``;
+
+    // Get item counts for each member (both users and managed profiles)
+    const result = await db.execute(sql`
+      SELECT 
+        COALESCE(wi.user_id, wi.managed_profile_id) as member_id,
+        COUNT(*)::int as item_count
+      FROM ${wishlistItems} wi
+      WHERE wi.family_id = ${familyId}
+      ${eventFilter}
+      GROUP BY COALESCE(wi.user_id, wi.managed_profile_id)
+    `);
+
+    const counts: Record<string, number> = {};
+    for (const row of result.rows as any[]) {
+      if (row.member_id) {
+        counts[row.member_id] = row.item_count || 0;
+      }
+    }
+
+    return counts;
+  }
+
+  async getCoordinationInsights(userId: string, familyId: string, eventId?: string): Promise<any[]> {
+    // Verify membership
+    const membership = await this.getFamilyMember(familyId, userId);
+    if (!membership) {
+      throw new Error("You are not a member of this family");
+    }
+
+    // Verify event belongs to family if eventId is provided
+    if (eventId) {
+      const event = await this.getEvent(eventId);
+      if (!event || event.familyId !== familyId) {
+        throw new Error("Event not found or does not belong to this family");
+      }
+    }
+
+    const insights: any[] = [];
+    const eventFilter = eventId ? sql`AND event_id = ${eventId}` : sql``;
+
+    // Get high-priority items that need gifts
+    const highPriorityResult = await db.execute(sql`
+      SELECT COUNT(*)::int as count
+      FROM ${wishlistItems} wi
+      LEFT JOIN ${itemPurchases} ip ON wi.id = ip.item_id
+      WHERE wi.family_id = ${familyId}
+      AND wi.user_id != ${userId}
+      AND wi.priority = 'high'
+      AND ip.id IS NULL
+      ${eventFilter}
+    `);
+
+    const highPriorityCount = (highPriorityResult.rows[0] as any)?.count || 0;
+    if (highPriorityCount > 0) {
+      insights.push({
+        type: "high-priority",
+        message: `${highPriorityCount} high-priority ${highPriorityCount === 1 ? 'item needs' : 'items need'} gifts`,
+        count: highPriorityCount,
+      });
+    }
+
+    // Get members with no items purchased yet (excluding current user)
+    const membersWithNoGiftsResult = await db.execute(sql`
+      SELECT 
+        fm.user_id,
+        fm.managed_profile_id,
+        fm.display_name,
+        u.first_name as user_first_name,
+        u.last_name as user_last_name,
+        mp.first_name as profile_first_name,
+        mp.last_name as profile_last_name,
+        COUNT(wi.id)::int as total_items,
+        COUNT(ip.id)::int as purchased_items
+      FROM ${familyMembers} fm
+      LEFT JOIN ${users} u ON fm.user_id = u.id
+      LEFT JOIN ${managedProfiles} mp ON fm.managed_profile_id = mp.id
+      LEFT JOIN ${wishlistItems} wi ON (wi.user_id = fm.user_id OR wi.managed_profile_id = fm.managed_profile_id)
+        AND wi.family_id = ${familyId}
+        ${eventFilter}
+      LEFT JOIN ${itemPurchases} ip ON wi.id = ip.item_id
+      WHERE fm.family_id = ${familyId}
+      AND (fm.user_id != ${userId} OR fm.user_id IS NULL)
+      GROUP BY fm.id, fm.user_id, fm.managed_profile_id, fm.display_name, 
+               u.first_name, u.last_name, mp.first_name, mp.last_name
+      HAVING COUNT(wi.id) > 0 AND COUNT(ip.id) = 0
+      LIMIT 2
+    `);
+
+    for (const row of membersWithNoGiftsResult.rows as any[]) {
+      const memberName = row.display_name || 
+        (row.user_first_name ? `${row.user_first_name} ${row.user_last_name || ''}`.trim() : '') ||
+        (row.profile_first_name ? `${row.profile_first_name} ${row.profile_last_name || ''}`.trim() : '');
+      
+      insights.push({
+        type: "no-gifts",
+        message: `${memberName} has ${row.total_items} ${row.total_items === 1 ? 'item' : 'items'} but no gifts purchased yet`,
+        memberId: row.user_id || row.managed_profile_id,
+        memberName,
+      });
+    }
+
+    // Get user's personal progress
+    const personalProgressResult = await db.execute(sql`
+      SELECT COUNT(*)::int as count
+      FROM ${itemPurchases} ip
+      INNER JOIN ${wishlistItems} wi ON ip.item_id = wi.id
+      WHERE ip.purchased_by_id = ${userId}
+      AND wi.family_id = ${familyId}
+      ${eventFilter}
+    `);
+
+    const purchasedCount = (personalProgressResult.rows[0] as any)?.count || 0;
+    if (purchasedCount > 0) {
+      insights.push({
+        type: "personal-progress",
+        message: `You've marked ${purchasedCount} ${purchasedCount === 1 ? 'gift' : 'gifts'} as purchased`,
+        count: purchasedCount,
+      });
+    }
+
+    return insights;
   }
 
   // Activity log operations
