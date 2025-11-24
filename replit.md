@@ -50,6 +50,7 @@ The backend is built with **Express.js** and **TypeScript**, using **Drizzle ORM
 
 ### Event-Based System
 - **Multi-Occasion Support:** Families can now create multiple events (birthdays, weddings, holidays, etc.)
+- **Event-Specific Wishlists:** Wishlist items are event-scoped - each event has its own separate wishlist (partial implementation - see status below)
 - **Event Themes:** Pre-configured themes for different occasions with customizable colors:
   - Christmas (Red/Green)
   - Birthday (Purple/Gold)
@@ -72,6 +73,25 @@ The backend is built with **Express.js** and **TypeScript**, using **Drizzle ORM
 - `GET /api/events/:eventId` - Get specific event details
 - `PUT /api/events/:eventId` - Update event
 - `DELETE /api/events/:eventId` - Delete event (requires at least one event per family)
+
+### Event-Scoping Implementation Status (November 24, 2024)
+
+**✅ COMPLETED - Core Security & Viewing:**
+- Backend query endpoints (GET /api/wishlist, GET /api/members/:userId/wishlist) require and validate eventId
+- Purchase endpoints (POST/DELETE /api/wishlist/:id/purchase) validate event access before allowing purchase operations
+- Item creation endpoints (POST /api/wishlist, POST /api/wishlist/from-search) require eventId and validate event ownership
+- Frontend wishlist pages (wishlist.tsx, member-wishlist.tsx) pass selectedEventId in queries
+- Frontend item creation (UnifiedAddItemDialog) includes eventId in mutations
+- Data migration completed - all existing items assigned to family default events
+
+**⚠️ REMAINING WORK - Full Event Isolation:**
+- Update/delete item endpoints need event access validation
+- Storage layer has optional eventId parameters that should be mandatory for strict isolation
+- Dashboard queries (stats, activities) need to filter by selectedEventId
+- Frontend cache invalidations should include eventId for proper cache management
+- UI safeguards needed (disable Add Item when no event selected, empty state messages)
+
+**Current State:** Core wishlist viewing and purchasing flows are event-scoped with proper authorization. Items created for Christmas won't appear in Birthday event views. However, some admin/management operations may still have cross-event access paths.
 
 ## External Dependencies
 
