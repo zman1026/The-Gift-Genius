@@ -34,6 +34,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { UserSettingsDialog } from "@/components/user-settings-dialog";
 
 const inviteEmailSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
@@ -76,6 +77,7 @@ export default function Members() {
   const [memberToEdit, setMemberToEdit] = useState<any>(null);
   const [isEditFamilyNameDialogOpen, setIsEditFamilyNameDialogOpen] = useState(false);
   const [isAddChildDialogOpen, setIsAddChildDialogOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   
   const selectedFamily = families?.find((f: any) => f.id === selectedFamilyId);
   const isOrganizer = selectedFamily?.createdById === (user as any)?.id;
@@ -623,7 +625,7 @@ export default function Members() {
                   data-testid={`member-card-${memberId}`}
                 >
                   {/* Three-dot menu in top-right corner of card */}
-                  {canEdit && !isCurrentUser && (
+                  {(canEdit && !isCurrentUser) || isCurrentUser ? (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button
@@ -637,39 +639,54 @@ export default function Members() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        {!isChildProfile && (
+                        {isCurrentUser ? (
                           <DropdownMenuItem
                             onClick={(e) => {
                               e.stopPropagation();
-                              setMemberToEdit(member);
-                              editMemberForm.reset({
-                                displayName: member.displayName || "",
-                                firstName: member.firstName || "",
-                                lastName: member.lastName || "",
-                              });
-                              setIsEditMemberDialogOpen(true);
+                              setIsSettingsOpen(true);
                             }}
-                            data-testid={`button-edit-member-${memberId}`}
+                            data-testid={`button-profile-settings-${memberId}`}
                           >
-                            <Edit className="w-4 h-4 mr-2" />
-                            Edit Member
+                            <Settings className="w-4 h-4 mr-2" />
+                            Profile Settings
                           </DropdownMenuItem>
+                        ) : (
+                          <>
+                            {!isChildProfile && (
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setMemberToEdit(member);
+                                  editMemberForm.reset({
+                                    displayName: member.displayName || "",
+                                    firstName: member.firstName || "",
+                                    lastName: member.lastName || "",
+                                  });
+                                  setIsEditMemberDialogOpen(true);
+                                }}
+                                data-testid={`button-edit-member-${memberId}`}
+                              >
+                                <Edit className="w-4 h-4 mr-2" />
+                                Edit Member
+                              </DropdownMenuItem>
+                            )}
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setMemberToRemove(member);
+                                setShowRemoveConfirm(true);
+                              }}
+                              className="text-destructive"
+                              data-testid={`button-remove-member-${memberId}`}
+                            >
+                              <UserMinus className="w-4 h-4 mr-2" />
+                              {isChildProfile ? "Remove Child" : "Remove Member"}
+                            </DropdownMenuItem>
+                          </>
                         )}
-                        <DropdownMenuItem
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setMemberToRemove(member);
-                            setShowRemoveConfirm(true);
-                          }}
-                          className="text-destructive"
-                          data-testid={`button-remove-member-${memberId}`}
-                        >
-                          <UserMinus className="w-4 h-4 mr-2" />
-                          {isChildProfile ? "Remove Child" : "Remove Member"}
-                        </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
-                  )}
+                  ) : null}
 
                   <CardContent className="p-3 flex flex-col items-center text-center gap-2">
                     <div className="relative">
@@ -886,6 +903,8 @@ export default function Members() {
           </Form>
         </DialogContent>
       </Dialog>
+      
+      <UserSettingsDialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen} />
     </div>
   );
 }
