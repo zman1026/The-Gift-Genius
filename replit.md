@@ -7,6 +7,13 @@ A mobile-first web application designed to help families collaboratively create,
 Preferred communication style: Simple, everyday language.
 
 ## Recent Changes (November 24, 2024)
+- **Off-Wishlist Purchase Tracking**: Added ability to log gifts bought outside the wishlist
+  - New "Log Purchase" button on Budget page per family member
+  - Captures price, description, purchased from store, and private notes
+  - Affects budget calculations (spending tracked across both wishlist and off-wishlist purchases)
+  - Displayed separately on Purchased Items page with "Off-Wishlist" badge
+  - Maintains gift secrecy - hidden from recipients
+  - Uses COALESCE for SQL aggregation of mixed purchase types
 - **Mobile-Optimized Budget Page**: Redesigned budget tracker for better mobile usability
   - Consolidated 3 overview cards into 1 compact summary card
   - Streamlined member budget cards with cleaner layout
