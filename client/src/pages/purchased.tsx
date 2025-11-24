@@ -11,9 +11,15 @@ import { format } from "date-fns";
 
 interface PurchasedItem {
   id: string;
-  itemId: string;
+  itemId: string | null;
+  eventId: string;
   notes: string | null;
   purchasedAt: string;
+  price: string | null;
+  description: string | null;
+  purchasedFrom: string | null;
+  recipientUserId: string | null;
+  recipientManagedProfileId: string | null;
   item: {
     id: string;
     name: string;
@@ -25,21 +31,20 @@ interface PurchasedItem {
     quantity: number;
     category: string | null;
     userId: string;
-  };
-  purchaser: {
+    managedProfileId: string | null;
+  } | null;
+  recipientUser: {
     id: string;
     email: string;
     firstName: string | null;
     lastName: string | null;
     profileImageUrl: string | null;
-  };
-  owner: {
+  } | null;
+  recipientManagedProfile: {
     id: string;
-    email: string;
-    firstName: string | null;
-    lastName: string | null;
+    displayName: string;
     profileImageUrl: string | null;
-  };
+  } | null;
 }
 
 export default function Purchased() {
@@ -240,119 +245,149 @@ export default function Purchased() {
         </Card>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3">
-          {purchases.map((purchase) => (
-            <Card
-              key={purchase.id}
-              className="overflow-hidden hover-elevate"
-              data-testid={`purchased-card-${purchase.id}`}
-            >
-              <div className="aspect-square w-full overflow-hidden bg-muted relative">
-                {purchase.item.imageUrl ? (
-                  <img
-                    src={purchase.item.imageUrl}
-                    alt={purchase.item.name}
-                    className="w-full h-full object-cover"
-                    data-testid={`img-purchased-${purchase.id}`}
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center">
-                    <Gift className="w-12 h-12 text-muted-foreground" />
-                  </div>
-                )}
-                {purchase.item.priority && (
-                  <Badge 
-                    variant={
-                      purchase.item.priority === "high" ? "destructive" : 
-                      purchase.item.priority === "medium" ? "default" : 
-                      "secondary"
-                    }
-                    className="absolute top-2 right-2 text-xs h-5"
-                  >
-                    {purchase.item.priority === "high" && <ArrowUp className="w-2.5 h-2.5 mr-0.5" />}
-                    {purchase.item.priority === "medium" && <Circle className="w-2.5 h-2.5 mr-0.5" />}
-                    {purchase.item.priority === "low" && <AlertCircle className="w-2.5 h-2.5 mr-0.5" />}
-                    {purchase.item.priority === "high" ? "Must-Have!" : 
-                     purchase.item.priority === "medium" ? "Would Love" : 
-                     "Just a Thought"}
-                  </Badge>
-                )}
-              </div>
-              <CardHeader className="space-y-2 p-3">
-                <CardTitle className="flex items-start justify-between gap-1 text-sm">
-                  <span className="line-clamp-2" data-testid={`text-item-name-${purchase.id}`}>
-                    {purchase.item.name}
-                  </span>
-                  {purchase.item.price && (
-                    <Badge variant="secondary" className="shrink-0 text-xs h-5">
-                      ${parseFloat(purchase.item.price).toFixed(2)}
+          {purchases.map((purchase) => {
+            const isOffWishlist = !purchase.item;
+            const itemName = isOffWishlist ? purchase.description : purchase.item?.name;
+            const itemPrice = isOffWishlist ? purchase.price : purchase.item?.price;
+            const itemImageUrl = purchase.item?.imageUrl;
+            const itemUrl = purchase.item?.url;
+            const itemDescription = isOffWishlist ? null : purchase.item?.description;
+            const recipient = purchase.recipientUser || purchase.recipientManagedProfile;
+            const recipientName = purchase.recipientUser 
+              ? (purchase.recipientUser.firstName || purchase.recipientUser.lastName
+                  ? `${purchase.recipientUser.firstName || ""} ${purchase.recipientUser.lastName || ""}`.trim()
+                  : purchase.recipientUser.email)
+              : purchase.recipientManagedProfile?.displayName;
+            const recipientImage = purchase.recipientUser?.profileImageUrl || purchase.recipientManagedProfile?.profileImageUrl;
+
+            return (
+              <Card
+                key={purchase.id}
+                className="overflow-hidden hover-elevate"
+                data-testid={`purchased-card-${purchase.id}`}
+              >
+                <div className="aspect-square w-full overflow-hidden bg-muted relative">
+                  {itemImageUrl ? (
+                    <img
+                      src={itemImageUrl}
+                      alt={itemName || "Purchase"}
+                      className="w-full h-full object-cover"
+                      data-testid={`img-purchased-${purchase.id}`}
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <Gift className="w-12 h-12 text-muted-foreground" />
+                    </div>
+                  )}
+                  {isOffWishlist && (
+                    <Badge 
+                      variant="secondary"
+                      className="absolute top-2 left-2 text-xs h-5"
+                    >
+                      Off-Wishlist
                     </Badge>
                   )}
-                </CardTitle>
-                {purchase.item.quantity > 1 && (
-                  <Badge variant="outline" className="text-xs h-5">
-                    Qty: {purchase.item.quantity}
-                  </Badge>
-                )}
-              </CardHeader>
-              <CardContent className="space-y-2 p-3 pt-0">
-                {purchase.item.description && (
-                  <p className="text-xs text-muted-foreground line-clamp-2">
-                    {purchase.item.description}
-                  </p>
-                )}
-
-                <div className="space-y-2 pt-2 border-t">
-                  <div className="flex items-center gap-1.5">
-                    <Gift className="w-3 h-3 text-muted-foreground flex-shrink-0" />
-                    <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                      <Avatar className="h-5 w-5">
-                        <AvatarImage
-                          src={purchase.owner.profileImageUrl || undefined}
-                          alt={purchase.owner.firstName || "User"}
-                        />
-                        <AvatarFallback className="text-xs">
-                          {getInitials(purchase.owner.firstName, purchase.owner.lastName)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <span className="text-xs text-muted-foreground truncate">
-                        {purchase.owner.firstName || purchase.owner.lastName
-                          ? `${purchase.owner.firstName || ""} ${purchase.owner.lastName || ""}`.trim()
-                          : purchase.owner.email}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-1.5">
-                    <Calendar className="w-3 h-3 text-muted-foreground" />
-                    <span className="text-xs text-muted-foreground">
-                      {format(new Date(purchase.purchasedAt), "MMM d")}
-                    </span>
-                  </div>
-
-                  {purchase.notes && user && purchase.purchaser.id === (user as any).id && (
-                    <div className="bg-muted/50 p-2 rounded-md">
-                      <p className="text-xs text-foreground italic line-clamp-2">{purchase.notes}</p>
-                    </div>
+                  {purchase.item?.priority && (
+                    <Badge 
+                      variant={
+                        purchase.item.priority === "high" ? "destructive" : 
+                        purchase.item.priority === "medium" ? "default" : 
+                        "secondary"
+                      }
+                      className="absolute top-2 right-2 text-xs h-5"
+                    >
+                      {purchase.item.priority === "high" && <ArrowUp className="w-2.5 h-2.5 mr-0.5" />}
+                      {purchase.item.priority === "medium" && <Circle className="w-2.5 h-2.5 mr-0.5" />}
+                      {purchase.item.priority === "low" && <AlertCircle className="w-2.5 h-2.5 mr-0.5" />}
+                      {purchase.item.priority === "high" ? "Must-Have!" : 
+                       purchase.item.priority === "medium" ? "Would Love" : 
+                       "Just a Thought"}
+                    </Badge>
                   )}
                 </div>
+                <CardHeader className="space-y-2 p-3">
+                  <CardTitle className="flex items-start justify-between gap-1 text-sm">
+                    <span className="line-clamp-2" data-testid={`text-item-name-${purchase.id}`}>
+                      {itemName}
+                    </span>
+                    {itemPrice && (
+                      <Badge variant="secondary" className="shrink-0 text-xs h-5">
+                        ${parseFloat(itemPrice).toFixed(2)}
+                      </Badge>
+                    )}
+                  </CardTitle>
+                  {purchase.item && purchase.item.quantity > 1 && (
+                    <Badge variant="outline" className="text-xs h-5">
+                      Qty: {purchase.item.quantity}
+                    </Badge>
+                  )}
+                </CardHeader>
+                <CardContent className="space-y-2 p-3 pt-0">
+                  {itemDescription && (
+                    <p className="text-xs text-muted-foreground line-clamp-2">
+                      {itemDescription}
+                    </p>
+                  )}
+                  {isOffWishlist && purchase.purchasedFrom && (
+                    <p className="text-xs text-muted-foreground">
+                      From: {purchase.purchasedFrom}
+                    </p>
+                  )}
 
-                {purchase.item.url && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full"
-                    asChild
-                    data-testid={`button-view-product-${purchase.id}`}
-                  >
-                    <a href={purchase.item.url} target="_blank" rel="noopener noreferrer">
-                      <ExternalLink className="w-3 h-3 mr-1" />
-                      View Product
-                    </a>
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
-          ))}
+                  <div className="space-y-2 pt-2 border-t">
+                    <div className="flex items-center gap-1.5">
+                      <Gift className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+                      <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                        <Avatar className="h-5 w-5">
+                          <AvatarImage
+                            src={recipientImage || undefined}
+                            alt={recipientName || "User"}
+                          />
+                          <AvatarFallback className="text-xs">
+                            {recipient ? getInitials(
+                              (purchase.recipientUser?.firstName || null), 
+                              (purchase.recipientUser?.lastName || null)
+                            ) : "?"}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="text-xs text-muted-foreground truncate">
+                          {recipientName}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5">
+                      <Calendar className="w-3 h-3 text-muted-foreground" />
+                      <span className="text-xs text-muted-foreground">
+                        {format(new Date(purchase.purchasedAt), "MMM d")}
+                      </span>
+                    </div>
+
+                    {purchase.notes && (
+                      <div className="bg-muted/50 p-2 rounded-md">
+                        <p className="text-xs text-foreground italic line-clamp-2">{purchase.notes}</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {itemUrl && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                      asChild
+                      data-testid={`button-view-product-${purchase.id}`}
+                    >
+                      <a href={itemUrl} target="_blank" rel="noopener noreferrer">
+                        <ExternalLink className="w-3 h-3 mr-1" />
+                        View Product
+                      </a>
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
     </div>
