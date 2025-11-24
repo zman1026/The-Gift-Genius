@@ -260,22 +260,45 @@ export type InsertWishlistItem = z.infer<typeof insertWishlistItemSchema>;
 export type WishlistItem = typeof wishlistItems.$inferSelect;
 
 // Item purchases tracking table (for marking items as purchased with notes)
+// Supports both wishlist purchases and off-wishlist purchases
 export const itemPurchases = pgTable("item_purchases", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  itemId: varchar("item_id").notNull().references(() => wishlistItems.id, { onDelete: 'cascade' }),
+  itemId: varchar("item_id").references(() => wishlistItems.id, { onDelete: 'cascade' }), // Nullable for off-wishlist purchases
+  eventId: varchar("event_id").references(() => events.id, { onDelete: 'cascade' }), // Nullable during migration, will be populated
   purchasedById: varchar("purchased_by_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  recipientUserId: varchar("recipient_user_id").references(() => users.id, { onDelete: 'cascade' }), // For off-wishlist purchases
+  recipientManagedProfileId: varchar("recipient_managed_profile_id").references(() => managedProfiles.id, { onDelete: 'cascade' }), // For off-wishlist purchases
+  price: decimal("price", { precision: 10, scale: 2 }), // Purchase amount (optional for wishlist items, required for off-wishlist)
+  description: text("description"), // What was purchased (for off-wishlist items)
+  purchasedFrom: text("purchased_from"), // Where it was purchased from
   notes: text("notes"), // Private notes about the purchase
   purchasedAt: timestamp("purchased_at").defaultNow(),
-});
+}, (table) => [
+  index("idx_purchases_event").on(table.eventId),
+  index("idx_purchases_recipient_user").on(table.recipientUserId),
+  index("idx_purchases_recipient_managed").on(table.recipientManagedProfileId),
+]);
 
 export const itemPurchasesRelations = relations(itemPurchases, ({ one }) => ({
   item: one(wishlistItems, {
     fields: [itemPurchases.itemId],
     references: [wishlistItems.id],
   }),
+  event: one(events, {
+    fields: [itemPurchases.eventId],
+    references: [events.id],
+  }),
   purchasedBy: one(users, {
     fields: [itemPurchases.purchasedById],
     references: [users.id],
+  }),
+  recipientUser: one(users, {
+    fields: [itemPurchases.recipientUserId],
+    references: [users.id],
+  }),
+  recipientManagedProfile: one(managedProfiles, {
+    fields: [itemPurchases.recipientManagedProfileId],
+    references: [managedProfiles.id],
   }),
 }));
 
@@ -284,7 +307,26 @@ export const insertItemPurchaseSchema = createInsertSchema(itemPurchases).omit({
   purchasedAt: true,
 });
 
+// Schema for logging off-wishlist purchases
+export const logOffWishlistPurchaseSchema = z.object({
+  eventId: z.string().min(1, "Event ID is required"),
+  recipientUserId: z.string().nullable(),
+  recipientManagedProfileId: z.string().nullable(),
+  price: z.number().min(0, "Price must be non-negative"),
+  description: z.string().min(1, "Description is required"),
+  purchasedFrom: z.string().optional(),
+  notes: z.string().optional(),
+}).refine(
+  (data) => {
+    const hasUserId = data.recipientUserId !== null && data.recipientUserId !== undefined;
+    const hasManagedProfileId = data.recipientManagedProfileId !== null && data.recipientManagedProfileId !== undefined;
+    return hasUserId !== hasManagedProfileId; // XOR: exactly one must be true
+  },
+  { message: "Exactly one of recipientUserId or recipientManagedProfileId must be provided" }
+);
+
 export type InsertItemPurchase = z.infer<typeof insertItemPurchaseSchema>;
+export type LogOffWishlistPurchase = z.infer<typeof logOffWishlistPurchaseSchema>;
 export type ItemPurchase = typeof itemPurchases.$inferSelect;
 
 // Activity logs table
