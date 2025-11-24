@@ -6,6 +6,16 @@ A mobile-first web application designed to help families collaboratively create,
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 
+## Recent Changes (November 24, 2024)
+- **Mobile-Optimized Budget Page**: Redesigned budget tracker for better mobile usability
+  - Consolidated 3 overview cards into 1 compact summary card
+  - Streamlined member budget cards with cleaner layout
+  - Reduced spacing and text sizes for mobile
+  - Maintained full currency precision (2 decimals) for accuracy
+  - Proper touch targets (44px minimum) for all interactive elements
+  - Icon-only buttons on mobile with full labels on desktop
+  - Color-coded status indicators (green/yellow/red percentages)
+
 ## System Architecture
 
 ### UI/UX Decisions

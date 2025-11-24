@@ -166,13 +166,13 @@ export default function Budget() {
   const isOrganizer = currentFamily?.createdById === (user as any)?.id;
 
   return (
-    <div className="container mx-auto p-4 space-y-6 max-w-6xl">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground" data-testid="title-budget">
-            Budget Tracker
+    <div className="container mx-auto p-3 sm:p-4 space-y-4 max-w-6xl">
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground truncate" data-testid="title-budget">
+            Budget
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">
+          <p className="text-xs sm:text-sm text-muted-foreground mt-0.5 truncate">
             {budgetData?.event?.name || 'Event Budget'}
           </p>
         </div>
@@ -182,8 +182,8 @@ export default function Budget() {
             variant="outline"
             data-testid="button-edit-budget"
           >
-            <Edit2 className="w-4 h-4 mr-2" />
-            Edit Allocations
+            <Edit2 className="w-4 h-4 sm:mr-2" />
+            <span className="hidden sm:inline">Edit</span>
           </Button>
         )}
         {isEditing && (
@@ -193,163 +193,148 @@ export default function Budget() {
               disabled={updateAllocationsMutation.isPending}
               data-testid="button-save-budget"
             >
-              <Check className="w-4 h-4 mr-2" />
-              Save
+              <Check className="w-4 h-4 sm:mr-2" />
+              <span className="hidden sm:inline">Save</span>
             </Button>
             <Button
               onClick={() => setIsEditing(false)}
               variant="outline"
               data-testid="button-cancel-edit"
+              aria-label="Cancel editing"
             >
-              <X className="w-4 h-4 mr-2" />
-              Cancel
+              <X className="w-4 h-4 sm:mr-2" />
+              <span className="hidden sm:inline">Cancel</span>
             </Button>
           </div>
         )}
       </div>
 
-      {/* Total Budget Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Budget</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold" data-testid="text-total-budget">
-              ${budgetData?.totalAllocated?.toFixed(2) || '0.00'}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Allocated for {budgetData?.event?.name}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Spent</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold" data-testid="text-total-spent">
-              ${budgetData?.totalSpent?.toFixed(2) || '0.00'}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {budgetData?.totalAllocated > 0
-                ? `${((budgetData.totalSpent / budgetData.totalAllocated) * 100).toFixed(0)}% of budget`
-                : '0% of budget'}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Remaining</CardTitle>
-            <TrendingDown className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold" data-testid="text-total-remaining">
-              ${budgetData?.totalRemaining?.toFixed(2) || '0.00'}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Available to spend
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Per-Person Budget Breakdown */}
+      {/* Compact Budget Overview */}
       <Card>
-        <CardHeader>
-          <CardTitle>Budget by Family Member</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {budgetData?.memberBudgets?.length === 0 && (
-            <div className="text-center py-8 text-muted-foreground">
-              No budget allocations set yet. Click "Edit Allocations" to get started.
+        <CardContent className="pt-4 sm:pt-6">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <p className="text-xs text-muted-foreground">Total Budget</p>
+              <p className="text-2xl sm:text-3xl font-bold text-foreground" data-testid="text-total-budget">
+                ${budgetData?.totalAllocated?.toFixed(2) || '0.00'}
+              </p>
             </div>
-          )}
-          {budgetData?.memberBudgets?.map((member: any) => {
-            const key = member.userId || member.managedProfileId;
-            return (
-              <div key={key} className="space-y-3" data-testid={`budget-member-${key}`}>
-                <div className="flex items-center gap-4">
-                  <Avatar className="h-12 w-12">
-                    <AvatarImage src={member.profileImageUrl} alt={member.displayName} />
-                    <AvatarFallback>
-                      {member.displayName?.split(' ').map((n: string) => n[0]).join('') || '?'}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-lg font-semibold text-foreground truncate">
-                      {member.displayName}
-                    </h3>
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs ${
-                        member.status === 'good' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
-                        member.status === 'warning' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
-                        'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-                      }`}>
-                        {getStatusText(member.status)}
-                      </span>
-                    </div>
-                  </div>
-                  {!isEditing && (
-                    <div className="text-right">
-                      <div className="text-2xl font-bold text-foreground">
-                        ${member.spent?.toFixed(2)}
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        of ${member.allocated?.toFixed(2)}
-                      </div>
-                    </div>
-                  )}
-                  {isEditing && (
-                    <div className="w-32">
-                      <Label htmlFor={`budget-${key}`} className="text-sm">Budget</Label>
-                      <div className="flex items-center">
-                        <span className="text-muted-foreground mr-1">$</span>
-                        <Input
-                          id={`budget-${key}`}
-                          type="number"
-                          min="0"
-                          step="1"
-                          value={allocations[key] || '0'}
-                          onChange={(e) => {
-                            const value = e.target.value;
-                            // Allow empty string or valid numbers
-                            if (value === '' || (!isNaN(parseFloat(value)) && parseFloat(value) >= 0)) {
-                              setAllocations({ ...allocations, [key]: value });
-                            }
-                          }}
-                          data-testid={`input-budget-${key}`}
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-                {!isEditing && (
+            <div className="text-right">
+              <p className="text-xs text-muted-foreground">Spent</p>
+              <p className="text-xl sm:text-2xl font-semibold text-foreground" data-testid="text-total-spent">
+                ${budgetData?.totalSpent?.toFixed(2) || '0.00'}
+              </p>
+            </div>
+          </div>
+          <Progress
+            value={budgetData?.totalAllocated > 0 
+              ? Math.min((budgetData.totalSpent / budgetData.totalAllocated) * 100, 100)
+              : 0
+            }
+            className="h-2 mb-2"
+          />
+          <div className="flex justify-between text-xs text-muted-foreground">
+            <span>
+              {budgetData?.totalAllocated > 0
+                ? `${((budgetData.totalSpent / budgetData.totalAllocated) * 100).toFixed(0)}% used`
+                : '0% used'}
+            </span>
+            <span data-testid="text-total-remaining">
+              ${budgetData?.totalRemaining?.toFixed(2) || '0.00'} left
+            </span>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Simplified Member List */}
+      <div className="space-y-2">
+        {budgetData?.memberBudgets?.length === 0 && (
+          <Card>
+            <CardContent className="py-8 text-center text-sm text-muted-foreground">
+              No budget set yet.
+              {isOrganizer && <span className="block mt-1">Tap "Edit" to get started.</span>}
+            </CardContent>
+          </Card>
+        )}
+        {budgetData?.memberBudgets?.map((member: any) => {
+          const key = member.userId || member.managedProfileId;
+          return (
+            <Card key={key} data-testid={`budget-member-${key}`}>
+              <CardContent className="p-3 sm:p-4">
+                {!isEditing ? (
                   <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">
-                        Remaining: ${member.remaining?.toFixed(2)}
-                      </span>
-                      <span className="font-medium text-foreground">
-                        {member.percentUsed?.toFixed(0)}%
-                      </span>
+                    <div className="flex items-center gap-3">
+                      <Avatar className="h-10 w-10">
+                        <AvatarImage src={member.profileImageUrl} alt={member.displayName} />
+                        <AvatarFallback className="text-xs">
+                          {member.displayName?.split(' ').map((n: string) => n[0]).join('') || '?'}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-sm font-semibold text-foreground truncate">
+                          {member.displayName}
+                        </h3>
+                        <p className="text-xs text-muted-foreground">
+                          ${member.spent?.toFixed(2)} of ${member.allocated?.toFixed(2)}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <div className={`text-lg font-bold ${
+                          member.status === 'good' ? 'text-green-600 dark:text-green-400' :
+                          member.status === 'warning' ? 'text-yellow-600 dark:text-yellow-400' :
+                          'text-red-600 dark:text-red-400'
+                        }`}>
+                          {member.percentUsed?.toFixed(0)}%
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          ${member.remaining?.toFixed(2)} left
+                        </p>
+                      </div>
                     </div>
                     <Progress
                       value={Math.min(member.percentUsed, 100)}
-                      className="h-2"
+                      className="h-1.5"
                       data-testid={`progress-${key}`}
                     />
                   </div>
+                ) : (
+                  <div className="flex items-center gap-3">
+                    <Avatar className="h-10 w-10">
+                      <AvatarImage src={member.profileImageUrl} alt={member.displayName} />
+                      <AvatarFallback className="text-xs">
+                        {member.displayName?.split(' ').map((n: string) => n[0]).join('') || '?'}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-sm font-semibold text-foreground truncate">
+                        {member.displayName}
+                      </h3>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span className="text-sm text-muted-foreground">$</span>
+                      <Input
+                        id={`budget-${key}`}
+                        type="number"
+                        min="0"
+                        step="1"
+                        value={allocations[key] || '0'}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          if (value === '' || (!isNaN(parseFloat(value)) && parseFloat(value) >= 0)) {
+                            setAllocations({ ...allocations, [key]: value });
+                          }
+                        }}
+                        className="w-20 h-9 text-sm"
+                        data-testid={`input-budget-${key}`}
+                      />
+                    </div>
+                  </div>
                 )}
-              </div>
-            );
-          })}
-        </CardContent>
-      </Card>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
     </div>
   );
 }
