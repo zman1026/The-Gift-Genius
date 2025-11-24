@@ -1018,6 +1018,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "You can only edit your own items" });
       }
 
+      // Verify item has an eventId
+      if (!item.eventId) {
+        return res.status(400).json({ message: "Item is not associated with an event" });
+      }
+
+      // Verify event exists and user has access via family membership
+      const event = await storage.getEvent(item.eventId);
+      if (!event) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+
+      const membership = await storage.getFamilyMember(event.familyId, userId);
+      if (!membership) {
+        return res.status(403).json({ message: "You are not a member of this event's family" });
+      }
+
       const updated = await storage.updateWishlistItem(id, {
         name: name || item.name,
         description: description !== undefined ? description : item.description,
@@ -1051,9 +1067,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "You can only delete your own items" });
       }
 
-      // Log activity before deletion
+      // Verify item has an eventId
+      if (!item.eventId) {
+        return res.status(400).json({ message: "Item is not associated with an event" });
+      }
+
+      // Verify event exists and user has access via family membership
+      const event = await storage.getEvent(item.eventId);
+      if (!event) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+
+      const membership = await storage.getFamilyMember(event.familyId, userId);
+      if (!membership) {
+        return res.status(403).json({ message: "You are not a member of this event's family" });
+      }
+
+      // Log activity before deletion (with eventId)
       await storage.createActivityLog({
         familyId: item.familyId,
+        eventId: item.eventId,
         actorId: userId,
         action: "item_deleted",
         metadata: {
@@ -1080,15 +1113,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid request", errors: parsed.error.errors });
       }
 
-      const { itemIds, familyId } = parsed.data;
+      const { itemIds, familyId, eventId } = parsed.data;
 
-      // Delete items and get the deleted items for activity logging
-      const deletedItems = await storage.bulkDeleteWishlistItems(userId, familyId, itemIds);
+      // Verify event exists and belongs to the family
+      const event = await storage.getEvent(eventId);
+      if (!event) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+      if (event.familyId !== familyId) {
+        return res.status(403).json({ message: "Event does not belong to this family" });
+      }
 
-      // Log activity for each deleted item
+      // Verify user is a member of the event's family
+      const membership = await storage.getFamilyMember(event.familyId, userId);
+      if (!membership) {
+        return res.status(403).json({ message: "You are not a member of this event's family" });
+      }
+
+      // Delete items (storage layer will verify all items belong to the same event)
+      const deletedItems = await storage.bulkDeleteWishlistItems(userId, familyId, itemIds, eventId);
+
+      // Log activity for each deleted item (with eventId)
       for (const item of deletedItems) {
         await storage.createActivityLog({
           familyId: item.familyId,
+          eventId: item.eventId || undefined,
           actorId: userId,
           action: "item_deleted",
           metadata: {
@@ -1124,10 +1173,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid request", errors: parsed.error.errors });
       }
 
-      const { itemIds, priority, familyId } = parsed.data;
+      const { itemIds, priority, familyId, eventId } = parsed.data;
 
-      // Update items
-      const updatedItems = await storage.bulkUpdateWishlistPriority(userId, familyId, itemIds, priority);
+      // Verify event exists and belongs to the family
+      const event = await storage.getEvent(eventId);
+      if (!event) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+      if (event.familyId !== familyId) {
+        return res.status(403).json({ message: "Event does not belong to this family" });
+      }
+
+      // Verify user is a member of the event's family
+      const membership = await storage.getFamilyMember(event.familyId, userId);
+      if (!membership) {
+        return res.status(403).json({ message: "You are not a member of this event's family" });
+      }
+
+      // Update items (storage layer will verify all items belong to the same event)
+      const updatedItems = await storage.bulkUpdateWishlistPriority(userId, familyId, itemIds, priority, eventId);
 
       res.json({
         message: `${updatedItems.length} item(s) updated`,
@@ -1842,10 +1906,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/stats', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const { familyId } = req.query;
+      const { familyId, eventId } = req.query;
       
       if (familyId && typeof familyId === 'string') {
-        const stats = await storage.getUserStatsByFamily(userId, familyId);
+        const stats = await storage.getUserStatsByFamily(userId, familyId, eventId as string | undefined);
         res.json(stats);
       } else {
         const stats = await storage.getUserStats(userId);
@@ -1936,7 +2000,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/activities', isAuthenticated, async (req: any, res) => {
     try {
-      const { familyId, limit } = req.query;
+      const { familyId, eventId, limit } = req.query;
       const userId = req.user.claims.sub;
 
       if (!familyId || typeof familyId !== 'string') {
@@ -1951,7 +2015,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const activities = await storage.getRecentActivities(
         familyId, 
-        limit ? parseInt(limit as string) : 10
+        limit ? parseInt(limit as string) : 10,
+        eventId as string | undefined
       );
 
       res.json(activities);

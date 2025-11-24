@@ -290,8 +290,8 @@ export default function Wishlist() {
 
   // Bulk delete mutation
   const bulkDeleteMutation = useMutation({
-    mutationFn: async ({ itemIds, count, familyId }: { itemIds: string[]; count: number; familyId: string }) => {
-      return { response: await apiRequest("POST", "/api/wishlist/bulk-delete", { itemIds, familyId }), count };
+    mutationFn: async ({ itemIds, count, familyId, eventId }: { itemIds: string[]; count: number; familyId: string; eventId: string }) => {
+      return { response: await apiRequest("POST", "/api/wishlist/bulk-delete", { itemIds, familyId, eventId }), count };
     },
     onSuccess: (data) => {
       const currentFamilyId = selectedFamilyIdRef.current;
@@ -326,8 +326,8 @@ export default function Wishlist() {
 
   // Bulk update priority mutation
   const bulkUpdatePriorityMutation = useMutation({
-    mutationFn: async ({ itemIds, priority, count, familyId }: { itemIds: string[]; priority: string; count: number; familyId: string }) => {
-      return { response: await apiRequest("PATCH", "/api/wishlist/bulk-priority", { itemIds, priority, familyId }), count };
+    mutationFn: async ({ itemIds, priority, count, familyId, eventId }: { itemIds: string[]; priority: string; count: number; familyId: string; eventId: string }) => {
+      return { response: await apiRequest("PATCH", "/api/wishlist/bulk-priority", { itemIds, priority, familyId, eventId }), count };
     },
     onSuccess: (data) => {
       const currentFamilyId = selectedFamilyIdRef.current;
@@ -382,15 +382,15 @@ export default function Wishlist() {
   };
 
   const handleBulkDelete = () => {
-    if (selectedItems.size === 0 || !selectedFamilyId) return;
+    if (selectedItems.size === 0 || !selectedFamilyId || !selectedEventId) return;
     const count = selectedItems.size;
-    bulkDeleteMutation.mutate({ itemIds: Array.from(selectedItems), count, familyId: selectedFamilyId });
+    bulkDeleteMutation.mutate({ itemIds: Array.from(selectedItems), count, familyId: selectedFamilyId, eventId: selectedEventId });
   };
 
   const handleBulkUpdatePriority = (priority: string) => {
-    if (selectedItems.size === 0 || !selectedFamilyId) return;
+    if (selectedItems.size === 0 || !selectedFamilyId || !selectedEventId) return;
     const count = selectedItems.size;
-    bulkUpdatePriorityMutation.mutate({ itemIds: Array.from(selectedItems), priority, count, familyId: selectedFamilyId });
+    bulkUpdatePriorityMutation.mutate({ itemIds: Array.from(selectedItems), priority, count, familyId: selectedFamilyId, eventId: selectedEventId });
   };
 
   const onSubmit = (data: AddItemFormData) => {
@@ -1235,7 +1235,19 @@ export default function Wishlist() {
         </SheetContent>
       </Sheet>
 
-      {!hasItems ? (
+      {!selectedEventId ? (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-20 md:py-24 text-center">
+            <div className="w-24 h-24 rounded-full bg-muted flex items-center justify-center mb-6">
+              <AlertCircle className="w-12 h-12 text-muted-foreground" />
+            </div>
+            <h3 className="font-semibold text-xl mb-2 text-foreground">No Event Selected</h3>
+            <p className="text-muted-foreground mb-6 max-w-md px-4">
+              Please select an event from the dropdown above to view and manage wishlist items for that occasion.
+            </p>
+          </CardContent>
+        </Card>
+      ) : !hasItems ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-20 md:py-24 text-center">
             <div className="w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center mb-6">
@@ -1243,7 +1255,7 @@ export default function Wishlist() {
             </div>
             <h3 className="font-semibold text-xl mb-2 text-foreground">Your Wishlist is Empty</h3>
             <p className="text-muted-foreground mb-6 max-w-md px-4">
-              Start adding items you'd love to receive this Christmas. Click "Add Item" above to get started.
+              Start adding items you'd love to receive. Click "Add Item" above to get started.
             </p>
           </CardContent>
         </Card>

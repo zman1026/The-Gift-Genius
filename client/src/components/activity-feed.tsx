@@ -26,15 +26,24 @@ type Activity = z.infer<typeof activitySchema>;
 
 interface ActivityFeedProps {
   familyId: string;
+  eventId?: string;
   limit?: number;
   compact?: boolean;
 }
 
-export function ActivityFeed({ familyId, limit = 10, compact = false }: ActivityFeedProps) {
+export function ActivityFeed({ familyId, eventId, limit = 10, compact = false }: ActivityFeedProps) {
   const { data: activities, isLoading, isError } = useQuery<Activity[]>({
-    queryKey: ["/api/activities", familyId],
+    queryKey: ["/api/activities", familyId, eventId],
     queryFn: async () => {
-      const response = await fetch(`/api/activities?familyId=${familyId}&limit=${limit}`, {
+      const params = new URLSearchParams({ 
+        familyId,
+        limit: limit.toString(),
+      });
+      if (eventId) {
+        params.append("eventId", eventId);
+      }
+      
+      const response = await fetch(`/api/activities?${params.toString()}`, {
         credentials: "include",
       });
       if (!response.ok) {

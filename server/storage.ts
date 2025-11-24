@@ -82,8 +82,8 @@ export interface IStorage {
   createWishlistItem(item: InsertWishlistItem): Promise<WishlistItem>;
   updateWishlistItem(id: string, item: Partial<InsertWishlistItem>): Promise<WishlistItem>;
   deleteWishlistItem(id: string): Promise<void>;
-  bulkDeleteWishlistItems(userId: string, familyId: string, itemIds: string[]): Promise<WishlistItem[]>;
-  bulkUpdateWishlistPriority(userId: string, familyId: string, itemIds: string[], priority: 'low' | 'medium' | 'high'): Promise<WishlistItem[]>;
+  bulkDeleteWishlistItems(userId: string, familyId: string, itemIds: string[], eventId: string): Promise<WishlistItem[]>;
+  bulkUpdateWishlistPriority(userId: string, familyId: string, itemIds: string[], priority: 'low' | 'medium' | 'high', eventId: string): Promise<WishlistItem[]>;
   getUserWishlistItems(userId: string, options?: WishlistFilterOptions): Promise<WishlistItem[]>;
   getUserWishlistItemsByFamily(userId: string, familyId: string, options?: WishlistFilterOptions): Promise<WishlistItem[]>;
   getMemberWishlistItems(userId: string, viewerId: string, familyId?: string, eventId?: string): Promise<any[]>;
@@ -98,10 +98,13 @@ export interface IStorage {
   
   // Stats operations
   getUserStats(userId: string): Promise<any>;
+  getUserStatsByFamily(userId: string, familyId: string, eventId?: string): Promise<any>;
+  getPurchaseTotalsByMember(userId: string, familyId: string): Promise<any[]>;
+  getUserPurchaseForItem(itemId: string, userId: string): Promise<ItemPurchase | undefined>;
   
   // Activity log operations
   createActivityLog(log: InsertActivityLog): Promise<ActivityLog>;
-  getRecentActivities(familyId: string, limit?: number): Promise<any[]>;
+  getRecentActivities(familyId: string, limit?: number, eventId?: string): Promise<any[]>;
   
   // Event operations
   createEvent(event: InsertEvent): Promise<Event>;
@@ -533,28 +536,29 @@ export class DatabaseStorage implements IStorage {
     await db.delete(wishlistItems).where(eq(wishlistItems.id, id));
   }
 
-  async bulkDeleteWishlistItems(userId: string, familyId: string, itemIds: string[]): Promise<WishlistItem[]> {
+  async bulkDeleteWishlistItems(userId: string, familyId: string, itemIds: string[], eventId: string): Promise<WishlistItem[]> {
     // Verify user is a member of the family
     const membership = await this.getFamilyMember(familyId, userId);
     if (!membership) {
       throw new AuthorizationError("You are not a member of this family");
     }
 
-    // Fetch all items to verify ownership and family membership
+    // Fetch all items to verify ownership, family membership, and event membership
     const items = await db
       .select()
       .from(wishlistItems)
       .where(and(
         inArray(wishlistItems.id, itemIds),
         eq(wishlistItems.userId, userId),
-        eq(wishlistItems.familyId, familyId)
+        eq(wishlistItems.familyId, familyId),
+        eq(wishlistItems.eventId, eventId)
       ));
 
-    // Check if any items were not found or don't belong to the user/family
+    // Check if any items were not found or don't belong to the user/family/event
     if (items.length < itemIds.length) {
       const foundIds = new Set(items.map(item => item.id));
       const missingIds = itemIds.filter(id => !foundIds.has(id));
-      throw new AuthorizationError(`Cannot delete ${missingIds.length} item(s): not found or unauthorized`);
+      throw new AuthorizationError(`Cannot delete ${missingIds.length} item(s): not found or unauthorized in this event`);
     }
 
     // Delete all items
@@ -563,34 +567,36 @@ export class DatabaseStorage implements IStorage {
       .where(and(
         inArray(wishlistItems.id, itemIds),
         eq(wishlistItems.userId, userId),
-        eq(wishlistItems.familyId, familyId)
+        eq(wishlistItems.familyId, familyId),
+        eq(wishlistItems.eventId, eventId)
       ));
 
     return items;
   }
 
-  async bulkUpdateWishlistPriority(userId: string, familyId: string, itemIds: string[], priority: 'low' | 'medium' | 'high'): Promise<WishlistItem[]> {
+  async bulkUpdateWishlistPriority(userId: string, familyId: string, itemIds: string[], priority: 'low' | 'medium' | 'high', eventId: string): Promise<WishlistItem[]> {
     // Verify user is a member of the family
     const membership = await this.getFamilyMember(familyId, userId);
     if (!membership) {
       throw new AuthorizationError("You are not a member of this family");
     }
 
-    // Verify all items belong to the user and family
+    // Verify all items belong to the user, family, and event
     const existingItems = await db
       .select()
       .from(wishlistItems)
       .where(and(
         inArray(wishlistItems.id, itemIds),
         eq(wishlistItems.userId, userId),
-        eq(wishlistItems.familyId, familyId)
+        eq(wishlistItems.familyId, familyId),
+        eq(wishlistItems.eventId, eventId)
       ));
 
-    // Check if any items were not found or don't belong to the user/family
+    // Check if any items were not found or don't belong to the user/family/event
     if (existingItems.length < itemIds.length) {
       const foundIds = new Set(existingItems.map(item => item.id));
       const missingIds = itemIds.filter(id => !foundIds.has(id));
-      throw new AuthorizationError(`Cannot update ${missingIds.length} item(s): not found or unauthorized`);
+      throw new AuthorizationError(`Cannot update ${missingIds.length} item(s): not found or unauthorized in this event`);
     }
 
     // Update all items
@@ -600,7 +606,8 @@ export class DatabaseStorage implements IStorage {
       .where(and(
         inArray(wishlistItems.id, itemIds),
         eq(wishlistItems.userId, userId),
-        eq(wishlistItems.familyId, familyId)
+        eq(wishlistItems.familyId, familyId),
+        eq(wishlistItems.eventId, eventId)
       ))
       .returning();
 
@@ -1041,12 +1048,15 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async getUserStatsByFamily(userId: string, familyId: string): Promise<any> {
+  async getUserStatsByFamily(userId: string, familyId: string, eventId?: string): Promise<any> {
     // First verify that the user is a member of this family
     const membership = await this.getFamilyMember(familyId, userId);
     if (!membership) {
       throw new Error("You are not a member of this family");
     }
+
+    // Build event filter for SQL queries
+    const eventFilter = eventId ? sql`AND event_id = ${eventId}` : sql``;
 
     // Single optimized query using raw SQL for maximum performance
     const result = await db.execute(sql`
@@ -1056,6 +1066,7 @@ export class DatabaseStorage implements IStorage {
           FROM ${wishlistItems}
           WHERE user_id = ${userId}
           AND family_id = ${familyId}
+          ${eventFilter}
         ) as my_items_count,
         (
           SELECT COUNT(DISTINCT user_id)::int
@@ -1070,6 +1081,7 @@ export class DatabaseStorage implements IStorage {
           AND wi.user_id != ${userId}
           AND ip.id IS NULL
           AND wi.priority = 'high'
+          ${eventFilter}
         ) as items_to_purchase_count,
         (
           SELECT COALESCE(
@@ -1089,6 +1101,7 @@ export class DatabaseStorage implements IStorage {
           INNER JOIN ${wishlistItems} wi ON ip.item_id = wi.id
           WHERE ip.purchased_by_id = ${userId}
           AND wi.family_id = ${familyId}
+          ${eventFilter}
         ) as total_purchased
     `);
 
@@ -1150,7 +1163,13 @@ export class DatabaseStorage implements IStorage {
     return activity;
   }
 
-  async getRecentActivities(familyId: string, limit: number = 10): Promise<any[]> {
+  async getRecentActivities(familyId: string, limit: number = 10, eventId?: string): Promise<any[]> {
+    // Build where conditions
+    const conditions = [eq(activityLogs.familyId, familyId)];
+    if (eventId) {
+      conditions.push(eq(activityLogs.eventId, eventId));
+    }
+    
     const activities = await db
       .select({
         id: activityLogs.id,
@@ -1167,7 +1186,7 @@ export class DatabaseStorage implements IStorage {
       })
       .from(activityLogs)
       .leftJoin(users, eq(activityLogs.actorId, users.id))
-      .where(eq(activityLogs.familyId, familyId))
+      .where(and(...conditions))
       .orderBy(desc(activityLogs.createdAt))
       .limit(limit);
 

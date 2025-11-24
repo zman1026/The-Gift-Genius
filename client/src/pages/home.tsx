@@ -3,6 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { useFamily } from "@/contexts/FamilyContext";
+import { useEvent } from "@/contexts/EventContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -32,6 +33,7 @@ export default function Home() {
   const { toast } = useToast();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { selectedFamilyId, families } = useFamily();
+  const { selectedEventId } = useEvent();
   const [, setLocation] = useLocation();
   const [isBudgetDialogOpen, setIsBudgetDialogOpen] = useState(false);
   const [onboardingDismissed, setOnboardingDismissed] = useState(() => {
@@ -70,10 +72,16 @@ export default function Home() {
   });
 
   const { data: stats, isLoading: statsLoading } = useQuery<DashboardStats | null>({
-    queryKey: ["/api/stats", selectedFamilyId],
+    queryKey: ["/api/stats", selectedFamilyId, selectedEventId],
     queryFn: async () => {
       if (!selectedFamilyId) return null;
-      const response = await fetch(`/api/stats?familyId=${selectedFamilyId}`, {
+      
+      const params = new URLSearchParams({ familyId: selectedFamilyId });
+      if (selectedEventId) {
+        params.append("eventId", selectedEventId);
+      }
+      
+      const response = await fetch(`/api/stats?${params.toString()}`, {
         credentials: "include",
       });
       if (!response.ok) {
@@ -261,7 +269,7 @@ export default function Home() {
               </div>
             </CardHeader>
             <CardContent className="px-3 pb-3">
-              <ActivityFeed familyId={selectedFamilyId} limit={5} compact />
+              <ActivityFeed familyId={selectedFamilyId} eventId={selectedEventId || undefined} limit={5} compact />
             </CardContent>
           </Card>
         )}

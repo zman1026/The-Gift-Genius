@@ -299,6 +299,7 @@ export type ActivityLog = typeof activityLogs.$inferSelect;
 export const bulkDeleteItemsSchema = z.object({
   itemIds: z.array(z.string()).min(1, "At least one item ID is required").max(50, "Cannot delete more than 50 items at once"),
   familyId: z.string().min(1, "Family ID is required"),
+  eventId: z.string().min(1, "Event ID is required"),
 });
 
 export type BulkDeleteItems = z.infer<typeof bulkDeleteItemsSchema>;
@@ -307,6 +308,7 @@ export const bulkUpdatePrioritySchema = z.object({
   itemIds: z.array(z.string()).min(1, "At least one item ID is required").max(50, "Cannot update more than 50 items at once"),
   priority: z.enum(["low", "medium", "high"]),
   familyId: z.string().min(1, "Family ID is required"),
+  eventId: z.string().min(1, "Event ID is required"),
 });
 
 export type BulkUpdatePriority = z.infer<typeof bulkUpdatePrioritySchema>;
