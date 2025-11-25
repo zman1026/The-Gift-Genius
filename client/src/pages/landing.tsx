@@ -16,6 +16,7 @@ export default function Landing() {
           </div>
           <div className="flex items-center gap-3">
             <Button
+              className="hidden md:inline-flex"
               onClick={() => window.location.href = '/api/login'}
               data-testid="button-nav-get-started"
             >
