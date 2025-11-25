@@ -7,7 +7,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Calendar, Plus } from "lucide-react";
+import { Plus, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLocation } from "wouter";
 
@@ -43,6 +43,7 @@ export function EventSwitcher() {
           <div 
             className="w-3 h-3 rounded-full flex-shrink-0" 
             style={{ backgroundColor: event.themePrimary }}
+            aria-hidden="true"
           />
           <span className="text-sm font-medium text-foreground truncate" data-testid="single-event-name">
             {event.name}
@@ -51,11 +52,20 @@ export function EventSwitcher() {
         <Button
           variant="ghost"
           size="icon"
+          onClick={() => setLocation(`/events/${event.id}/edit`)}
+          className="shrink-0"
+          data-testid="button-edit-event"
+        >
+          <Pencil className="w-4 h-4" aria-hidden="true" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
           onClick={() => setLocation('/events/create')}
           className="shrink-0"
           data-testid="button-create-event"
         >
-          <Plus className="w-4 h-4" />
+          <Plus className="w-4 h-4" aria-hidden="true" />
         </Button>
       </div>
     );
@@ -70,45 +80,59 @@ export function EventSwitcher() {
   };
 
   return (
-    <Select value={selectedEventId || undefined} onValueChange={handleEventChange}>
-      <SelectTrigger className="w-full" data-testid="event-switcher">
-        <div className="flex items-center gap-2 min-w-0">
-          {selectedEventId && (
-            <div 
-              className="w-3 h-3 rounded-full flex-shrink-0" 
-              style={{ 
-                backgroundColor: events.find((e: any) => e.id === selectedEventId)?.themePrimary 
-              }}
-            />
-          )}
-          <SelectValue placeholder="Select event" />
-        </div>
-      </SelectTrigger>
-      <SelectContent>
-        {events.map((event: any) => (
+    <div className="flex items-center gap-2">
+      <Select value={selectedEventId || undefined} onValueChange={handleEventChange}>
+        <SelectTrigger className="flex-1" data-testid="event-switcher">
+          <div className="flex items-center gap-2 min-w-0">
+            {selectedEventId && (
+              <div 
+                className="w-3 h-3 rounded-full flex-shrink-0" 
+                style={{ 
+                  backgroundColor: events.find((e: any) => e.id === selectedEventId)?.themePrimary 
+                }}
+                aria-hidden="true"
+              />
+            )}
+            <SelectValue placeholder="Select event" />
+          </div>
+        </SelectTrigger>
+        <SelectContent>
+          {events.map((event: any) => (
+            <SelectItem 
+              key={event.id} 
+              value={event.id}
+              data-testid={`event-option-${event.id}`}
+            >
+              <div className="flex items-center gap-2">
+                <span className="truncate">{event.name}</span>
+                {!event.isActive && (
+                  <span className="text-xs text-muted-foreground">(Inactive)</span>
+                )}
+              </div>
+            </SelectItem>
+          ))}
           <SelectItem 
-            key={event.id} 
-            value={event.id}
-            data-testid={`event-option-${event.id}`}
+            value="create-new"
+            data-testid="event-option-create-new"
           >
-            <div className="flex items-center gap-2">
-              <span className="truncate">{event.name}</span>
-              {!event.isActive && (
-                <span className="text-xs text-muted-foreground">(Inactive)</span>
-              )}
+            <div className="flex items-center gap-2 text-primary">
+              <Plus className="w-4 h-4" aria-hidden="true" />
+              <span>Create New Event</span>
             </div>
           </SelectItem>
-        ))}
-        <SelectItem 
-          value="create-new"
-          data-testid="event-option-create-new"
+        </SelectContent>
+      </Select>
+      {selectedEventId && (
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setLocation(`/events/${selectedEventId}/edit`)}
+          className="shrink-0"
+          data-testid="button-edit-event"
         >
-          <div className="flex items-center gap-2 text-primary">
-            <Plus className="w-4 h-4" />
-            <span>Create New Event</span>
-          </div>
-        </SelectItem>
-      </SelectContent>
-    </Select>
+          <Pencil className="w-4 h-4" aria-hidden="true" />
+        </Button>
+      )}
+    </div>
   );
 }

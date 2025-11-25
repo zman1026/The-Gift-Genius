@@ -21,6 +21,7 @@ import Home from "@/pages/home";
 import CreateFamily from "@/pages/create-family";
 import JoinFamily from "@/pages/join-family";
 import CreateEvent from "@/pages/create-event";
+import EditEvent from "@/pages/edit-event";
 import Wishlist from "@/pages/wishlist";
 import Members from "@/pages/members";
 import MemberWishlist from "@/pages/member-wishlist";
@@ -95,6 +96,7 @@ function AuthenticatedContent() {
               <Route path="/families/create" component={CreateFamily} />
               <Route path="/families/join" component={JoinFamily} />
               <Route path="/events/create" component={CreateEvent} />
+              <Route path="/events/:eventId/edit" component={EditEvent} />
               <Route path="/wishlist" component={Wishlist} />
               <Route path="/members" component={Members} />
               <Route path="/members/:userId" component={MemberWishlist} />
