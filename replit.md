@@ -4,16 +4,19 @@
 The Gift Genius is a mobile-first web application designed to facilitate collaborative wishlist management for groups. It allows users to create, share, and manage wishlists at the group level, add items, and secretly mark purchases to preserve gift surprises. Users can also create personal shareable wishlists for any occasion.
 
 ## Recent Changes (November 25, 2025)
-- **Budget Feature Retooling**: Integrated Budget into the Christmas Wishlist experience for clearer connection:
-  - Removed Budget from sidebar navigation (no longer a standalone nav item)
-  - Christmas Wishlist card on My Wishlists page now displays budget summary with progress bar and "Manage" link
-  - Christmas Wishlist detail page (`/my-list`) shows budget remaining chip in header, linking to `/budget`
-  - Budget page (`/budget`) now has breadcrumb navigation: My Wishlists > Christmas Wishlist > Budget
-  - Budget page renamed to "Christmas Gift Budget" with themed styling
+- **Christmas Gift Coordination Hub**: Combined Budget and Gift Coordination features into single unified page at `/gift-coordination`:
+  - Hero section with 4 stat cards: Total Budget, Total Spent, Group Members, Remaining
+  - Overall progress bar when budget is set up
+  - Coordination Insights panel with smart nudges (high-priority items, members needing gifts, personal progress)
+  - Budget per Person panel with edit controls (organizers) and "Log Off-List Purchase" buttons
+  - Christmas-themed styling with red/green accents
+  - Added "Gift Coordination" to sidebar navigation with Sparkles icon
+  - All links from My Wishlists and Christmas Wishlist pages now point to `/gift-coordination`
+  - Old `/budget` route maintained for backward compatibility but no longer linked
 - **Christmas Wishlist Page Improvements**:
   - Added breadcrumb navigation from My Wishlists
   - Updated title to "My Christmas Wishlist" with themed tree icon
-  - Added budget summary chip when budget is configured
+  - Budget chip in header now shows "Coordinate" with link to Gift Coordination hub
 - **Unified My Wishlists Page**: Combined Christmas Wishlist and Personal Lists into a single `/my-wishlists` page with card-based layout:
   - Christmas Wishlist card displayed prominently at the top with budget summary
   - Personal lists shown below, sorted by upcoming event date (then oldest-first by creation date for undated lists)
