@@ -964,6 +964,94 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Bulk delete wishlist items - MUST be before parameterized routes
+  app.post('/api/wishlist/bulk-delete', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const parsed = bulkDeleteItemsSchema.safeParse(req.body);
+
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid request", errors: parsed.error.errors });
+      }
+
+      const { itemIds, familyId } = parsed.data;
+
+      // Verify user is a member of the group
+      const membership = await storage.getFamilyMember(familyId, userId);
+      if (!membership) {
+        return res.status(403).json({ message: "You are not a member of this group" });
+      }
+
+      // Delete items (storage layer will verify ownership)
+      const deletedItems = await storage.bulkDeleteWishlistItems(userId, familyId, itemIds);
+
+      // Log activity for each deleted item
+      for (const item of deletedItems) {
+        await storage.createActivityLog({
+          familyId: item.familyId,
+          actorId: userId,
+          action: "item_deleted",
+          metadata: {
+            itemName: item.name,
+            itemType: item.itemType,
+          },
+        });
+      }
+
+      res.json({ 
+        message: `${deletedItems.length} item(s) deleted`,
+        deletedCount: deletedItems.length
+      });
+    } catch (error: any) {
+      console.error("Error bulk deleting wishlist items:", error);
+      if (error instanceof AuthorizationError) {
+        return res.status(403).json({ message: error.message });
+      }
+      if (error instanceof NotFoundError) {
+        return res.status(404).json({ message: error.message });
+      }
+      res.status(500).json({ message: "Failed to delete items" });
+    }
+  });
+
+  // Bulk update priority for wishlist items - MUST be before parameterized routes
+  app.patch('/api/wishlist/bulk-priority', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const parsed = bulkUpdatePrioritySchema.safeParse(req.body);
+
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid request", errors: parsed.error.errors });
+      }
+
+      const { itemIds, priority, familyId } = parsed.data;
+
+      // Verify user is a member of the group
+      const membership = await storage.getFamilyMember(familyId, userId);
+      if (!membership) {
+        return res.status(403).json({ message: "You are not a member of this group" });
+      }
+
+      // Update items (storage layer will verify ownership)
+      const updatedItems = await storage.bulkUpdateWishlistPriority(userId, familyId, itemIds, priority);
+
+      res.json({
+        message: `${updatedItems.length} item(s) updated`,
+        updatedCount: updatedItems.length,
+        items: updatedItems
+      });
+    } catch (error: any) {
+      console.error("Error bulk updating wishlist priorities:", error);
+      if (error instanceof AuthorizationError) {
+        return res.status(403).json({ message: error.message });
+      }
+      if (error instanceof NotFoundError) {
+        return res.status(404).json({ message: error.message });
+      }
+      res.status(500).json({ message: "Failed to update priorities" });
+    }
+  });
+
   app.patch('/api/wishlist/:id', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
@@ -1040,94 +1128,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting wishlist item:", error);
       res.status(500).json({ message: "Failed to delete item" });
-    }
-  });
-
-  // Bulk delete wishlist items
-  app.post('/api/wishlist/bulk-delete', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const parsed = bulkDeleteItemsSchema.safeParse(req.body);
-
-      if (!parsed.success) {
-        return res.status(400).json({ message: "Invalid request", errors: parsed.error.errors });
-      }
-
-      const { itemIds, familyId } = parsed.data;
-
-      // Verify user is a member of the group
-      const membership = await storage.getFamilyMember(familyId, userId);
-      if (!membership) {
-        return res.status(403).json({ message: "You are not a member of this group" });
-      }
-
-      // Delete items (storage layer will verify ownership)
-      const deletedItems = await storage.bulkDeleteWishlistItems(userId, familyId, itemIds);
-
-      // Log activity for each deleted item
-      for (const item of deletedItems) {
-        await storage.createActivityLog({
-          familyId: item.familyId,
-          actorId: userId,
-          action: "item_deleted",
-          metadata: {
-            itemName: item.name,
-            itemType: item.itemType,
-          },
-        });
-      }
-
-      res.json({ 
-        message: `${deletedItems.length} item(s) deleted`,
-        deletedCount: deletedItems.length
-      });
-    } catch (error: any) {
-      console.error("Error bulk deleting wishlist items:", error);
-      if (error instanceof AuthorizationError) {
-        return res.status(403).json({ message: error.message });
-      }
-      if (error instanceof NotFoundError) {
-        return res.status(404).json({ message: error.message });
-      }
-      res.status(500).json({ message: "Failed to delete items" });
-    }
-  });
-
-  // Bulk update priority for wishlist items
-  app.patch('/api/wishlist/bulk-priority', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const parsed = bulkUpdatePrioritySchema.safeParse(req.body);
-
-      if (!parsed.success) {
-        return res.status(400).json({ message: "Invalid request", errors: parsed.error.errors });
-      }
-
-      const { itemIds, priority, familyId } = parsed.data;
-
-      // Verify user is a member of the group
-      const membership = await storage.getFamilyMember(familyId, userId);
-      if (!membership) {
-        return res.status(403).json({ message: "You are not a member of this group" });
-      }
-
-      // Update items (storage layer will verify ownership)
-      const updatedItems = await storage.bulkUpdateWishlistPriority(userId, familyId, itemIds, priority);
-
-      res.json({
-        message: `${updatedItems.length} item(s) updated`,
-        updatedCount: updatedItems.length,
-        items: updatedItems
-      });
-    } catch (error: any) {
-      console.error("Error bulk updating wishlist priorities:", error);
-      if (error instanceof AuthorizationError) {
-        return res.status(403).json({ message: error.message });
-      }
-      if (error instanceof NotFoundError) {
-        return res.status(404).json({ message: error.message });
-      }
-      res.status(500).json({ message: "Failed to update priorities" });
     }
   });
 
