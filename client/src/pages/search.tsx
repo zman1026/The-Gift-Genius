@@ -10,8 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ProductDetailsDialog } from "@/components/product-details-dialog";
+import { AddItemListPicker } from "@/components/add-item-list-picker";
 import { Search as SearchIcon, Plus, ExternalLink, Gift } from "lucide-react";
-import { Link } from "wouter";
 
 export default function Search() {
   const { toast } = useToast();
@@ -21,6 +21,7 @@ export default function Search() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
+  const [listPickerOpen, setListPickerOpen] = useState(false);
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
   
   // Use a ref to always get the current selectedFamilyId (prevents stale closure bugs)
@@ -183,12 +184,15 @@ export default function Search() {
             </Button>
           </div>
         </form>
-        <Link href="/wishlist">
-          <Button variant="outline" size="lg" data-testid="button-add-manually">
-            <Plus className="w-4 h-4 mr-2" />
-            Add Manually
-          </Button>
-        </Link>
+        <Button 
+          variant="outline" 
+          size="lg" 
+          onClick={() => setListPickerOpen(true)}
+          data-testid="button-add-manually"
+        >
+          <Plus className="w-4 h-4 mr-2" />
+          Add Manually
+        </Button>
       </div>
 
       {/* Results */}
@@ -296,6 +300,12 @@ export default function Search() {
         product={selectedProduct}
         onConfirm={handleConfirmAdd}
         isPending={addToWishlistMutation.isPending}
+      />
+
+      <AddItemListPicker
+        open={listPickerOpen}
+        onOpenChange={setListPickerOpen}
+        defaultTab="custom"
       />
     </div>
   );

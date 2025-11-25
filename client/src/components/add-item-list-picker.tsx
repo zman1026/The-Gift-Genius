@@ -27,9 +27,10 @@ interface PersonalList {
 interface AddItemListPickerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  defaultTab?: "quick" | "camera" | "custom";
 }
 
-export function AddItemListPicker({ open, onOpenChange }: AddItemListPickerProps) {
+export function AddItemListPicker({ open, onOpenChange, defaultTab = "quick" }: AddItemListPickerProps) {
   const { selectedFamilyId, families } = useFamily();
   const [, setLocation] = useLocation();
   const [showAddItemDialog, setShowAddItemDialog] = useState(false);
@@ -168,6 +169,7 @@ export function AddItemListPicker({ open, onOpenChange }: AddItemListPickerProps
           onOpenChange={setShowAddItemDialog}
           familyId={selectedFamilyId}
           onSuccess={handleAddItemSuccess}
+          defaultTab={defaultTab}
         />
       )}
     </>

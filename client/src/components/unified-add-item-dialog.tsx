@@ -72,6 +72,7 @@ interface UnifiedAddItemDialogProps {
   onSuccess: () => void;
   targetUserId?: string;
   targetUserName?: string;
+  defaultTab?: "quick" | "camera" | "custom";
 }
 
 export function UnifiedAddItemDialog({
@@ -81,8 +82,9 @@ export function UnifiedAddItemDialog({
   onSuccess,
   targetUserId,
   targetUserName,
+  defaultTab = "quick",
 }: UnifiedAddItemDialogProps) {
-  const [activeTab, setActiveTab] = useState("quick");
+  const [activeTab, setActiveTab] = useState<"quick" | "camera" | "custom">(defaultTab);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [uploadedImageUrl, setUploadedImageUrl] = useState("");
@@ -528,7 +530,7 @@ export function UnifiedAddItemDialog({
             </DialogDescription>
           </DialogHeader>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "quick" | "camera" | "custom")} className="w-full">
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="quick" data-testid="tab-quick-add">
               <Search className="w-4 h-4 mr-2" />
