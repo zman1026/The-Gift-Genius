@@ -40,6 +40,7 @@ export const usersRelations = relations(users, ({ many }) => ({
   familyMemberships: many(familyMembers),
   wishlistItems: many(wishlistItems),
   purchases: many(itemPurchases),
+  personalLists: many(personalLists),
 }));
 
 export type UpsertUser = typeof users.$inferInsert;
@@ -414,3 +415,125 @@ export const setBudgetAllocationsSchema = z.object({
 });
 
 export type SetBudgetAllocations = z.infer<typeof setBudgetAllocationsSchema>;
+
+// Occasion type enum for personal lists
+export const occasionTypeEnum = z.enum([
+  "birthday",
+  "graduation",
+  "wedding",
+  "baby_shower",
+  "anniversary",
+  "housewarming",
+  "holiday",
+  "other"
+]);
+
+export type OccasionType = z.infer<typeof occasionTypeEnum>;
+
+// Theme colors schema for personal lists
+export const themeColorsSchema = z.object({
+  primary: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Must be a valid hex color"),
+  accent: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Must be a valid hex color"),
+  background: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Must be a valid hex color"),
+}).nullable();
+
+export type ThemeColors = z.infer<typeof themeColorsSchema>;
+
+// Personal lists table
+export const personalLists = pgTable("personal_lists", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  name: varchar("name", { length: 255 }).notNull(),
+  occasionType: varchar("occasion_type", { length: 50 }).notNull(), // birthday, graduation, wedding, etc.
+  description: text("description"),
+  date: timestamp("date"), // Optional date for the occasion
+  themeColors: jsonb("theme_colors").$type<ThemeColors>(), // {primary, accent, background}
+  publicSlug: varchar("public_slug", { length: 120 }).unique(), // For public sharing
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_personal_lists_user").on(table.userId),
+  index("idx_personal_lists_slug").on(table.publicSlug),
+]);
+
+export const personalListsRelations = relations(personalLists, ({ one, many }) => ({
+  user: one(users, {
+    fields: [personalLists.userId],
+    references: [users.id],
+  }),
+  items: many(personalListItems),
+}));
+
+export const insertPersonalListSchema = createInsertSchema(personalLists).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  occasionType: occasionTypeEnum,
+  themeColors: themeColorsSchema.optional(),
+});
+
+export type InsertPersonalList = z.infer<typeof insertPersonalListSchema>;
+export type PersonalList = typeof personalLists.$inferSelect;
+
+// Personal list items table
+export const personalListItems = pgTable("personal_list_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  listId: varchar("list_id").notNull().references(() => personalLists.id, { onDelete: 'cascade' }),
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"),
+  price: decimal("price", { precision: 10, scale: 2 }),
+  imageUrl: text("image_url"),
+  link: text("link"), // URL to purchase
+  priority: varchar("priority", { length: 20 }).default("medium"), // high, medium, low
+  quantity: integer("quantity").default(1),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_personal_list_items_list").on(table.listId),
+]);
+
+export const personalListItemsRelations = relations(personalListItems, ({ one, many }) => ({
+  list: one(personalLists, {
+    fields: [personalListItems.listId],
+    references: [personalLists.id],
+  }),
+  purchases: many(personalListPurchases),
+}));
+
+export const insertPersonalListItemSchema = createInsertSchema(personalListItems).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertPersonalListItem = z.infer<typeof insertPersonalListItemSchema>;
+export type PersonalListItem = typeof personalListItems.$inferSelect;
+
+// Personal list purchases table (for tracking who bought what)
+export const personalListPurchases = pgTable("personal_list_purchases", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  itemId: varchar("item_id").notNull().references(() => personalListItems.id, { onDelete: 'cascade' }).unique(), // Unique: only one purchaser per item
+  purchasedByUserId: varchar("purchased_by_user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  purchasedAt: timestamp("purchased_at").defaultNow(),
+}, (table) => [
+  index("idx_personal_list_purchases_item").on(table.itemId),
+  index("idx_personal_list_purchases_user").on(table.purchasedByUserId),
+]);
+
+export const personalListPurchasesRelations = relations(personalListPurchases, ({ one }) => ({
+  item: one(personalListItems, {
+    fields: [personalListPurchases.itemId],
+    references: [personalListItems.id],
+  }),
+  purchasedBy: one(users, {
+    fields: [personalListPurchases.purchasedByUserId],
+    references: [users.id],
+  }),
+}));
+
+export const insertPersonalListPurchaseSchema = createInsertSchema(personalListPurchases).omit({
+  id: true,
+  purchasedAt: true,
+});
+
+export type InsertPersonalListPurchase = z.infer<typeof insertPersonalListPurchaseSchema>;
+export type PersonalListPurchase = typeof personalListPurchases.$inferSelect;

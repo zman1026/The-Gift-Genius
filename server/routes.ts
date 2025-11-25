@@ -9,7 +9,7 @@ import * as cheerio from "cheerio";
 import { ObjectStorageService, ObjectNotFoundError, objectStorageClient } from "./objectStorage";
 import { ObjectPermission } from "./objectAcl";
 import memoize from "memoizee";
-import { bulkDeleteItemsSchema, bulkUpdatePrioritySchema, setBudgetAllocationsSchema, logOffWishlistPurchaseSchema } from "@shared/schema";
+import { bulkDeleteItemsSchema, bulkUpdatePrioritySchema, setBudgetAllocationsSchema, logOffWishlistPurchaseSchema, insertPersonalListSchema, insertPersonalListItemSchema, occasionTypeEnum } from "@shared/schema";
 
 /**
  * Helper function to compute recipient display name for activity logs
@@ -2293,6 +2293,332 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching activities:", error);
       res.status(500).json({ message: "Failed to fetch activities" });
+    }
+  });
+
+  // ============================================
+  // Personal Lists Routes
+  // ============================================
+
+  // Get all personal lists for the current user
+  app.get('/api/personal-lists', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const lists = await storage.getUserPersonalLists(userId);
+      res.json(lists);
+    } catch (error) {
+      console.error("Error fetching personal lists:", error);
+      res.status(500).json({ message: "Failed to fetch personal lists" });
+    }
+  });
+
+  // Create a new personal list
+  app.post('/api/personal-lists', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      const createSchema = z.object({
+        name: z.string().min(1, "Name is required").max(255),
+        occasionType: occasionTypeEnum,
+        description: z.string().optional(),
+        date: z.string().optional().transform((val) => val ? new Date(val) : undefined),
+        themeColors: z.object({
+          primary: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Must be a valid hex color"),
+          accent: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Must be a valid hex color"),
+          background: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Must be a valid hex color"),
+        }).optional(),
+        publicSlug: z.string().max(120).optional(),
+      });
+
+      const validatedData = createSchema.parse(req.body);
+      
+      // Generate a unique public slug if not provided
+      let slug = validatedData.publicSlug;
+      if (!slug) {
+        const baseSlug = validatedData.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').substring(0, 50);
+        const uniqueId = randomBytes(4).toString('hex');
+        slug = `${baseSlug}-${uniqueId}`;
+      }
+
+      // Check if slug is already taken
+      const existingList = await storage.getPersonalListBySlug(slug);
+      if (existingList) {
+        return res.status(400).json({ message: "This URL slug is already taken" });
+      }
+
+      const list = await storage.createPersonalList({
+        ...validatedData,
+        userId,
+        publicSlug: slug,
+      });
+
+      res.status(201).json(list);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid list data", errors: error.errors });
+      }
+      console.error("Error creating personal list:", error);
+      res.status(500).json({ message: "Failed to create personal list" });
+    }
+  });
+
+  // Get a specific personal list with items
+  app.get('/api/personal-lists/:listId', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { listId } = req.params;
+
+      const listWithItems = await storage.getPersonalListWithItems(listId, userId);
+      res.json(listWithItems);
+    } catch (error) {
+      if (error instanceof NotFoundError) {
+        return res.status(404).json({ message: error.message });
+      }
+      console.error("Error fetching personal list:", error);
+      res.status(500).json({ message: "Failed to fetch personal list" });
+    }
+  });
+
+  // Update a personal list
+  app.put('/api/personal-lists/:listId', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { listId } = req.params;
+
+      const updateSchema = z.object({
+        name: z.string().min(1).max(255).optional(),
+        occasionType: occasionTypeEnum.optional(),
+        description: z.string().optional(),
+        date: z.string().optional().transform((val) => val ? new Date(val) : undefined),
+        themeColors: z.object({
+          primary: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Must be a valid hex color"),
+          accent: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Must be a valid hex color"),
+          background: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Must be a valid hex color"),
+        }).optional(),
+        publicSlug: z.string().max(120).optional(),
+      });
+
+      const validatedData = updateSchema.parse(req.body);
+
+      // If updating slug, check it's not taken
+      if (validatedData.publicSlug) {
+        const existingList = await storage.getPersonalListBySlug(validatedData.publicSlug);
+        if (existingList && existingList.id !== listId) {
+          return res.status(400).json({ message: "This URL slug is already taken" });
+        }
+      }
+
+      const updatedList = await storage.updatePersonalList(listId, validatedData, userId);
+      res.json(updatedList);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid list data", errors: error.errors });
+      }
+      if (error instanceof NotFoundError) {
+        return res.status(404).json({ message: error.message });
+      }
+      if (error instanceof AuthorizationError) {
+        return res.status(403).json({ message: error.message });
+      }
+      console.error("Error updating personal list:", error);
+      res.status(500).json({ message: "Failed to update personal list" });
+    }
+  });
+
+  // Delete a personal list
+  app.delete('/api/personal-lists/:listId', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { listId } = req.params;
+
+      await storage.deletePersonalList(listId, userId);
+      res.status(204).send();
+    } catch (error) {
+      if (error instanceof NotFoundError) {
+        return res.status(404).json({ message: error.message });
+      }
+      if (error instanceof AuthorizationError) {
+        return res.status(403).json({ message: error.message });
+      }
+      console.error("Error deleting personal list:", error);
+      res.status(500).json({ message: "Failed to delete personal list" });
+    }
+  });
+
+  // ============================================
+  // Personal List Items Routes
+  // ============================================
+
+  // Add item to personal list
+  app.post('/api/personal-lists/:listId/items', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { listId } = req.params;
+
+      // Verify the list exists and belongs to the user
+      const list = await storage.getPersonalList(listId);
+      if (!list) {
+        return res.status(404).json({ message: "Personal list not found" });
+      }
+      if (list.userId !== userId) {
+        return res.status(403).json({ message: "You can only add items to your own lists" });
+      }
+
+      const createItemSchema = z.object({
+        name: z.string().min(1, "Name is required").max(255),
+        description: z.string().optional(),
+        price: z.number().min(0).optional(),
+        imageUrl: z.string().url().optional().or(z.literal("")),
+        link: z.string().url().optional().or(z.literal("")),
+        priority: z.enum(["high", "medium", "low"]).optional(),
+        quantity: z.number().int().min(1).optional(),
+      });
+
+      const validatedData = createItemSchema.parse(req.body);
+
+      const item = await storage.createPersonalListItem({
+        ...validatedData,
+        listId,
+        price: validatedData.price?.toString(),
+        imageUrl: validatedData.imageUrl || null,
+        link: validatedData.link || null,
+      });
+
+      res.status(201).json(item);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid item data", errors: error.errors });
+      }
+      console.error("Error adding personal list item:", error);
+      res.status(500).json({ message: "Failed to add item" });
+    }
+  });
+
+  // Update personal list item
+  app.patch('/api/personal-lists/:listId/items/:itemId', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { itemId } = req.params;
+
+      const updateItemSchema = z.object({
+        name: z.string().min(1).max(255).optional(),
+        description: z.string().optional(),
+        price: z.number().min(0).optional(),
+        imageUrl: z.string().url().optional().or(z.literal("")),
+        link: z.string().url().optional().or(z.literal("")),
+        priority: z.enum(["high", "medium", "low"]).optional(),
+        quantity: z.number().int().min(1).optional(),
+      });
+
+      const validatedData = updateItemSchema.parse(req.body);
+
+      const updatedItem = await storage.updatePersonalListItem(itemId, {
+        ...validatedData,
+        price: validatedData.price?.toString(),
+        imageUrl: validatedData.imageUrl !== undefined ? (validatedData.imageUrl || null) : undefined,
+        link: validatedData.link !== undefined ? (validatedData.link || null) : undefined,
+      }, userId);
+
+      res.json(updatedItem);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid item data", errors: error.errors });
+      }
+      if (error instanceof NotFoundError) {
+        return res.status(404).json({ message: error.message });
+      }
+      if (error instanceof AuthorizationError) {
+        return res.status(403).json({ message: error.message });
+      }
+      console.error("Error updating personal list item:", error);
+      res.status(500).json({ message: "Failed to update item" });
+    }
+  });
+
+  // Delete personal list item
+  app.delete('/api/personal-lists/:listId/items/:itemId', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { itemId } = req.params;
+
+      await storage.deletePersonalListItem(itemId, userId);
+      res.status(204).send();
+    } catch (error) {
+      if (error instanceof NotFoundError) {
+        return res.status(404).json({ message: error.message });
+      }
+      if (error instanceof AuthorizationError) {
+        return res.status(403).json({ message: error.message });
+      }
+      console.error("Error deleting personal list item:", error);
+      res.status(500).json({ message: "Failed to delete item" });
+    }
+  });
+
+  // ============================================
+  // Personal List Purchase Routes
+  // ============================================
+
+  // Mark item as purchased
+  app.post('/api/personal-lists/:listId/items/:itemId/purchase', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { itemId } = req.params;
+
+      const purchase = await storage.markPersonalListItemPurchased(itemId, userId);
+      res.status(201).json(purchase);
+    } catch (error) {
+      if (error instanceof NotFoundError) {
+        return res.status(404).json({ message: error.message });
+      }
+      if (error instanceof AuthorizationError) {
+        return res.status(403).json({ message: error.message });
+      }
+      if (error instanceof Error && error.message.includes("already been purchased")) {
+        return res.status(409).json({ message: error.message });
+      }
+      console.error("Error marking item as purchased:", error);
+      res.status(500).json({ message: "Failed to mark item as purchased" });
+    }
+  });
+
+  // Unmark item as purchased
+  app.delete('/api/personal-lists/:listId/items/:itemId/purchase', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { itemId } = req.params;
+
+      await storage.unmarkPersonalListItemPurchased(itemId, userId);
+      res.status(204).send();
+    } catch (error) {
+      if (error instanceof NotFoundError) {
+        return res.status(404).json({ message: error.message });
+      }
+      if (error instanceof AuthorizationError) {
+        return res.status(403).json({ message: error.message });
+      }
+      console.error("Error unmarking item as purchased:", error);
+      res.status(500).json({ message: "Failed to unmark item as purchased" });
+    }
+  });
+
+  // ============================================
+  // Public Personal List Routes (no auth)
+  // ============================================
+
+  // Get public personal list by slug
+  app.get('/api/public/lists/:slug', async (req, res) => {
+    try {
+      const { slug } = req.params;
+
+      const listWithItems = await storage.getPublicPersonalList(slug);
+      res.json(listWithItems);
+    } catch (error) {
+      if (error instanceof NotFoundError) {
+        return res.status(404).json({ message: "List not found" });
+      }
+      console.error("Error fetching public personal list:", error);
+      res.status(500).json({ message: "Failed to fetch list" });
     }
   });
 

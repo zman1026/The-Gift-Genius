@@ -30,6 +30,9 @@ import Purchased from "@/pages/purchased";
 import Budget from "@/pages/budget";
 import Activities from "@/pages/activities";
 import More from "@/pages/more";
+import MyPersonalLists from "@/pages/my-personal-lists";
+import PersonalListDetail from "@/pages/personal-list-detail";
+import PublicList from "@/pages/public-list";
 import { AppErrorBoundary } from "@/components/error-boundary";
 import { UnifiedAddItemDialog } from "@/components/unified-add-item-dialog";
 
@@ -105,6 +108,9 @@ function AuthenticatedContent() {
               <Route path="/budget" component={Budget} />
               <Route path="/activities" component={Activities} />
               <Route path="/more" component={More} />
+              <Route path="/personal-lists" component={MyPersonalLists} />
+              <Route path="/personal-lists/:listId" component={PersonalListDetail} />
+              <Route path="/lists/:slug" component={PublicList} />
               <Route component={NotFound} />
             </Switch>
           </main>
@@ -139,6 +145,7 @@ function AppContent() {
         <Switch>
           <Route path="/" component={Landing} />
           <Route path="/families/join" component={JoinFamily} />
+          <Route path="/lists/:slug" component={PublicList} />
           <Route component={NotFound} />
         </Switch>
         <Toaster />

@@ -1,0 +1,392 @@
+import { useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { Plus, Gift, Cake, GraduationCap, Heart, Baby, Home, PartyPopper, Calendar, Trash2, ExternalLink, Edit } from "lucide-react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { Link } from "wouter";
+import { format } from "date-fns";
+import type { PersonalList } from "@shared/schema";
+
+const occasionTypes = [
+  { value: "birthday", label: "Birthday", icon: Cake },
+  { value: "graduation", label: "Graduation", icon: GraduationCap },
+  { value: "wedding", label: "Wedding", icon: Heart },
+  { value: "baby_shower", label: "Baby Shower", icon: Baby },
+  { value: "anniversary", label: "Anniversary", icon: Heart },
+  { value: "housewarming", label: "Housewarming", icon: Home },
+  { value: "holiday", label: "Holiday", icon: PartyPopper },
+  { value: "other", label: "Other", icon: Gift },
+] as const;
+
+const occasionThemes: Record<string, { primary: string; accent: string; background: string }> = {
+  birthday: { primary: "#EC4899", accent: "#F97316", background: "#FDF2F8" },
+  graduation: { primary: "#3B82F6", accent: "#10B981", background: "#EFF6FF" },
+  wedding: { primary: "#F43F5E", accent: "#D4AF37", background: "#FFF1F2" },
+  baby_shower: { primary: "#A855F7", accent: "#EC4899", background: "#FAF5FF" },
+  anniversary: { primary: "#EF4444", accent: "#F59E0B", background: "#FEF2F2" },
+  housewarming: { primary: "#84CC16", accent: "#F97316", background: "#F7FEE7" },
+  holiday: { primary: "#DC2626", accent: "#15803D", background: "#FEF2F2" },
+  other: { primary: "#6366F1", accent: "#8B5CF6", background: "#EEF2FF" },
+};
+
+const createListSchema = z.object({
+  name: z.string().min(1, "List name is required").max(255),
+  occasionType: z.enum(["birthday", "graduation", "wedding", "baby_shower", "anniversary", "housewarming", "holiday", "other"]),
+  description: z.string().optional(),
+  date: z.string().optional(),
+});
+
+type CreateListFormData = z.infer<typeof createListSchema>;
+
+export default function MyPersonalLists() {
+  const { toast } = useToast();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [deletingListId, setDeletingListId] = useState<string | null>(null);
+
+  const form = useForm<CreateListFormData>({
+    resolver: zodResolver(createListSchema),
+    defaultValues: {
+      name: "",
+      occasionType: "birthday",
+      description: "",
+      date: "",
+    },
+  });
+
+  const { data: lists, isLoading } = useQuery<PersonalList[]>({
+    queryKey: ["/api/personal-lists"],
+    enabled: isAuthenticated,
+  });
+
+  const createListMutation = useMutation({
+    mutationFn: async (data: CreateListFormData) => {
+      const themeColors = occasionThemes[data.occasionType];
+      return await apiRequest("POST", "/api/personal-lists", {
+        ...data,
+        themeColors,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/personal-lists"] });
+      toast({
+        title: "List created",
+        description: "Your personal list has been created successfully.",
+      });
+      setIsCreateDialogOpen(false);
+      form.reset();
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create list",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteListMutation = useMutation({
+    mutationFn: async (listId: string) => {
+      return await apiRequest("DELETE", `/api/personal-lists/${listId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/personal-lists"] });
+      toast({
+        title: "List deleted",
+        description: "Your personal list has been deleted.",
+      });
+      setDeletingListId(null);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete list",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleCreateSubmit = (data: CreateListFormData) => {
+    createListMutation.mutate(data);
+  };
+
+  const getOccasionIcon = (type: string) => {
+    const occasion = occasionTypes.find(o => o.value === type);
+    return occasion?.icon || Gift;
+  };
+
+  const getOccasionLabel = (type: string) => {
+    const occasion = occasionTypes.find(o => o.value === type);
+    return occasion?.label || type;
+  };
+
+  if (authLoading || isLoading) {
+    return (
+      <div className="container mx-auto p-4 md:p-6 max-w-4xl">
+        <div className="mb-6">
+          <Skeleton className="h-8 w-48 mb-2" />
+          <Skeleton className="h-4 w-64" />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {[1, 2, 3, 4].map((i) => (
+            <Skeleton key={i} className="h-40 w-full" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="container mx-auto p-4 md:p-6 max-w-4xl">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold" data-testid="text-page-title">My Personal Lists</h1>
+          <p className="text-muted-foreground">Create and manage your personal wishlists for any occasion</p>
+        </div>
+        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+          <DialogTrigger asChild>
+            <Button data-testid="button-create-list">
+              <Plus className="w-4 h-4 mr-2" aria-hidden="true" />
+              Create List
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-[500px]">
+            <DialogHeader>
+              <DialogTitle>Create Personal List</DialogTitle>
+              <DialogDescription>
+                Create a new wishlist for a special occasion. You can share it with friends and family.
+              </DialogDescription>
+            </DialogHeader>
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(handleCreateSubmit)} className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>List Name</FormLabel>
+                      <FormControl>
+                        <Input 
+                          placeholder="My Birthday Wishlist" 
+                          {...field} 
+                          data-testid="input-list-name"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="occasionType"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Occasion</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-occasion-type">
+                            <SelectValue placeholder="Select an occasion" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {occasionTypes.map((occasion) => {
+                            const Icon = occasion.icon;
+                            return (
+                              <SelectItem key={occasion.value} value={occasion.value}>
+                                <div className="flex items-center gap-2">
+                                  <Icon className="w-4 h-4" aria-hidden="true" />
+                                  {occasion.label}
+                                </div>
+                              </SelectItem>
+                            );
+                          })}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="date"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Date (optional)</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="date" 
+                          {...field} 
+                          data-testid="input-list-date"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Description (optional)</FormLabel>
+                      <FormControl>
+                        <Textarea 
+                          placeholder="Tell people what you're celebrating..." 
+                          {...field} 
+                          data-testid="input-list-description"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <DialogFooter>
+                  <Button 
+                    type="submit" 
+                    disabled={createListMutation.isPending}
+                    data-testid="button-submit-create-list"
+                  >
+                    {createListMutation.isPending ? "Creating..." : "Create List"}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </Form>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {(!lists || lists.length === 0) ? (
+        <Card className="text-center py-12">
+          <CardContent>
+            <Gift className="w-12 h-12 mx-auto mb-4 text-muted-foreground" aria-hidden="true" />
+            <h3 className="text-lg font-semibold mb-2">No personal lists yet</h3>
+            <p className="text-muted-foreground mb-4">
+              Create your first personal wishlist for birthdays, graduations, or any special occasion.
+            </p>
+            <Button onClick={() => setIsCreateDialogOpen(true)} data-testid="button-create-first-list">
+              <Plus className="w-4 h-4 mr-2" aria-hidden="true" />
+              Create Your First List
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {lists.map((list) => {
+            const Icon = getOccasionIcon(list.occasionType);
+            const themeColors = list.themeColors || occasionThemes[list.occasionType] || occasionThemes.other;
+            
+            return (
+              <Card 
+                key={list.id} 
+                className="relative overflow-hidden hover-elevate"
+                data-testid={`card-list-${list.id}`}
+              >
+                <div 
+                  className="absolute top-0 left-0 right-0 h-1.5"
+                  style={{ backgroundColor: themeColors.primary }}
+                />
+                <CardHeader className="pb-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div 
+                        className="p-2 rounded-lg shrink-0"
+                        style={{ backgroundColor: themeColors.background }}
+                      >
+                        <Icon 
+                          className="w-5 h-5" 
+                          style={{ color: themeColors.primary }}
+                          aria-hidden="true"
+                        />
+                      </div>
+                      <div className="min-w-0">
+                        <CardTitle className="text-lg truncate">{list.name}</CardTitle>
+                        <CardDescription className="flex items-center gap-1">
+                          <Badge variant="secondary" className="text-xs">
+                            {getOccasionLabel(list.occasionType)}
+                          </Badge>
+                          {list.date && (
+                            <span className="text-xs text-muted-foreground flex items-center gap-1">
+                              <Calendar className="w-3 h-3" aria-hidden="true" />
+                              {format(new Date(list.date), "MMM d, yyyy")}
+                            </span>
+                          )}
+                        </CardDescription>
+                      </div>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {list.description && (
+                    <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
+                      {list.description}
+                    </p>
+                  )}
+                  <div className="flex items-center justify-between gap-2">
+                    <Link href={`/personal-lists/${list.id}`}>
+                      <Button variant="outline" size="sm" data-testid={`button-view-list-${list.id}`}>
+                        View List
+                      </Button>
+                    </Link>
+                    <div className="flex gap-1">
+                      <Link href={`/personal-lists/${list.id}`}>
+                        <Button variant="ghost" size="icon" data-testid={`button-edit-list-${list.id}`}>
+                          <Edit className="w-4 h-4" aria-hidden="true" />
+                        </Button>
+                      </Link>
+                      <Dialog open={deletingListId === list.id} onOpenChange={(open) => !open && setDeletingListId(null)}>
+                        <DialogTrigger asChild>
+                          <Button 
+                            variant="ghost" 
+                            size="icon"
+                            onClick={() => setDeletingListId(list.id)}
+                            data-testid={`button-delete-list-${list.id}`}
+                          >
+                            <Trash2 className="w-4 h-4 text-destructive" aria-hidden="true" />
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                          <DialogHeader>
+                            <DialogTitle>Delete List</DialogTitle>
+                            <DialogDescription>
+                              Are you sure you want to delete "{list.name}"? This will permanently delete the list and all its items.
+                            </DialogDescription>
+                          </DialogHeader>
+                          <DialogFooter>
+                            <Button variant="outline" onClick={() => setDeletingListId(null)}>
+                              Cancel
+                            </Button>
+                            <Button 
+                              variant="destructive" 
+                              onClick={() => deleteListMutation.mutate(list.id)}
+                              disabled={deleteListMutation.isPending}
+                              data-testid="button-confirm-delete"
+                            >
+                              {deleteListMutation.isPending ? "Deleting..." : "Delete"}
+                            </Button>
+                          </DialogFooter>
+                        </DialogContent>
+                      </Dialog>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}

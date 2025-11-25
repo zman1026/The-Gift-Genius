@@ -8,6 +8,9 @@ import {
   managedProfiles,
   events,
   budgetAllocations,
+  personalLists,
+  personalListItems,
+  personalListPurchases,
   type User,
   type UpsertUser,
   type Family,
@@ -25,6 +28,12 @@ import {
   type InsertManagedProfile,
   type Event,
   type InsertEvent,
+  type PersonalList,
+  type InsertPersonalList,
+  type PersonalListItem,
+  type InsertPersonalListItem,
+  type PersonalListPurchase,
+  type InsertPersonalListPurchase,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, or, sql, desc, asc, inArray } from "drizzle-orm";
@@ -122,6 +131,28 @@ export interface IStorage {
   // Budget operations
   getEventBudgetOverview(eventId: string): Promise<any>;
   setBudgetAllocations(eventId: string, allocations: any[]): Promise<void>;
+  
+  // Personal list operations
+  createPersonalList(list: InsertPersonalList): Promise<PersonalList>;
+  getPersonalList(id: string): Promise<PersonalList | undefined>;
+  getPersonalListBySlug(slug: string): Promise<PersonalList | undefined>;
+  getUserPersonalLists(userId: string): Promise<PersonalList[]>;
+  updatePersonalList(id: string, updates: Partial<InsertPersonalList>, requesterId: string): Promise<PersonalList>;
+  deletePersonalList(id: string, requesterId: string): Promise<void>;
+  
+  // Personal list item operations
+  createPersonalListItem(item: InsertPersonalListItem): Promise<PersonalListItem>;
+  getPersonalListItems(listId: string): Promise<PersonalListItem[]>;
+  getPersonalListItem(id: string): Promise<PersonalListItem | undefined>;
+  updatePersonalListItem(id: string, updates: Partial<InsertPersonalListItem>, requesterId: string): Promise<PersonalListItem>;
+  deletePersonalListItem(id: string, requesterId: string): Promise<void>;
+  
+  // Personal list purchase operations
+  markPersonalListItemPurchased(itemId: string, purchasedByUserId: string): Promise<PersonalListPurchase>;
+  unmarkPersonalListItemPurchased(itemId: string, requesterId: string): Promise<void>;
+  getPersonalListItemPurchase(itemId: string): Promise<PersonalListPurchase | undefined>;
+  getPersonalListWithItems(listId: string, viewerId?: string): Promise<any>;
+  getPublicPersonalList(slug: string): Promise<any>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1594,6 +1625,247 @@ export class DatabaseStorage implements IStorage {
         );
       }
     });
+  }
+
+  // Personal list operations
+  async createPersonalList(listData: InsertPersonalList): Promise<PersonalList> {
+    const [list] = await db.insert(personalLists).values(listData).returning();
+    return list;
+  }
+
+  async getPersonalList(id: string): Promise<PersonalList | undefined> {
+    const [list] = await db.select().from(personalLists).where(eq(personalLists.id, id));
+    return list;
+  }
+
+  async getPersonalListBySlug(slug: string): Promise<PersonalList | undefined> {
+    const [list] = await db.select().from(personalLists).where(eq(personalLists.publicSlug, slug));
+    return list;
+  }
+
+  async getUserPersonalLists(userId: string): Promise<PersonalList[]> {
+    return await db
+      .select()
+      .from(personalLists)
+      .where(eq(personalLists.userId, userId))
+      .orderBy(desc(personalLists.createdAt));
+  }
+
+  async updatePersonalList(id: string, updates: Partial<InsertPersonalList>, requesterId: string): Promise<PersonalList> {
+    const list = await this.getPersonalList(id);
+    if (!list) {
+      throw new NotFoundError("Personal list not found");
+    }
+    if (list.userId !== requesterId) {
+      throw new AuthorizationError("You can only update your own lists");
+    }
+    
+    const [updatedList] = await db
+      .update(personalLists)
+      .set({
+        ...updates,
+        updatedAt: new Date(),
+      })
+      .where(eq(personalLists.id, id))
+      .returning();
+    
+    return updatedList;
+  }
+
+  async deletePersonalList(id: string, requesterId: string): Promise<void> {
+    const list = await this.getPersonalList(id);
+    if (!list) {
+      throw new NotFoundError("Personal list not found");
+    }
+    if (list.userId !== requesterId) {
+      throw new AuthorizationError("You can only delete your own lists");
+    }
+    
+    await db.delete(personalLists).where(eq(personalLists.id, id));
+  }
+
+  // Personal list item operations
+  async createPersonalListItem(itemData: InsertPersonalListItem): Promise<PersonalListItem> {
+    const [item] = await db.insert(personalListItems).values(itemData).returning();
+    return item;
+  }
+
+  async getPersonalListItems(listId: string): Promise<PersonalListItem[]> {
+    return await db
+      .select()
+      .from(personalListItems)
+      .where(eq(personalListItems.listId, listId))
+      .orderBy(desc(personalListItems.createdAt));
+  }
+
+  async getPersonalListItem(id: string): Promise<PersonalListItem | undefined> {
+    const [item] = await db.select().from(personalListItems).where(eq(personalListItems.id, id));
+    return item;
+  }
+
+  async updatePersonalListItem(id: string, updates: Partial<InsertPersonalListItem>, requesterId: string): Promise<PersonalListItem> {
+    const item = await this.getPersonalListItem(id);
+    if (!item) {
+      throw new NotFoundError("Personal list item not found");
+    }
+    
+    const list = await this.getPersonalList(item.listId);
+    if (!list || list.userId !== requesterId) {
+      throw new AuthorizationError("You can only update items in your own lists");
+    }
+    
+    const [updatedItem] = await db
+      .update(personalListItems)
+      .set(updates)
+      .where(eq(personalListItems.id, id))
+      .returning();
+    
+    return updatedItem;
+  }
+
+  async deletePersonalListItem(id: string, requesterId: string): Promise<void> {
+    const item = await this.getPersonalListItem(id);
+    if (!item) {
+      throw new NotFoundError("Personal list item not found");
+    }
+    
+    const list = await this.getPersonalList(item.listId);
+    if (!list || list.userId !== requesterId) {
+      throw new AuthorizationError("You can only delete items from your own lists");
+    }
+    
+    await db.delete(personalListItems).where(eq(personalListItems.id, id));
+  }
+
+  // Personal list purchase operations
+  async markPersonalListItemPurchased(itemId: string, purchasedByUserId: string): Promise<PersonalListPurchase> {
+    // Check if item exists
+    const item = await this.getPersonalListItem(itemId);
+    if (!item) {
+      throw new NotFoundError("Personal list item not found");
+    }
+    
+    // Check if list owner is trying to mark their own item
+    const list = await this.getPersonalList(item.listId);
+    if (list && list.userId === purchasedByUserId) {
+      throw new AuthorizationError("You cannot mark items on your own list as purchased");
+    }
+    
+    // Check if already purchased
+    const existingPurchase = await this.getPersonalListItemPurchase(itemId);
+    if (existingPurchase) {
+      throw new Error("This item has already been purchased");
+    }
+    
+    const [purchase] = await db
+      .insert(personalListPurchases)
+      .values({ itemId, purchasedByUserId })
+      .returning();
+    
+    return purchase;
+  }
+
+  async unmarkPersonalListItemPurchased(itemId: string, requesterId: string): Promise<void> {
+    const purchase = await this.getPersonalListItemPurchase(itemId);
+    if (!purchase) {
+      throw new NotFoundError("Purchase record not found");
+    }
+    
+    // Only the person who marked it purchased can unmark it
+    if (purchase.purchasedByUserId !== requesterId) {
+      throw new AuthorizationError("You can only unmark items you purchased");
+    }
+    
+    await db.delete(personalListPurchases).where(eq(personalListPurchases.itemId, itemId));
+  }
+
+  async getPersonalListItemPurchase(itemId: string): Promise<PersonalListPurchase | undefined> {
+    const [purchase] = await db
+      .select()
+      .from(personalListPurchases)
+      .where(eq(personalListPurchases.itemId, itemId));
+    return purchase;
+  }
+
+  async getPersonalListWithItems(listId: string, viewerId?: string): Promise<any> {
+    const list = await this.getPersonalList(listId);
+    if (!list) {
+      throw new NotFoundError("Personal list not found");
+    }
+    
+    const items = await this.getPersonalListItems(listId);
+    const isOwner = viewerId && list.userId === viewerId;
+    
+    // Get owner info
+    const owner = await this.getUser(list.userId);
+    
+    // Get purchase info for each item
+    // PRIVACY: Owner should NEVER see purchase info (to preserve gift surprise)
+    // Non-owners only see if an item is purchased and if THEY are the purchaser
+    const itemsWithPurchases = await Promise.all(
+      items.map(async (item) => {
+        const purchase = await this.getPersonalListItemPurchase(item.id);
+        
+        // Owner should not see any purchase info (to preserve surprise)
+        if (isOwner) {
+          return { ...item, isPurchased: false, isPurchasedByViewer: false };
+        }
+        
+        // Non-owners: only see if purchased and if THEY are the purchaser
+        // Never expose purchasedByUserId to protect purchaser identity from other viewers
+        const isPurchasedByViewer = !!(purchase && viewerId && purchase.purchasedByUserId === viewerId);
+        return {
+          ...item,
+          isPurchased: !!purchase,
+          isPurchasedByViewer,
+          // Only include purchasedByUserId if the viewer is the purchaser (for their own records)
+          // This allows purchasers to see their own purchases but hides identity from others
+        };
+      })
+    );
+    
+    return {
+      ...list,
+      owner: owner ? {
+        id: owner.id,
+        firstName: owner.firstName,
+        lastName: owner.lastName,
+        profileImageUrl: owner.profileImageUrl,
+      } : null,
+      items: itemsWithPurchases,
+      isOwner,
+    };
+  }
+
+  async getPublicPersonalList(slug: string): Promise<any> {
+    const list = await this.getPersonalListBySlug(slug);
+    if (!list) {
+      throw new NotFoundError("Personal list not found");
+    }
+    
+    const items = await this.getPersonalListItems(list.id);
+    const owner = await this.getUser(list.userId);
+    
+    // For public view, only show if item is purchased (no purchaser identity)
+    const itemsWithStatus = await Promise.all(
+      items.map(async (item) => {
+        const purchase = await this.getPersonalListItemPurchase(item.id);
+        return {
+          ...item,
+          isPurchased: !!purchase,
+        };
+      })
+    );
+    
+    return {
+      ...list,
+      owner: owner ? {
+        firstName: owner.firstName,
+        lastName: owner.lastName,
+        profileImageUrl: owner.profileImageUrl,
+      } : null,
+      items: itemsWithStatus,
+    };
   }
 }
 

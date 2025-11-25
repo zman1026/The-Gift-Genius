@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Home, Gift, Users, Settings, LogOut, ShoppingBag, Plus, DollarSign } from "lucide-react";
+import { Home, Gift, Users, Settings, LogOut, ShoppingBag, Plus, DollarSign, ListChecks } from "lucide-react";
 import { useLocation } from "wouter";
 import {
   Sidebar,
@@ -31,6 +31,12 @@ const menuItems = [
     url: "/my-list",
     icon: Gift,
     testId: "nav-wishlist",
+  },
+  {
+    title: "My Personal Lists",
+    url: "/personal-lists",
+    icon: ListChecks,
+    testId: "nav-personal-lists",
   },
   {
     title: "Add Item",

@@ -4,6 +4,12 @@
 The Gift Genius is a mobile-first web application designed to facilitate collaborative wishlist management for groups across various occasions. It allows users to create, share, and manage wishlists, add items, and secretly mark purchases to preserve gift surprises. The application aims to streamline gift coordination year-round, expanding beyond traditional holiday gift-giving.
 
 ## Recent Changes (November 25, 2025)
+- **Personal Lists Feature (Phase 2)**: Implemented personal shareable wishlists separate from group exchange lists. Users can create personal lists for any occasion (birthday, graduation, wedding, baby shower, etc.) with custom themes. Each list has a unique public URL (`/lists/:slug`) for sharing with anyone. Features include:
+  - Database: New `personal_lists`, `personal_list_items`, and `personal_list_purchases` tables
+  - API: Full CRUD for lists/items at `/api/personal-lists/*`, purchase tracking, public list endpoint at `/api/public/lists/:slug`
+  - Frontend: "My Personal Lists" page at `/personal-lists`, list detail page with item management, themed public view page
+  - Privacy: List owners cannot see who purchased items (preserves gift surprise), single purchaser per item constraint
+  - Navigation: Added "My Personal Lists" to sidebar menu
 - **UI Terminology Update: "Family" → "Group"**: Comprehensive update across the entire application to use "Group" instead of "Family" in all user-facing text. This change affects 25+ files including component labels, error messages, empty states, form placeholders, and API response fields (e.g., `familyMembersCount` → `groupMembersCount`). Internal variable names (e.g., `familyId`, `selectedFamilyId`) and API route paths (`/api/families/`) remain unchanged for stability.
 - **Event Editing Feature**: Added dedicated edit page at `/events/:eventId/edit` allowing users to modify event name, type, and date. EventSwitcher component now shows pencil icon edit button for all events. Form includes theme preview cards and automatic theme color updates based on event type selection. Uses PUT `/api/events/:eventId` endpoint with proper group membership authorization.
 - **API Migration: SerpApi → Scrapingdog**: Migrated product search from SerpApi to Scrapingdog for ~5x cost savings. Updated text search (Google Shopping API - 10 credits/request) and image/camera search (Google Lens API - 5 credits/request). Free tier includes 1,000 credits (~100-200 searches). Required secret: `SCRAPINGDOG_API_KEY`.
