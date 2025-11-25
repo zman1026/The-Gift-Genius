@@ -190,10 +190,14 @@ export default function GiftCoordinationPage() {
     );
   }
 
+  const currentUserId = (user as any)?.id;
+  const allMemberBudgets = budgetData?.memberBudgets || [];
+  const otherMemberBudgets = allMemberBudgets.filter((m: any) => m.userId !== currentUserId);
+
   const handleStartEdit = () => {
     setIsEditing(true);
     const initialAllocations: Record<string, string> = {};
-    budgetData?.memberBudgets?.forEach((member: any) => {
+    allMemberBudgets.forEach((member: any) => {
       const key = member.userId || member.managedProfileId;
       initialAllocations[key] = member.allocated.toString();
     });
@@ -302,9 +306,14 @@ export default function GiftCoordinationPage() {
     }
   };
 
-  const totalMembers = budgetData?.memberBudgets?.length || 0;
-  const membersWithBudget = budgetData?.memberBudgets?.filter((m: any) => m.allocated > 0).length || 0;
-  const hasBudgetSetup = budgetData?.totalAllocated > 0;
+  const totalMembers = allMemberBudgets.length;
+  const membersWithBudget = allMemberBudgets.filter((m: any) => m.allocated > 0).length;
+  
+  const totalAllocated = allMemberBudgets.reduce((sum: number, m: any) => sum + (m.allocated || 0), 0);
+  const totalSpent = allMemberBudgets.reduce((sum: number, m: any) => sum + (m.spent || 0), 0);
+  const totalRemaining = totalAllocated - totalSpent;
+  
+  const hasBudgetSetup = totalAllocated > 0;
   const hasUrgentInsights = insights && insights.some(i => i.type === "high-priority" || i.type === "no-gifts");
 
   return (
@@ -358,7 +367,7 @@ export default function GiftCoordinationPage() {
               <span className="text-xs text-muted-foreground">Budget</span>
             </div>
             <p className="text-lg sm:text-xl font-bold text-foreground" data-testid="stat-total-budget">
-              ${budgetData?.totalAllocated?.toFixed(0) || '0'}
+              ${totalAllocated.toFixed(0)}
             </p>
           </CardContent>
         </Card>
@@ -369,7 +378,7 @@ export default function GiftCoordinationPage() {
               <span className="text-xs text-muted-foreground">Spent</span>
             </div>
             <p className="text-lg sm:text-xl font-bold text-foreground" data-testid="stat-total-spent">
-              ${budgetData?.totalSpent?.toFixed(0) || '0'}
+              ${totalSpent.toFixed(0)}
             </p>
           </CardContent>
         </Card>
@@ -391,7 +400,7 @@ export default function GiftCoordinationPage() {
               <span className="text-xs text-muted-foreground">Remaining</span>
             </div>
             <p className="text-lg sm:text-xl font-bold text-foreground" data-testid="stat-remaining">
-              ${budgetData?.totalRemaining?.toFixed(0) || '0'}
+              ${totalRemaining.toFixed(0)}
             </p>
           </CardContent>
         </Card>
@@ -403,14 +412,14 @@ export default function GiftCoordinationPage() {
             <div className="flex justify-between items-center mb-2 text-xs text-muted-foreground">
               <span>Overall Progress</span>
               <span>
-                {budgetData?.totalAllocated > 0
-                  ? `${((budgetData.totalSpent / budgetData.totalAllocated) * 100).toFixed(0)}%`
+                {totalAllocated > 0
+                  ? `${((totalSpent / totalAllocated) * 100).toFixed(0)}%`
                   : '0%'}
               </span>
             </div>
             <Progress
-              value={budgetData?.totalAllocated > 0 
-                ? Math.min((budgetData.totalSpent / budgetData.totalAllocated) * 100, 100)
+              value={totalAllocated > 0 
+                ? Math.min((totalSpent / totalAllocated) * 100, 100)
                 : 0
               }
               className="h-2"
@@ -504,16 +513,17 @@ export default function GiftCoordinationPage() {
             </div>
           </CardHeader>
           <CardContent className="space-y-2">
-            {(!budgetData?.memberBudgets || budgetData.memberBudgets.length === 0) ? (
+            {allMemberBudgets.length === 0 ? (
               <div className="text-center py-4 text-sm text-muted-foreground">
                 No members yet.
               </div>
             ) : (
-              budgetData.memberBudgets.map((member: any) => {
+              allMemberBudgets.map((member: any) => {
                 const key = member.userId || member.managedProfileId;
                 const itemCount = memberCounts?.[key] || 0;
+                const isCurrentUser = member.userId === currentUserId;
                 return (
-                  <div key={key} className="p-2 rounded-md border" data-testid={`member-budget-${key}`}>
+                  <div key={key} className={`p-2 rounded-md border ${isCurrentUser ? 'bg-muted/50' : ''}`} data-testid={`member-budget-${key}`}>
                     {!isEditing ? (
                       <div className="space-y-2">
                         <div className="flex items-center gap-2">
@@ -526,6 +536,7 @@ export default function GiftCoordinationPage() {
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
                               <span className="text-sm font-medium truncate">{member.displayName}</span>
+                              {isCurrentUser && <Badge variant="secondary" className="text-xs">You</Badge>}
                               <Badge variant="outline" className="text-xs">
                                 {itemCount} {itemCount === 1 ? 'item' : 'items'}
                               </Badge>
@@ -545,16 +556,18 @@ export default function GiftCoordinationPage() {
                         {member.allocated > 0 && (
                           <Progress value={Math.min(member.percentUsed, 100)} className="h-1" />
                         )}
-                        <Button
-                          onClick={() => handleOpenLogPurchase(member)}
-                          variant="ghost"
-                          size="sm"
-                          className="w-full h-7 text-xs"
-                          data-testid={`button-log-purchase-${key}`}
-                        >
-                          <ShoppingBag className="w-3 h-3 mr-1" />
-                          Log Purchase
-                        </Button>
+                        {!isCurrentUser && (
+                          <Button
+                            onClick={() => handleOpenLogPurchase(member)}
+                            variant="ghost"
+                            size="sm"
+                            className="w-full h-7 text-xs"
+                            data-testid={`button-log-purchase-${key}`}
+                          >
+                            <ShoppingBag className="w-3 h-3 mr-1" />
+                            Log Purchase
+                          </Button>
+                        )}
                       </div>
                     ) : (
                       <div className="flex items-center gap-2">
@@ -564,7 +577,10 @@ export default function GiftCoordinationPage() {
                             {member.displayName?.split(' ').map((n: string) => n[0]).join('') || '?'}
                           </AvatarFallback>
                         </Avatar>
-                        <span className="flex-1 text-sm font-medium truncate">{member.displayName}</span>
+                        <span className="flex-1 text-sm font-medium truncate">
+                          {member.displayName}
+                          {isCurrentUser && <Badge variant="secondary" className="text-xs ml-2">You</Badge>}
+                        </span>
                         <div className="flex items-center gap-1">
                           <span className="text-sm text-muted-foreground">$</span>
                           <Input

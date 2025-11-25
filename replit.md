@@ -4,6 +4,22 @@
 The Gift Genius is a mobile-first web application designed to facilitate collaborative wishlist management for groups. It allows users to create, share, and manage wishlists at the group level, add items, and secretly mark purchases to preserve gift surprises. Users can also create personal shareable wishlists for any occasion.
 
 ## Recent Changes (November 25, 2025)
+- **Self-Exclusion from Budget/Purchases**: Users are now correctly excluded from buying gifts for themselves:
+  - Budget allocations filter out current user
+  - Off-list purchase recipient dropdown excludes current user
+  - Gift-Giving Progress dashboard component excludes current user from member counts and budget calculations
+  - Gift Coordination page stat cards exclude current user
+- **Wishlist UI Improvements**:
+  - Mobile-first 3-column grid layout (3 items per row on mobile, scales up for larger screens)
+  - Compact card design with smaller text, reduced padding, and icon-only priority badges
+  - Header reorganized: Add Item button, Coordinate button, Filter icon button (replaces old text button)
+  - Smaller checkbox and badge overlays on wishlist item images
+- **Multi-Guardian Managed Profiles**: Added support for multiple guardians per child profile:
+  - New `managed_profile_guardians` junction table with permission controls
+  - Guardians can have `canEdit` and `canManageBudget` permissions
+  - Primary guardian (creator) can add/remove other guardians
+  - API routes: GET/POST/PATCH/DELETE `/api/managed-profiles/:profileId/guardians`
+  - Storage methods for guardian management and authorization checks
 - **Christmas Gift Coordination Hub**: Combined Budget and Gift Coordination features into single unified page at `/gift-coordination`:
   - Hero section with 4 stat cards: Total Budget, Total Spent, Group Members, Remaining
   - Overall progress bar when budget is set up
@@ -57,7 +73,7 @@ The backend utilizes **Express.js** and **TypeScript**, with **Drizzle ORM** for
 - **Backend API:** RESTful API with structured error handling and Zod validation.
 - **Authentication:** Replit Auth for secure OIDC authentication with session storage.
 - **Data Access:** Drizzle ORM for type-safe database operations and transactions.
-- **Database Schema:** Core tables include `users`, `families`, `family_members`, `wishlist_items`, `item_purchases`, `activity_logs`, `managed_profiles`, `budget_allocations`, `personal_lists`, `personal_list_items`, `personal_list_purchases`, and `sessions`.
+- **Database Schema:** Core tables include `users`, `families`, `family_members`, `wishlist_items`, `item_purchases`, `activity_logs`, `managed_profiles`, `managed_profile_guardians`, `budget_allocations`, `personal_lists`, `personal_list_items`, `personal_list_purchases`, and `sessions`.
 - **Security:** Robust authorization with role-based access control, open redirect prevention, secure cookie management, and strict validation for budget modifications.
 - **Performance Optimizations:** Server-side caching for external APIs, optimized search, database indexing, batched queries, and smart React Query cache invalidation.
 

@@ -6,6 +6,7 @@ import {
   pgTable,
   text,
   timestamp,
+  unique,
   varchar,
   decimal,
   boolean,
@@ -61,6 +62,7 @@ export const managedProfilesRelations = relations(managedProfiles, ({ one, many 
     fields: [managedProfiles.createdById],
     references: [users.id],
   }),
+  guardians: many(managedProfileGuardians),
   familyMemberships: many(familyMembers),
   wishlistItems: many(wishlistItems),
 }));
@@ -72,6 +74,40 @@ export const insertManagedProfileSchema = createInsertSchema(managedProfiles).om
 
 export type InsertManagedProfile = z.infer<typeof insertManagedProfileSchema>;
 export type ManagedProfile = typeof managedProfiles.$inferSelect;
+
+// Managed profile guardians junction table (for multi-parent support)
+export const managedProfileGuardians = pgTable("managed_profile_guardians", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  managedProfileId: varchar("managed_profile_id").notNull().references(() => managedProfiles.id, { onDelete: 'cascade' }),
+  guardianUserId: varchar("guardian_user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  isPrimary: boolean("is_primary").default(false), // Primary guardian (original creator)
+  canEdit: boolean("can_edit").default(true), // Can edit profile and wishlist
+  canManageBudget: boolean("can_manage_budget").default(false), // Can manage budget allocations
+  addedAt: timestamp("added_at").defaultNow(),
+}, (table) => [
+  index("idx_managed_profile_guardians_profile").on(table.managedProfileId),
+  index("idx_managed_profile_guardians_user").on(table.guardianUserId),
+  unique("unique_profile_guardian").on(table.managedProfileId, table.guardianUserId),
+]);
+
+export const managedProfileGuardiansRelations = relations(managedProfileGuardians, ({ one }) => ({
+  managedProfile: one(managedProfiles, {
+    fields: [managedProfileGuardians.managedProfileId],
+    references: [managedProfiles.id],
+  }),
+  guardian: one(users, {
+    fields: [managedProfileGuardians.guardianUserId],
+    references: [users.id],
+  }),
+}));
+
+export const insertManagedProfileGuardianSchema = createInsertSchema(managedProfileGuardians).omit({
+  id: true,
+  addedAt: true,
+});
+
+export type InsertManagedProfileGuardian = z.infer<typeof insertManagedProfileGuardianSchema>;
+export type ManagedProfileGuardian = typeof managedProfileGuardians.$inferSelect;
 
 // Families table (Groups)
 export const families = pgTable("families", {

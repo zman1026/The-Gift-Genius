@@ -6,6 +6,7 @@ import {
   itemPurchases,
   activityLogs,
   managedProfiles,
+  managedProfileGuardians,
   budgetAllocations,
   personalLists,
   personalListItems,
@@ -25,6 +26,8 @@ import {
   type InsertActivityLog,
   type ManagedProfile,
   type InsertManagedProfile,
+  type ManagedProfileGuardian,
+  type InsertManagedProfileGuardian,
   type PersonalList,
   type InsertPersonalList,
   type PersonalListItem,
@@ -453,6 +456,15 @@ export class DatabaseStorage implements IStorage {
 
     const [profile] = await db.insert(managedProfiles).values(profileData).returning();
     
+    // Create primary guardian entry for the creator
+    await db.insert(managedProfileGuardians).values({
+      managedProfileId: profile.id,
+      guardianUserId: profileData.createdById,
+      isPrimary: true,
+      canEdit: true,
+      canManageBudget: true,
+    });
+    
     await db.insert(familyMembers).values({
       familyId,
       managedProfileId: profile.id,
@@ -472,8 +484,13 @@ export class DatabaseStorage implements IStorage {
       throw new NotFoundError("Managed profile not found");
     }
     
-    if (profile.createdById !== requesterId) {
-      throw new AuthorizationError("You can only edit child profiles you created");
+    // Check if requester is the creator or a guardian with edit permissions
+    const isCreator = profile.createdById === requesterId;
+    const guardianEntry = await this.getManagedProfileGuardian(id, requesterId);
+    const canEdit = isCreator || (guardianEntry && guardianEntry.canEdit);
+    
+    if (!canEdit) {
+      throw new AuthorizationError("You don't have permission to edit this child profile");
     }
     
     const [updatedProfile] = await db
@@ -495,11 +512,172 @@ export class DatabaseStorage implements IStorage {
       throw new NotFoundError("Managed profile not found");
     }
     
+    // Only the primary creator can delete the profile
     if (profile.createdById !== requesterId) {
-      throw new AuthorizationError("You can only delete child profiles you created");
+      throw new AuthorizationError("Only the primary guardian can delete this child profile");
     }
     
     await db.delete(managedProfiles).where(eq(managedProfiles.id, id));
+  }
+  
+  // Guardian management methods
+  async getManagedProfileGuardian(profileId: string, userId: string): Promise<ManagedProfileGuardian | undefined> {
+    const [guardian] = await db
+      .select()
+      .from(managedProfileGuardians)
+      .where(and(
+        eq(managedProfileGuardians.managedProfileId, profileId),
+        eq(managedProfileGuardians.guardianUserId, userId)
+      ));
+    return guardian;
+  }
+  
+  async getManagedProfileGuardians(profileId: string): Promise<(ManagedProfileGuardian & { guardian: User })[]> {
+    const guardians = await db
+      .select({
+        id: managedProfileGuardians.id,
+        managedProfileId: managedProfileGuardians.managedProfileId,
+        guardianUserId: managedProfileGuardians.guardianUserId,
+        isPrimary: managedProfileGuardians.isPrimary,
+        canEdit: managedProfileGuardians.canEdit,
+        canManageBudget: managedProfileGuardians.canManageBudget,
+        addedAt: managedProfileGuardians.addedAt,
+        guardian: users,
+      })
+      .from(managedProfileGuardians)
+      .innerJoin(users, eq(managedProfileGuardians.guardianUserId, users.id))
+      .where(eq(managedProfileGuardians.managedProfileId, profileId));
+    return guardians;
+  }
+  
+  async addGuardianToManagedProfile(
+    profileId: string, 
+    guardianUserId: string, 
+    requesterId: string,
+    permissions?: { canEdit?: boolean; canManageBudget?: boolean }
+  ): Promise<ManagedProfileGuardian> {
+    const [profile] = await db
+      .select()
+      .from(managedProfiles)
+      .where(eq(managedProfiles.id, profileId));
+    
+    if (!profile) {
+      throw new NotFoundError("Managed profile not found");
+    }
+    
+    // Only the primary creator can add guardians
+    if (profile.createdById !== requesterId) {
+      throw new AuthorizationError("Only the primary guardian can add other guardians");
+    }
+    
+    // Check if guardian is already added
+    const existing = await this.getManagedProfileGuardian(profileId, guardianUserId);
+    if (existing) {
+      throw new Error("This user is already a guardian for this profile");
+    }
+    
+    const [guardian] = await db.insert(managedProfileGuardians).values({
+      managedProfileId: profileId,
+      guardianUserId,
+      isPrimary: false,
+      canEdit: permissions?.canEdit ?? true,
+      canManageBudget: permissions?.canManageBudget ?? false,
+    }).returning();
+    
+    return guardian;
+  }
+  
+  async updateGuardianPermissions(
+    profileId: string,
+    guardianUserId: string,
+    requesterId: string,
+    permissions: { canEdit?: boolean; canManageBudget?: boolean }
+  ): Promise<ManagedProfileGuardian> {
+    const [profile] = await db
+      .select()
+      .from(managedProfiles)
+      .where(eq(managedProfiles.id, profileId));
+    
+    if (!profile) {
+      throw new NotFoundError("Managed profile not found");
+    }
+    
+    // Only the primary creator can update permissions
+    if (profile.createdById !== requesterId) {
+      throw new AuthorizationError("Only the primary guardian can modify guardian permissions");
+    }
+    
+    const [updated] = await db
+      .update(managedProfileGuardians)
+      .set(permissions)
+      .where(and(
+        eq(managedProfileGuardians.managedProfileId, profileId),
+        eq(managedProfileGuardians.guardianUserId, guardianUserId)
+      ))
+      .returning();
+    
+    if (!updated) {
+      throw new NotFoundError("Guardian not found for this profile");
+    }
+    
+    return updated;
+  }
+  
+  async removeGuardianFromManagedProfile(profileId: string, guardianUserId: string, requesterId: string): Promise<void> {
+    const [profile] = await db
+      .select()
+      .from(managedProfiles)
+      .where(eq(managedProfiles.id, profileId));
+    
+    if (!profile) {
+      throw new NotFoundError("Managed profile not found");
+    }
+    
+    // Only the primary creator can remove guardians
+    if (profile.createdById !== requesterId) {
+      throw new AuthorizationError("Only the primary guardian can remove other guardians");
+    }
+    
+    // Cannot remove the primary guardian
+    if (guardianUserId === profile.createdById) {
+      throw new Error("Cannot remove the primary guardian");
+    }
+    
+    await db
+      .delete(managedProfileGuardians)
+      .where(and(
+        eq(managedProfileGuardians.managedProfileId, profileId),
+        eq(managedProfileGuardians.guardianUserId, guardianUserId)
+      ));
+  }
+  
+  async getManagedProfilesByGuardian(guardianUserId: string): Promise<ManagedProfile[]> {
+    // Get profiles where user is creator OR is a guardian
+    const profiles = await db
+      .selectDistinct({ profile: managedProfiles })
+      .from(managedProfiles)
+      .leftJoin(managedProfileGuardians, eq(managedProfiles.id, managedProfileGuardians.managedProfileId))
+      .where(or(
+        eq(managedProfiles.createdById, guardianUserId),
+        eq(managedProfileGuardians.guardianUserId, guardianUserId)
+      ));
+    return profiles.map(p => p.profile);
+  }
+  
+  async isGuardianOfProfile(profileId: string, userId: string): Promise<boolean> {
+    const [profile] = await db
+      .select()
+      .from(managedProfiles)
+      .where(eq(managedProfiles.id, profileId));
+    
+    if (!profile) return false;
+    
+    // Check if user is the creator
+    if (profile.createdById === userId) return true;
+    
+    // Check if user is a guardian
+    const guardian = await this.getManagedProfileGuardian(profileId, userId);
+    return !!guardian;
   }
 
   async getManagedProfile(id: string): Promise<ManagedProfile | undefined> {
@@ -1380,7 +1558,7 @@ export class DatabaseStorage implements IStorage {
       let memberName = 'Unknown';
       if (member.managedProfileId) {
         const [profile] = await db.select().from(managedProfiles).where(eq(managedProfiles.id, member.managedProfileId));
-        if (profile) memberName = profile.displayName;
+        if (profile) memberName = `${profile.firstName || ''} ${profile.lastName || ''}`.trim() || 'Unknown';
       } else if (member.userId) {
         const [user] = await db.select().from(users).where(eq(users.id, member.userId));
         if (user) memberName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'Unknown';

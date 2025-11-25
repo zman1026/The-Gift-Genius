@@ -15,7 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Gift, Plus, Trash2, Edit, ExternalLink, AlertCircle, Circle, ArrowUp, Search, Upload, SlidersHorizontal, X, CheckSquare, Square, Filter, TreePine, DollarSign, ChevronRight } from "lucide-react";
+import { Gift, Plus, Trash2, Edit, ExternalLink, AlertCircle, Circle, ArrowUp, Search, Upload, SlidersHorizontal, X, CheckSquare, Square, Filter, TreePine, DollarSign, ChevronRight, Sparkles } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -526,9 +526,9 @@ export default function Wishlist() {
     return (
       <div className="p-6 md:p-8 lg:p-12 space-y-6">
         <Skeleton className="h-10 w-64" />
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3">
+        <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2">
           {[...Array(12)].map((_, i) => (
-            <Skeleton key={i} className="h-64" />
+            <Skeleton key={i} className="h-40" />
           ))}
         </div>
       </div>
@@ -598,33 +598,36 @@ export default function Wishlist() {
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <Link href="/gift-coordination">
-            <div 
-              className="rounded-lg px-3 py-2 flex items-center gap-2 hover-elevate cursor-pointer"
-              style={{ backgroundColor: christmasTheme.background }}
-              data-testid="link-gift-coordination"
-            >
-              <DollarSign 
-                className="w-4 h-4" 
-                style={{ color: christmasTheme.accent }}
-                aria-hidden="true" 
-              />
-              <div className="text-xs">
-                {budgetData && budgetData.totalAllocated > 0 ? (
-                  <>
-                    <span className="font-medium">${budgetData.totalRemaining.toFixed(0)}</span>
-                    <span className="text-muted-foreground"> left</span>
-                  </>
-                ) : (
-                  <span className="text-muted-foreground">Coordinate</span>
-                )}
-              </div>
-            </div>
-          </Link>
           <Button onClick={() => setIsAddDialogOpen(true)} data-testid="button-add-manually">
             <Plus className="w-4 h-4 mr-2" aria-hidden="true" />
             Add Item
           </Button>
+          <Link href="/gift-coordination">
+            <Button 
+              variant="outline"
+              data-testid="link-gift-coordination"
+            >
+              <Sparkles 
+                className="w-4 h-4 mr-2" 
+                style={{ color: christmasTheme.accent }}
+                aria-hidden="true" 
+              />
+              Coordinate
+            </Button>
+          </Link>
+          {hasItems && (
+            <Button 
+              variant="outline" 
+              size="icon"
+              onClick={() => setIsFilterOpen(true)}
+              data-testid="button-open-filters-icon"
+            >
+              <Filter className="w-4 h-4" aria-hidden="true" />
+              {hasActiveSettings && (
+                <span className="absolute -top-1 -right-1 w-2 h-2 bg-primary rounded-full" />
+              )}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -852,20 +855,9 @@ export default function Wishlist() {
           </DialogContent>
         </Dialog>
 
-      {hasItems && (
-        <Sheet open={isFilterOpen} onOpenChange={setIsFilterOpen}>
-          <SheetTrigger asChild>
-            <Button variant="outline" data-testid="button-open-filters">
-              <Filter className="w-4 h-4 mr-2" />
-              Filter & Sort
-              {hasActiveSettings && (
-                <Badge variant="secondary" className="ml-2 h-5 px-1.5">
-                  Active
-                </Badge>
-              )}
-            </Button>
-          </SheetTrigger>
-            <SheetContent side="bottom" className="h-[85vh]">
+      {/* Filter & Sort Sheet (controlled by header icon button) */}
+      <Sheet open={isFilterOpen} onOpenChange={setIsFilterOpen}>
+        <SheetContent side="bottom" className="h-[85vh]">
               <SheetHeader>
                 <SheetTitle>Sort & Filter</SheetTitle>
                 <SheetDescription>
@@ -961,9 +953,8 @@ export default function Wishlist() {
                   </Button>
                 </div>
               </div>
-            </SheetContent>
-        </Sheet>
-      )}
+        </SheetContent>
+      </Sheet>
 
       {/* Item Detail Sheet */}
       <Sheet open={!!viewingItem} onOpenChange={(open) => { if (!open) handleCloseDetailView(); }}>
@@ -1391,7 +1382,7 @@ export default function Wishlist() {
             </Card>
           )}
           
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3">
+          <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2">
           {items.map((item: any) => (
             <Card 
               key={item.id} 
@@ -1408,46 +1399,35 @@ export default function Wishlist() {
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center">
-                    <Gift className="w-12 h-12 text-muted-foreground" />
+                    <Gift className="w-8 h-8 text-muted-foreground" />
                   </div>
                 )}
                 {/* Selection checkbox */}
-                <div className="absolute top-2 left-2 z-10">
+                <div className="absolute top-1 left-1 z-10">
                   <Checkbox
                     checked={selectedItems.has(item.id)}
                     onCheckedChange={() => toggleItemSelection(item.id)}
-                    className="bg-background/90 backdrop-blur-sm border-border data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+                    className="h-4 w-4 bg-background/90 backdrop-blur-sm border-border data-[state=checked]:bg-primary data-[state=checked]:border-primary"
                     data-testid={`checkbox-select-${item.id}`}
                   />
                 </div>
                 {item.priority && (
                   <Badge 
                     variant={item.priority === "high" ? "destructive" : item.priority === "medium" ? "default" : "secondary"} 
-                    className="absolute top-2 right-2 text-xs h-5"
+                    className="absolute top-1 right-1 text-[10px] h-4 px-1"
                     data-testid={`badge-priority-${item.id}`}
                   >
-                    {item.priority === "high" && <ArrowUp className="w-2.5 h-2.5 mr-0.5" />}
-                    {item.priority === "medium" && <Circle className="w-2.5 h-2.5 mr-0.5" />}
-                    {item.priority === "low" && <AlertCircle className="w-2.5 h-2.5 mr-0.5" />}
-                    {item.priority === "high" ? "Must-Have!" : item.priority === "medium" ? "Would Love" : "Just a Thought"}
+                    {item.priority === "high" && <ArrowUp className="w-2 h-2" />}
+                    {item.priority === "medium" && <Circle className="w-2 h-2" />}
+                    {item.priority === "low" && <AlertCircle className="w-2 h-2" />}
                   </Badge>
                 )}
               </div>
-              <CardContent className="flex flex-col gap-2 grow p-3">
-                <div className="flex-1 min-h-0">
-                  <h3 className="font-semibold text-sm text-foreground line-clamp-2">{item.name}</h3>
-                  {item.price && (
-                    <p className="text-base font-bold text-primary">${parseFloat(item.price).toFixed(2)}</p>
-                  )}
-                  {item.quantity && item.quantity !== 1 && (
-                    <Badge variant="outline" className="text-xs h-5 mt-1" data-testid={`badge-quantity-${item.id}`}>
-                      Qty: {item.quantity}
-                    </Badge>
-                  )}
-                  {item.description && (
-                    <p className="text-xs text-muted-foreground line-clamp-2 mt-1">{item.description}</p>
-                  )}
-                </div>
+              <CardContent className="flex flex-col gap-0.5 grow p-1.5">
+                <h3 className="font-medium text-[11px] leading-tight text-foreground line-clamp-2">{item.name}</h3>
+                {item.price && (
+                  <p className="text-xs font-bold text-primary">${parseFloat(item.price).toFixed(0)}</p>
+                )}
               </CardContent>
             </Card>
           ))}

@@ -489,6 +489,108 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Guardian management routes for managed profiles
+  app.get('/api/managed-profiles/:profileId/guardians', isAuthenticated, async (req: any, res) => {
+    try {
+      const requesterId = req.user.claims.sub;
+      const { profileId } = req.params;
+
+      // Check if requester is a guardian of this profile
+      const isGuardian = await storage.isGuardianOfProfile(profileId, requesterId);
+      if (!isGuardian) {
+        return res.status(403).json({ message: "You don't have permission to view guardians for this profile" });
+      }
+
+      const guardians = await storage.getManagedProfileGuardians(profileId);
+      res.json(guardians);
+    } catch (error: any) {
+      console.error("Error fetching guardians:", error);
+      res.status(500).json({ message: "Failed to fetch guardians" });
+    }
+  });
+
+  app.post('/api/managed-profiles/:profileId/guardians', isAuthenticated, async (req: any, res) => {
+    try {
+      const requesterId = req.user.claims.sub;
+      const { profileId } = req.params;
+
+      const addGuardianSchema = z.object({
+        guardianUserId: z.string().min(1, "Guardian user ID is required"),
+        canEdit: z.boolean().optional(),
+        canManageBudget: z.boolean().optional(),
+      });
+
+      const validatedData = addGuardianSchema.parse(req.body);
+
+      const guardian = await storage.addGuardianToManagedProfile(
+        profileId,
+        validatedData.guardianUserId,
+        requesterId,
+        { canEdit: validatedData.canEdit, canManageBudget: validatedData.canManageBudget }
+      );
+      res.json(guardian);
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid input data", errors: error.errors });
+      }
+      console.error("Error adding guardian:", error);
+      res.status(400).json({ message: error.message || "Failed to add guardian" });
+    }
+  });
+
+  app.patch('/api/managed-profiles/:profileId/guardians/:guardianUserId', isAuthenticated, async (req: any, res) => {
+    try {
+      const requesterId = req.user.claims.sub;
+      const { profileId, guardianUserId } = req.params;
+
+      const updatePermissionsSchema = z.object({
+        canEdit: z.boolean().optional(),
+        canManageBudget: z.boolean().optional(),
+      });
+
+      const validatedData = updatePermissionsSchema.parse(req.body);
+
+      const updated = await storage.updateGuardianPermissions(
+        profileId,
+        guardianUserId,
+        requesterId,
+        validatedData
+      );
+      res.json(updated);
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid input data", errors: error.errors });
+      }
+      console.error("Error updating guardian permissions:", error);
+      res.status(400).json({ message: error.message || "Failed to update guardian permissions" });
+    }
+  });
+
+  app.delete('/api/managed-profiles/:profileId/guardians/:guardianUserId', isAuthenticated, async (req: any, res) => {
+    try {
+      const requesterId = req.user.claims.sub;
+      const { profileId, guardianUserId } = req.params;
+
+      await storage.removeGuardianFromManagedProfile(profileId, guardianUserId, requesterId);
+      res.json({ message: "Guardian removed successfully" });
+    } catch (error: any) {
+      console.error("Error removing guardian:", error);
+      res.status(400).json({ message: error.message || "Failed to remove guardian" });
+    }
+  });
+
+  // Get all managed profiles where user is a guardian
+  app.get('/api/managed-profiles/as-guardian', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const profiles = await storage.getManagedProfilesByGuardian(userId);
+      res.json(profiles);
+    } catch (error: any) {
+      console.error("Error fetching managed profiles:", error);
+      res.status(500).json({ message: "Failed to fetch managed profiles" });
+    }
+  });
+
   // Family members routes
   app.get('/api/members', isAuthenticated, async (req: any, res) => {
     try {

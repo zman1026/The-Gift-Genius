@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useQuery } from "@tanstack/react-query";
 import { useFamily } from "@/contexts/FamilyContext";
+import { useAuth } from "@/hooks/useAuth";
 import { Gift, Users, DollarSign, CheckCircle2, ChevronRight } from "lucide-react";
 import { Link } from "wouter";
 
@@ -12,6 +13,7 @@ interface BudgetData {
   totalRemaining: number;
   memberBudgets: Array<{
     id: string;
+    userId?: string;
     name: string;
     allocated: number;
     spent: number;
@@ -21,6 +23,7 @@ interface BudgetData {
 
 interface MemberGiftStatus {
   memberId: string;
+  userId?: string;
   memberName: string;
   hasReceivedGift: boolean;
   giftCount: number;
@@ -28,7 +31,9 @@ interface MemberGiftStatus {
 
 export function GiftGivingProgress() {
   const { selectedFamilyId, families } = useFamily();
+  const { user } = useAuth();
   const currentFamily = families.find((f: any) => f.id === selectedFamilyId);
+  const currentUserId = (user as any)?.id;
 
   const { data: budgetData, isLoading: budgetLoading, isError: budgetError } = useQuery<BudgetData>({
     queryKey: ['/api/families', selectedFamilyId, 'budget'],
@@ -63,23 +68,32 @@ export function GiftGivingProgress() {
     );
   }
 
-  const totalMembers = giftStatus?.length || budgetData?.memberBudgets?.length || 0;
-  const membersGifted = giftStatus?.filter(m => m.hasReceivedGift).length || 0;
-  const giftProgressPercent = totalMembers > 0 ? (membersGifted / totalMembers) * 100 : 0;
+  // For gifting progress, exclude current user (you can't gift yourself)
+  const otherMembersGiftStatus = giftStatus?.filter(m => m.userId !== currentUserId) || [];
+  const otherMemberBudgets = budgetData?.memberBudgets?.filter(m => m.userId !== currentUserId) || [];
+  
+  const totalMembersToGift = otherMembersGiftStatus.length || otherMemberBudgets.length || 0;
+  const membersGifted = otherMembersGiftStatus.filter(m => m.hasReceivedGift).length || 0;
+  const giftProgressPercent = totalMembersToGift > 0 ? (membersGifted / totalMembersToGift) * 100 : 0;
   
   // SVG circle math: circumference = 2 * PI * radius
   const radius = 15.5;
   const circumference = 2 * Math.PI * radius; // ~97.39
   const progressOffset = circumference - (giftProgressPercent / 100) * circumference;
   
-  const hasBudget = budgetData && budgetData.totalAllocated > 0;
+  // For budget totals, include ALL members (including current user's allocation)
+  const allMemberBudgets = budgetData?.memberBudgets || [];
+  const totalAllocated = allMemberBudgets.reduce((sum, m) => sum + (m.allocated || 0), 0);
+  const totalSpent = allMemberBudgets.reduce((sum, m) => sum + (m.spent || 0), 0);
+  const totalRemaining = totalAllocated - totalSpent;
+  
+  const hasBudget = totalAllocated > 0;
   const budgetProgress = hasBudget 
-    ? Math.min(100, (budgetData.totalSpent / budgetData.totalAllocated) * 100)
+    ? Math.min(100, (totalSpent / totalAllocated) * 100)
     : 0;
   
-  const allGifted = totalMembers > 0 && membersGifted === totalMembers;
-  const giftProgressComplete = giftProgressPercent === 100;
-  const isUnderBudget = hasBudget && budgetData.totalSpent <= budgetData.totalAllocated;
+  const allGifted = totalMembersToGift > 0 && membersGifted === totalMembersToGift;
+  const isUnderBudget = hasBudget && totalSpent <= totalAllocated;
 
   return (
     <Card className="overflow-hidden" data-testid="gift-giving-progress">
@@ -137,10 +151,10 @@ export function GiftGivingProgress() {
                 </div>
                 <div>
                   <p className="text-2xl font-bold text-foreground" data-testid="text-members-gifted">
-                    {membersGifted}<span className="text-lg text-muted-foreground">/{totalMembers}</span>
+                    {membersGifted}<span className="text-lg text-muted-foreground">/{totalMembersToGift}</span>
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {allGifted ? "All done!" : `${totalMembers - membersGifted} to go`}
+                    {allGifted ? "All done!" : `${totalMembersToGift - membersGifted} to go`}
                   </p>
                 </div>
               </div>
@@ -155,10 +169,10 @@ export function GiftGivingProgress() {
                 <div className="space-y-2">
                   <div className="flex items-baseline gap-1">
                     <p className="text-2xl font-bold text-foreground" data-testid="text-budget-spent">
-                      ${budgetData.totalSpent.toFixed(0)}
+                      ${totalSpent.toFixed(0)}
                     </p>
                     <span className="text-sm text-muted-foreground">
-                      / ${budgetData.totalAllocated.toFixed(0)}
+                      / ${totalAllocated.toFixed(0)}
                     </span>
                   </div>
                   <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
@@ -172,8 +186,8 @@ export function GiftGivingProgress() {
                   </div>
                   <p className="text-xs text-muted-foreground">
                     {isUnderBudget 
-                      ? `$${budgetData.totalRemaining.toFixed(0)} remaining`
-                      : `$${Math.abs(budgetData.totalRemaining).toFixed(0)} over budget`
+                      ? `$${totalRemaining.toFixed(0)} remaining`
+                      : `$${Math.abs(totalRemaining).toFixed(0)} over budget`
                     }
                   </p>
                 </div>
