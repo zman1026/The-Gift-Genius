@@ -105,3 +105,6 @@ integrations = ["javascript_log_in_with_replit:1.0.0", "javascript_database:1.0.
 
 [userenv.production]
 PUBLIC_BASE_URL = "https://gift-genie-dzeagler1026.replit.app"
+
+[userenv.shared]
+RESEND_FROM_EMAIL = "The Gift Genius <onboarding@resend.dev>"
