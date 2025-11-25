@@ -4,19 +4,20 @@
 The Gift Genius is a mobile-first web application designed to facilitate collaborative wishlist management for groups. It allows users to create, share, and manage wishlists at the group level, add items, and secretly mark purchases to preserve gift surprises. Users can also create personal shareable wishlists for any occasion.
 
 ## Recent Changes (November 25, 2025)
+- **Budget Feature Retooling**: Integrated Budget into the Christmas Wishlist experience for clearer connection:
+  - Removed Budget from sidebar navigation (no longer a standalone nav item)
+  - Christmas Wishlist card on My Wishlists page now displays budget summary with progress bar and "Manage" link
+  - Christmas Wishlist detail page (`/my-list`) shows budget remaining chip in header, linking to `/budget`
+  - Budget page (`/budget`) now has breadcrumb navigation: My Wishlists > Christmas Wishlist > Budget
+  - Budget page renamed to "Christmas Gift Budget" with themed styling
+- **Christmas Wishlist Page Improvements**:
+  - Added breadcrumb navigation from My Wishlists
+  - Updated title to "My Christmas Wishlist" with themed tree icon
+  - Added budget summary chip when budget is configured
 - **Unified My Wishlists Page**: Combined Christmas Wishlist and Personal Lists into a single `/my-wishlists` page with card-based layout:
-  - Christmas Wishlist card displayed prominently at the top (links to `/my-list`)
+  - Christmas Wishlist card displayed prominently at the top with budget summary
   - Personal lists shown below, sorted by upcoming event date (then oldest-first by creation date for undated lists)
-  - Single "My Wishlists" entry in sidebar navigation replaces separate wishlist/personal lists entries
-  - Bottom nav updated accordingly; old `my-personal-lists.tsx` file removed
-- **Bulk Operations Fix**: Fixed 404 error on bulk priority updates by reordering Express routes (specific routes like `/bulk-priority` and `/bulk-delete` now defined before parameterized routes like `/:id`)
-- **Event Layer Removal (Phase 3-4)**: Completely removed the Event layer to simplify architecture. The app now focuses on direct group-level wishlist management:
-  - Removed EventContext, EventProvider, EventSwitcher, and edit-event.tsx
-  - Converted all pages (home, wishlist, member-wishlist, activities, purchased, budget) to group-level operations
-  - Updated ActivityFeed, MemberSpotlight, and GiftCoordination components to remove eventId parameters
-  - Simplified ThemedMobileHeader to show group name instead of event themes
-  - All wishlist queries now use only familyId as the context key
-  - Personal lists feature remains independent (uses its own tables)
+  - Single "My Wishlists" entry in sidebar navigation
 - **Personal Lists Feature**: Personal shareable wishlists separate from group exchange lists. Users can create personal lists for any occasion (birthday, graduation, wedding, etc.) with custom themes. Each list has a unique public URL (`/lists/:slug`) for sharing.
   - Database: `personal_lists`, `personal_list_items`, and `personal_list_purchases` tables
   - API: Full CRUD at `/api/personal-lists/*`, public list endpoint at `/api/public/lists/:slug`
