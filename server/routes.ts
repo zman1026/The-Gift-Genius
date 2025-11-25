@@ -2566,7 +2566,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { itemId } = req.params;
 
       const purchase = await storage.markPersonalListItemPurchased(itemId, userId);
-      res.status(201).json(purchase);
+      // Return redacted response - don't expose purchasedByUserId for privacy
+      res.status(201).json({ 
+        itemId: purchase.itemId,
+        purchasedAt: purchase.purchasedAt,
+        success: true
+      });
     } catch (error) {
       if (error instanceof NotFoundError) {
         return res.status(404).json({ message: error.message });
