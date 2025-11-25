@@ -23,7 +23,7 @@ export default function Landing() {
     <div className="min-h-screen bg-background">
       {/* Navigation Header */}
       <header className="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container flex flex-wrap min-h-14 py-2 items-center justify-between gap-2 px-4 md:px-8">
+        <div className="w-full flex flex-wrap min-h-14 py-2 items-center justify-between gap-2 px-4 md:px-8">
           <div className="flex flex-wrap items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
               <Gift className="w-5 h-5 text-primary" />
@@ -82,8 +82,8 @@ export default function Landing() {
         </div>
 
         {/* Hero content */}
-        <div className="relative z-10 container px-4 md:px-8 py-16 md:py-24 lg:py-32">
-          <div className="max-w-4xl mx-auto text-center space-y-8">
+        <div className="relative z-10 w-full px-4 md:px-8 py-16 md:py-24 lg:py-32">
+          <div className="max-w-3xl mx-auto text-center space-y-8">
             {/* Badge */}
             <div className="flex justify-center">
               <Badge variant="secondary" className="px-4 py-1.5 text-sm">
