@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { useFamily } from "@/contexts/FamilyContext";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,13 +13,13 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Gift, Cake, GraduationCap, Heart, Baby, Home, PartyPopper, Calendar, Trash2, ExternalLink, Edit } from "lucide-react";
+import { Plus, Gift, Cake, GraduationCap, Heart, Baby, Home, PartyPopper, Calendar, Trash2, Edit, TreePine, Users } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Link } from "wouter";
 import { format } from "date-fns";
-import type { PersonalList } from "@shared/schema";
+import type { PersonalList, WishlistItem, Family } from "@shared/schema";
 
 const occasionTypes = [
   { value: "birthday", label: "Birthday", icon: Cake },
@@ -42,6 +43,8 @@ const occasionThemes: Record<string, { primary: string; accent: string; backgrou
   other: { primary: "#6366F1", accent: "#8B5CF6", background: "#EEF2FF" },
 };
 
+const christmasTheme = { primary: "#DC2626", accent: "#15803D", background: "#FEF2F2" };
+
 const createListSchema = z.object({
   name: z.string().min(1, "List name is required").max(255),
   occasionType: z.enum(["birthday", "graduation", "wedding", "baby_shower", "anniversary", "housewarming", "holiday", "other"]),
@@ -51,9 +54,10 @@ const createListSchema = z.object({
 
 type CreateListFormData = z.infer<typeof createListSchema>;
 
-export default function MyPersonalLists() {
+export default function MyWishlists() {
   const { toast } = useToast();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const { selectedFamilyId, families } = useFamily();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [deletingListId, setDeletingListId] = useState<string | null>(null);
 
@@ -67,10 +71,28 @@ export default function MyPersonalLists() {
     },
   });
 
-  const { data: lists, isLoading } = useQuery<PersonalList[]>({
+  const { data: personalLists, isLoading: listsLoading } = useQuery<PersonalList[]>({
     queryKey: ["/api/personal-lists"],
     enabled: isAuthenticated,
   });
+
+  const { data: wishlistItems, isLoading: wishlistLoading } = useQuery<WishlistItem[]>({
+    queryKey: ["/api/wishlist", selectedFamilyId],
+    queryFn: async () => {
+      if (!selectedFamilyId) return [];
+      const params = new URLSearchParams({ familyId: selectedFamilyId });
+      const response = await fetch(`/api/wishlist?${params.toString()}`, {
+        credentials: "include",
+      });
+      if (!response.ok) {
+        throw new Error("Failed to fetch wishlist");
+      }
+      return response.json();
+    },
+    enabled: isAuthenticated && !!selectedFamilyId,
+  });
+
+  const selectedFamily = families?.find((f: Family) => f.id === selectedFamilyId);
 
   const createListMutation = useMutation({
     mutationFn: async (data: CreateListFormData) => {
@@ -133,15 +155,25 @@ export default function MyPersonalLists() {
     return occasion?.label || type;
   };
 
-  if (authLoading || isLoading) {
+  const sortedPersonalLists = personalLists?.slice().sort((a, b) => {
+    if (a.date && b.date) {
+      return new Date(a.date).getTime() - new Date(b.date).getTime();
+    }
+    if (a.date && !b.date) return -1;
+    if (!a.date && b.date) return 1;
+    return new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime();
+  });
+
+  if (authLoading || listsLoading || wishlistLoading) {
     return (
       <div className="container mx-auto p-4 md:p-6 max-w-4xl">
         <div className="mb-6">
           <Skeleton className="h-8 w-48 mb-2" />
           <Skeleton className="h-4 w-64" />
         </div>
+        <Skeleton className="h-32 w-full mb-4" />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {[1, 2, 3, 4].map((i) => (
+          {[1, 2].map((i) => (
             <Skeleton key={i} className="h-40 w-full" />
           ))}
         </div>
@@ -153,8 +185,8 @@ export default function MyPersonalLists() {
     <div className="container mx-auto p-4 md:p-6 max-w-4xl">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold" data-testid="text-page-title">My Personal Lists</h1>
-          <p className="text-muted-foreground">Create and manage your personal wishlists for any occasion</p>
+          <h1 className="text-2xl font-bold" data-testid="text-page-title">My Wishlists</h1>
+          <p className="text-muted-foreground">Manage your wishlists for gift exchanges and special occasions</p>
         </div>
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
           <DialogTrigger asChild>
@@ -268,124 +300,191 @@ export default function MyPersonalLists() {
         </Dialog>
       </div>
 
-      {(!lists || lists.length === 0) ? (
-        <Card className="text-center py-12">
+      {selectedFamilyId && selectedFamily && (
+        <Card 
+          className="relative overflow-hidden hover-elevate mb-6"
+          data-testid="card-christmas-wishlist"
+        >
+          <div 
+            className="absolute top-0 left-0 right-0 h-1.5"
+            style={{ backgroundColor: christmasTheme.primary }}
+          />
+          <CardHeader className="pb-2">
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex items-center gap-3 min-w-0">
+                <div 
+                  className="p-2.5 rounded-lg shrink-0"
+                  style={{ backgroundColor: christmasTheme.background }}
+                >
+                  <TreePine 
+                    className="w-6 h-6" 
+                    style={{ color: christmasTheme.accent }}
+                    aria-hidden="true"
+                  />
+                </div>
+                <div className="min-w-0">
+                  <CardTitle className="text-xl">Christmas Wishlist</CardTitle>
+                  <CardDescription className="flex items-center gap-2 mt-1">
+                    <Badge variant="secondary" className="text-xs flex items-center gap-1">
+                      <Users className="w-3 h-3" aria-hidden="true" />
+                      Shared with {selectedFamily.name}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground">
+                      {wishlistItems?.length || 0} item{(wishlistItems?.length || 0) !== 1 ? 's' : ''}
+                    </span>
+                  </CardDescription>
+                </div>
+              </div>
+            </div>
+          </CardHeader>
           <CardContent>
-            <Gift className="w-12 h-12 mx-auto mb-4 text-muted-foreground" aria-hidden="true" />
-            <h3 className="text-lg font-semibold mb-2">No personal lists yet</h3>
-            <p className="text-muted-foreground mb-4">
-              Create your first personal wishlist for birthdays, graduations, or any special occasion.
+            <p className="text-sm text-muted-foreground mb-3">
+              Items on this list are visible to your group members for gift coordination.
             </p>
-            <Button onClick={() => setIsCreateDialogOpen(true)} data-testid="button-create-first-list">
+            <Link href="/my-list">
+              <Button variant="outline" size="sm" data-testid="button-view-christmas-list">
+                View List
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+      )}
+
+      {!selectedFamilyId && (
+        <Card className="mb-6 border-dashed">
+          <CardContent className="py-8 text-center">
+            <TreePine className="w-10 h-10 mx-auto mb-3 text-muted-foreground" aria-hidden="true" />
+            <h3 className="font-semibold mb-1">No Group Selected</h3>
+            <p className="text-sm text-muted-foreground">
+              Select a group from the sidebar to see your Christmas Wishlist
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {sortedPersonalLists && sortedPersonalLists.length > 0 && (
+        <div className="space-y-4">
+          <h2 className="text-lg font-semibold text-muted-foreground">Personal Lists</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {sortedPersonalLists.map((list) => {
+              const Icon = getOccasionIcon(list.occasionType);
+              const themeColors = list.themeColors || occasionThemes[list.occasionType] || occasionThemes.other;
+              
+              return (
+                <Card 
+                  key={list.id} 
+                  className="relative overflow-hidden hover-elevate"
+                  data-testid={`card-list-${list.id}`}
+                >
+                  <div 
+                    className="absolute top-0 left-0 right-0 h-1.5"
+                    style={{ backgroundColor: themeColors.primary }}
+                  />
+                  <CardHeader className="pb-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div 
+                          className="p-2 rounded-lg shrink-0"
+                          style={{ backgroundColor: themeColors.background }}
+                        >
+                          <Icon 
+                            className="w-5 h-5" 
+                            style={{ color: themeColors.primary }}
+                            aria-hidden="true"
+                          />
+                        </div>
+                        <div className="min-w-0">
+                          <CardTitle className="text-lg truncate">{list.name}</CardTitle>
+                          <CardDescription className="flex items-center gap-1">
+                            <Badge variant="secondary" className="text-xs">
+                              {getOccasionLabel(list.occasionType)}
+                            </Badge>
+                            {list.date && (
+                              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                                <Calendar className="w-3 h-3" aria-hidden="true" />
+                                {format(new Date(list.date), "MMM d, yyyy")}
+                              </span>
+                            )}
+                          </CardDescription>
+                        </div>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    {list.description && (
+                      <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
+                        {list.description}
+                      </p>
+                    )}
+                    <div className="flex items-center justify-between gap-2">
+                      <Link href={`/personal-lists/${list.id}`}>
+                        <Button variant="outline" size="sm" data-testid={`button-view-list-${list.id}`}>
+                          View List
+                        </Button>
+                      </Link>
+                      <div className="flex gap-1">
+                        <Link href={`/personal-lists/${list.id}`}>
+                          <Button variant="ghost" size="icon" data-testid={`button-edit-list-${list.id}`}>
+                            <Edit className="w-4 h-4" aria-hidden="true" />
+                          </Button>
+                        </Link>
+                        <Dialog open={deletingListId === list.id} onOpenChange={(open) => !open && setDeletingListId(null)}>
+                          <DialogTrigger asChild>
+                            <Button 
+                              variant="ghost" 
+                              size="icon"
+                              onClick={() => setDeletingListId(list.id)}
+                              data-testid={`button-delete-list-${list.id}`}
+                            >
+                              <Trash2 className="w-4 h-4 text-destructive" aria-hidden="true" />
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent>
+                            <DialogHeader>
+                              <DialogTitle>Delete List</DialogTitle>
+                              <DialogDescription>
+                                Are you sure you want to delete "{list.name}"? This will permanently delete the list and all its items.
+                              </DialogDescription>
+                            </DialogHeader>
+                            <DialogFooter>
+                              <Button variant="outline" onClick={() => setDeletingListId(null)}>
+                                Cancel
+                              </Button>
+                              <Button 
+                                variant="destructive" 
+                                onClick={() => deleteListMutation.mutate(list.id)}
+                                disabled={deleteListMutation.isPending}
+                                data-testid="button-confirm-delete"
+                              >
+                                {deleteListMutation.isPending ? "Deleting..." : "Delete"}
+                              </Button>
+                            </DialogFooter>
+                          </DialogContent>
+                        </Dialog>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {(!sortedPersonalLists || sortedPersonalLists.length === 0) && (
+        <Card className="text-center py-8 border-dashed">
+          <CardContent className="pt-0">
+            <Gift className="w-10 h-10 mx-auto mb-3 text-muted-foreground" aria-hidden="true" />
+            <h3 className="font-semibold mb-1">No personal lists yet</h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              Create a personal wishlist for birthdays, graduations, or any special occasion.
+            </p>
+            <Button onClick={() => setIsCreateDialogOpen(true)} variant="outline" data-testid="button-create-first-list">
               <Plus className="w-4 h-4 mr-2" aria-hidden="true" />
               Create Your First List
             </Button>
           </CardContent>
         </Card>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {lists.map((list) => {
-            const Icon = getOccasionIcon(list.occasionType);
-            const themeColors = list.themeColors || occasionThemes[list.occasionType] || occasionThemes.other;
-            
-            return (
-              <Card 
-                key={list.id} 
-                className="relative overflow-hidden hover-elevate"
-                data-testid={`card-list-${list.id}`}
-              >
-                <div 
-                  className="absolute top-0 left-0 right-0 h-1.5"
-                  style={{ backgroundColor: themeColors.primary }}
-                />
-                <CardHeader className="pb-2">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <div 
-                        className="p-2 rounded-lg shrink-0"
-                        style={{ backgroundColor: themeColors.background }}
-                      >
-                        <Icon 
-                          className="w-5 h-5" 
-                          style={{ color: themeColors.primary }}
-                          aria-hidden="true"
-                        />
-                      </div>
-                      <div className="min-w-0">
-                        <CardTitle className="text-lg truncate">{list.name}</CardTitle>
-                        <CardDescription className="flex items-center gap-1">
-                          <Badge variant="secondary" className="text-xs">
-                            {getOccasionLabel(list.occasionType)}
-                          </Badge>
-                          {list.date && (
-                            <span className="text-xs text-muted-foreground flex items-center gap-1">
-                              <Calendar className="w-3 h-3" aria-hidden="true" />
-                              {format(new Date(list.date), "MMM d, yyyy")}
-                            </span>
-                          )}
-                        </CardDescription>
-                      </div>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  {list.description && (
-                    <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
-                      {list.description}
-                    </p>
-                  )}
-                  <div className="flex items-center justify-between gap-2">
-                    <Link href={`/personal-lists/${list.id}`}>
-                      <Button variant="outline" size="sm" data-testid={`button-view-list-${list.id}`}>
-                        View List
-                      </Button>
-                    </Link>
-                    <div className="flex gap-1">
-                      <Link href={`/personal-lists/${list.id}`}>
-                        <Button variant="ghost" size="icon" data-testid={`button-edit-list-${list.id}`}>
-                          <Edit className="w-4 h-4" aria-hidden="true" />
-                        </Button>
-                      </Link>
-                      <Dialog open={deletingListId === list.id} onOpenChange={(open) => !open && setDeletingListId(null)}>
-                        <DialogTrigger asChild>
-                          <Button 
-                            variant="ghost" 
-                            size="icon"
-                            onClick={() => setDeletingListId(list.id)}
-                            data-testid={`button-delete-list-${list.id}`}
-                          >
-                            <Trash2 className="w-4 h-4 text-destructive" aria-hidden="true" />
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                          <DialogHeader>
-                            <DialogTitle>Delete List</DialogTitle>
-                            <DialogDescription>
-                              Are you sure you want to delete "{list.name}"? This will permanently delete the list and all its items.
-                            </DialogDescription>
-                          </DialogHeader>
-                          <DialogFooter>
-                            <Button variant="outline" onClick={() => setDeletingListId(null)}>
-                              Cancel
-                            </Button>
-                            <Button 
-                              variant="destructive" 
-                              onClick={() => deleteListMutation.mutate(list.id)}
-                              disabled={deleteListMutation.isPending}
-                              data-testid="button-confirm-delete"
-                            >
-                              {deleteListMutation.isPending ? "Deleting..." : "Delete"}
-                            </Button>
-                          </DialogFooter>
-                        </DialogContent>
-                      </Dialog>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
       )}
     </div>
   );

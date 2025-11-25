@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Home, Gift, Users, Settings, LogOut, ShoppingBag, Plus, DollarSign, ListChecks } from "lucide-react";
+import { Home, Gift, Users, Settings, LogOut, ShoppingBag, Plus, DollarSign } from "lucide-react";
 import { useLocation } from "wouter";
 import {
   Sidebar,
@@ -26,16 +26,10 @@ const menuItems = [
     testId: "nav-dashboard",
   },
   {
-    title: "My Wishlist",
-    url: "/my-list",
+    title: "My Wishlists",
+    url: "/my-wishlists",
     icon: Gift,
-    testId: "nav-wishlist",
-  },
-  {
-    title: "My Personal Lists",
-    url: "/personal-lists",
-    icon: ListChecks,
-    testId: "nav-personal-lists",
+    testId: "nav-wishlists",
   },
   {
     title: "Add Item",

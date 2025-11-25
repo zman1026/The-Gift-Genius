@@ -4,6 +4,12 @@
 The Gift Genius is a mobile-first web application designed to facilitate collaborative wishlist management for groups. It allows users to create, share, and manage wishlists at the group level, add items, and secretly mark purchases to preserve gift surprises. Users can also create personal shareable wishlists for any occasion.
 
 ## Recent Changes (November 25, 2025)
+- **Unified My Wishlists Page**: Combined Christmas Wishlist and Personal Lists into a single `/my-wishlists` page with card-based layout:
+  - Christmas Wishlist card displayed prominently at the top (links to `/my-list`)
+  - Personal lists shown below, sorted by upcoming event date (then oldest-first by creation date for undated lists)
+  - Single "My Wishlists" entry in sidebar navigation replaces separate wishlist/personal lists entries
+  - Bottom nav updated accordingly; old `my-personal-lists.tsx` file removed
+- **Bulk Operations Fix**: Fixed 404 error on bulk priority updates by reordering Express routes (specific routes like `/bulk-priority` and `/bulk-delete` now defined before parameterized routes like `/:id`)
 - **Event Layer Removal (Phase 3-4)**: Completely removed the Event layer to simplify architecture. The app now focuses on direct group-level wishlist management:
   - Removed EventContext, EventProvider, EventSwitcher, and edit-event.tsx
   - Converted all pages (home, wishlist, member-wishlist, activities, purchased, budget) to group-level operations

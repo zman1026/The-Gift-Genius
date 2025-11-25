@@ -12,10 +12,10 @@ export function BottomNav({ onAddItemClick, disabled = false }: BottomNavProps) 
 
   const navItems = [
     {
-      path: "/my-list",
+      path: "/my-wishlists",
       icon: Gift,
-      label: "My List",
-      testId: "nav-wishlist",
+      label: "Wishlists",
+      testId: "nav-wishlists",
     },
     {
       path: "/members",
