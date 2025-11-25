@@ -292,12 +292,12 @@ export default function Budget() {
               <h1 className="text-2xl sm:text-3xl font-bold text-foreground truncate" data-testid="title-budget">
                 Christmas Gift Budget
               </h1>
-              <p className="text-xs sm:text-sm text-muted-foreground mt-0.5 truncate flex items-center gap-1">
+              <div className="text-xs sm:text-sm text-muted-foreground mt-0.5 truncate flex items-center gap-1">
                 <Badge variant="secondary" className="text-xs">
                   {currentFamily?.name || 'Group'}
                 </Badge>
-                Track spending for your group gift exchange
-              </p>
+                <span>Track spending for your group gift exchange</span>
+              </div>
             </div>
           </div>
         </div>
