@@ -3,6 +3,9 @@
 ## Overview
 The Gift Genius is a mobile-first web application designed to facilitate collaborative wishlist management for families across various occasions. It allows users to create, share, and manage wishlists, add items, and secretly mark purchases to preserve gift surprises. The application aims to streamline gift coordination year-round, expanding beyond traditional holiday gift-giving.
 
+## Recent Changes (November 25, 2025)
+- **API Migration: SerpApi → Scrapingdog**: Migrated product search from SerpApi to Scrapingdog for ~5x cost savings. Updated text search (Google Shopping API - 10 credits/request) and image/camera search (Google Lens API - 5 credits/request). Free tier includes 1,000 credits (~100-200 searches). Required secret: `SCRAPINGDOG_API_KEY`.
+
 ## Recent Changes (November 24, 2025)
 - **Item Snapshot System for Purchase History Preservation**: Implemented comprehensive system to preserve purchase records even when wishlist owners delete items. Added `itemSnapshot` JSON field to `item_purchases` table storing complete item details (name, description, price, imageUrl, priority, quantity, category) at purchase time. Changed `itemId` foreign key to use `onDelete: 'set null'` instead of cascade. Updated Purchased Items UI to display three types of purchases: on-wishlist (active), off-wishlist (manually logged), and deleted items (with "Item Removed" badge). Fixed critical bugs: added missing `eventId` to purchase creation and frontend query, added `credentials: 'include'` to purchase fetch request.
 - **Event-Themed Mobile Headers**: Created ThemedMobileHeader component with unique designs for 7 event types (Christmas, Birthday, Wedding, Baby Shower, Hanukkah, Graduation, Other) using lucide-react icons and dynamic colors from event's themePrimary/themeAccent database fields.
@@ -25,7 +28,7 @@ The backend utilizes **Express.js** and **TypeScript**, with **Drizzle ORM** for
 
 ### Feature Specifications
 - **User & Managed Profiles:** Supports individual user profiles and "managed profiles" for children, allowing parents to manage wishlists without separate accounts.
-- **Unified Add Item Dialog:** Offers multiple item addition methods: text/URL search (SerpApi), camera-based visual search (Google Lens API), and manual entry.
+- **Unified Add Item Dialog:** Offers multiple item addition methods: text/URL search (Scrapingdog Google Shopping API), camera-based visual search (Scrapingdog Google Lens API), and manual entry.
 - **Wishlist Management:** Items are filterable, sortable, and support image uploads via Uppy v5.
 - **Family & Event Management:** Includes an invitation system, organizer controls for family settings, and support for multiple, event-specific wishlists (e.g., birthdays, holidays) with customizable themes.
 - **Purchase Tracking:** Users can privately mark wishlist items as purchased and log off-wishlist purchases, impacting budget calculations.
@@ -47,7 +50,7 @@ The backend utilizes **Express.js** and **TypeScript**, with **Drizzle ORM** for
 -   **Authentication Service:** Replit Auth
 -   **Database:** Neon Serverless PostgreSQL
 -   **Email Service:** Resend
--   **Product Search:** SerpApi (Google Shopping & Google Lens API)
+-   **Product Search:** Scrapingdog (Google Shopping API & Google Lens API)
 -   **Object Storage:** Replit Object Storage
 -   **UI Components:** Radix UI, shadcn/ui, Tailwind CSS
 -   **File Uploader:** Uppy v5
