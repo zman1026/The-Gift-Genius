@@ -197,7 +197,13 @@ const emailStyles = `
   </style>
 `;
 
-const giftIcon = `
+// Use a hosted gift icon for email compatibility - twemoji CDN provides reliable cross-client support
+const giftIconUrl = 'https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f381.png';
+
+const giftIconImg = `<img src="${giftIconUrl}" alt="Gift" width="28" height="28" style="display: block;" />`;
+
+// SVG version for fallback (not used in emails, but kept for reference)
+const giftIconSvg = `
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
     <polyline points="20 12 20 22 4 22 4 12"></polyline>
     <rect x="2" y="7" width="20" height="5"></rect>
@@ -249,7 +255,7 @@ export async function sendInviteEmail({
             <div class="email-wrapper">
               <div class="email-container">
                 <div class="header">
-                  <div class="header-logo">${giftIcon}</div>
+                  <div class="header-logo">${giftIconImg}</div>
                   <h1>You're Invited!</h1>
                   <p>Join ${familyName} on The Gift Genius</p>
                 </div>
@@ -308,7 +314,7 @@ export async function sendInviteEmail({
                 
                 <div class="footer">
                   <div class="footer-brand">
-                    ${giftIcon}
+                    ${giftIconImg}
                     The Gift Genius
                   </div>
                   <p class="footer-text">Making gift giving magical</p>
@@ -375,7 +381,7 @@ export async function sendWelcomeEmail({
             <div class="email-wrapper">
               <div class="email-container">
                 <div class="header">
-                  <div class="header-logo">${giftIcon}</div>
+                  <div class="header-logo">${giftIconImg}</div>
                   <h1>Welcome${firstName ? `, ${firstName}` : ''}!</h1>
                   <p>${welcomeMessage}</p>
                 </div>
@@ -420,7 +426,7 @@ export async function sendWelcomeEmail({
                 
                 <div class="footer">
                   <div class="footer-brand">
-                    ${giftIcon}
+                    ${giftIconImg}
                     The Gift Genius
                   </div>
                   <p class="footer-text">Making gift giving magical</p>
@@ -491,7 +497,7 @@ export async function sendPurchaseReminderEmail({
             <div class="email-wrapper">
               <div class="email-container">
                 <div class="header">
-                  <div class="header-logo">${giftIcon}</div>
+                  <div class="header-logo">${giftIconImg}</div>
                   <h1>Purchase Reminder</h1>
                   <p>${urgencyMessage}</p>
                 </div>
@@ -519,7 +525,7 @@ export async function sendPurchaseReminderEmail({
                 
                 <div class="footer">
                   <div class="footer-brand">
-                    ${giftIcon}
+                    ${giftIconImg}
                     The Gift Genius
                   </div>
                   <p class="footer-text">Making gift giving magical</p>
