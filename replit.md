@@ -1,25 +1,22 @@
 # The Gift Genius
 
 ## Overview
-The Gift Genius is a mobile-first web application designed to facilitate collaborative wishlist management for groups across various occasions. It allows users to create, share, and manage wishlists, add items, and secretly mark purchases to preserve gift surprises. The application aims to streamline gift coordination year-round, expanding beyond traditional holiday gift-giving.
+The Gift Genius is a mobile-first web application designed to facilitate collaborative wishlist management for groups. It allows users to create, share, and manage wishlists at the group level, add items, and secretly mark purchases to preserve gift surprises. Users can also create personal shareable wishlists for any occasion.
 
 ## Recent Changes (November 25, 2025)
-- **Personal Lists Feature (Phase 2)**: Implemented personal shareable wishlists separate from group exchange lists. Users can create personal lists for any occasion (birthday, graduation, wedding, baby shower, etc.) with custom themes. Each list has a unique public URL (`/lists/:slug`) for sharing with anyone. Features include:
-  - Database: New `personal_lists`, `personal_list_items`, and `personal_list_purchases` tables
-  - API: Full CRUD for lists/items at `/api/personal-lists/*`, purchase tracking, public list endpoint at `/api/public/lists/:slug`
-  - Frontend: "My Personal Lists" page at `/personal-lists`, list detail page with item management, themed public view page
-  - Privacy: List owners cannot see who purchased items (preserves gift surprise), single purchaser per item constraint
-  - Navigation: Added "My Personal Lists" to sidebar menu
-- **UI Terminology Update: "Family" → "Group"**: Comprehensive update across the entire application to use "Group" instead of "Family" in all user-facing text. This change affects 25+ files including component labels, error messages, empty states, form placeholders, and API response fields (e.g., `familyMembersCount` → `groupMembersCount`). Internal variable names (e.g., `familyId`, `selectedFamilyId`) and API route paths (`/api/families/`) remain unchanged for stability.
-- **Event Editing Feature**: Added dedicated edit page at `/events/:eventId/edit` allowing users to modify event name, type, and date. EventSwitcher component now shows pencil icon edit button for all events. Form includes theme preview cards and automatic theme color updates based on event type selection. Uses PUT `/api/events/:eventId` endpoint with proper group membership authorization.
-- **API Migration: SerpApi → Scrapingdog**: Migrated product search from SerpApi to Scrapingdog for ~5x cost savings. Updated text search (Google Shopping API - 10 credits/request) and image/camera search (Google Lens API - 5 credits/request). Free tier includes 1,000 credits (~100-200 searches). Required secret: `SCRAPINGDOG_API_KEY`.
-
-## Recent Changes (November 24, 2025)
-- **Item Snapshot System for Purchase History Preservation**: Implemented comprehensive system to preserve purchase records even when wishlist owners delete items. Added `itemSnapshot` JSON field to `item_purchases` table storing complete item details (name, description, price, imageUrl, priority, quantity, category) at purchase time. Changed `itemId` foreign key to use `onDelete: 'set null'` instead of cascade. Updated Purchased Items UI to display three types of purchases: on-wishlist (active), off-wishlist (manually logged), and deleted items (with "Item Removed" badge). Fixed critical bugs: added missing `eventId` to purchase creation and frontend query, added `credentials: 'include'` to purchase fetch request.
-- **Event-Themed Mobile Headers**: Created ThemedMobileHeader component with unique designs for 7 event types (Christmas, Birthday, Wedding, Baby Shower, Hanukkah, Graduation, Other) using lucide-react icons and dynamic colors from event's themePrimary/themeAccent database fields.
-- **WCAG-Compliant Contrast**: Implemented proper WCAG AA contrast ratio calculation (4.5:1 minimum) with relative luminance computation, gamma correction, and automatic overlay application when mixed colors prevent adequate contrast across gradients.
-- **Comprehensive Accessibility**: Added aria-hidden="true" attributes to all decorative icons across app-sidebar.tsx, bottom-nav.tsx, themed-mobile-header.tsx, and home.tsx empty states. All icons now properly hidden from assistive technology while preserving text label accessibility.
-- **Robust Color Validation**: Created hex color normalization supporting both 3-digit and 6-digit formats with safe fallbacks for invalid colors, expanding shorthand notation and validating format before processing.
+- **Event Layer Removal (Phase 3-4)**: Completely removed the Event layer to simplify architecture. The app now focuses on direct group-level wishlist management:
+  - Removed EventContext, EventProvider, EventSwitcher, and edit-event.tsx
+  - Converted all pages (home, wishlist, member-wishlist, activities, purchased, budget) to group-level operations
+  - Updated ActivityFeed, MemberSpotlight, and GiftCoordination components to remove eventId parameters
+  - Simplified ThemedMobileHeader to show group name instead of event themes
+  - All wishlist queries now use only familyId as the context key
+  - Personal lists feature remains independent (uses its own tables)
+- **Personal Lists Feature**: Personal shareable wishlists separate from group exchange lists. Users can create personal lists for any occasion (birthday, graduation, wedding, etc.) with custom themes. Each list has a unique public URL (`/lists/:slug`) for sharing.
+  - Database: `personal_lists`, `personal_list_items`, and `personal_list_purchases` tables
+  - API: Full CRUD at `/api/personal-lists/*`, public list endpoint at `/api/public/lists/:slug`
+  - Privacy: List owners cannot see who purchased items
+- **UI Terminology Update: "Family" → "Group"**: All user-facing text uses "Group" while internal code (familyId, API routes) remains unchanged for stability.
+- **API Migration: SerpApi → Scrapingdog**: Product search uses Scrapingdog for cost savings. Required secret: `SCRAPINGDOG_API_KEY`.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
@@ -27,7 +24,7 @@ Preferred communication style: Simple, everyday language.
 ## System Architecture
 
 ### UI/UX Decisions
-The application features a warm, family-oriented aesthetic with a responsive design optimized for mobile. It uses a Pinterest-style visual card layout combined with Notion-style data presentation. Key UI elements include a 4-tab bottom navigation bar, an always-accessible "Add Item" button, and a dashboard with an EventHero, QuickActions, MemberSpotlight, GiftCoordination insights, Activity Feed, and an optional Budget Tracker. Navigation and context selection (group/event) are managed via a sidebar menu. Wishlist items are displayed in compact grid layouts with square aspect-ratio images and priority badge overlays. Note: User-facing terminology uses "Group" while internal code uses "family" for stability.
+The application features a warm, group-oriented aesthetic with a responsive design optimized for mobile. It uses a Pinterest-style visual card layout combined with Notion-style data presentation. Key UI elements include a 4-tab bottom navigation bar, an always-accessible "Add Item" button, and a dashboard with QuickActions, MemberSpotlight, GiftCoordination insights, Activity Feed, and an optional Budget Tracker. Navigation and context selection (group) are managed via a sidebar menu. Wishlist items are displayed in compact grid layouts with square aspect-ratio images and priority badge overlays. Note: User-facing terminology uses "Group" while internal code uses "family" for stability.
 
 ### Technical Implementations
 The frontend is built with **React 18**, **TypeScript**, **Wouter** for routing, **TanStack Query v5** for server state, and **Vite**. UI components leverage **shadcn/ui**, **Radix UI**, and **Tailwind CSS**. Form management uses **react-hook-form** with **Zod** validation.
@@ -37,11 +34,12 @@ The backend utilizes **Express.js** and **TypeScript**, with **Drizzle ORM** for
 ### Feature Specifications
 - **User & Managed Profiles:** Supports individual user profiles and "managed profiles" for children, allowing parents to manage wishlists without separate accounts.
 - **Unified Add Item Dialog:** Offers multiple item addition methods: text/URL search (Scrapingdog Google Shopping API), camera-based visual search (Scrapingdog Google Lens API), and manual entry.
-- **Wishlist Management:** Items are filterable, sortable, and support image uploads via Uppy v5.
-- **Group & Event Management:** Includes an invitation system, organizer controls for group settings, and support for multiple, event-specific wishlists (e.g., birthdays, holidays) with customizable themes.
-- **Purchase Tracking:** Users can privately mark wishlist items as purchased and log off-wishlist purchases, impacting budget calculations.
+- **Wishlist Management:** Items are filterable, sortable, and support image uploads via Uppy v5. All wishlists operate at the group level.
+- **Group Management:** Includes an invitation system and organizer controls for group settings.
+- **Purchase Tracking:** Users can privately mark wishlist items as purchased and log off-wishlist purchases, impacting budget calculations. Wishlist owners never see who purchased their items.
 - **Activity Feed:** Real-time tracking of group actions.
-- **Budget Tracker:** An event-scoped, parent-focused tool for allocating and tracking gift spending per group member, with visual indicators and organizer-only controls.
+- **Budget Tracker:** A group-level, parent-focused tool for allocating and tracking gift spending per group member, with visual indicators and organizer-only controls.
+- **Personal Lists:** Independent shareable wishlists for individual occasions with public URLs.
 - **Error Handling:** App-level error boundary with authenticated logging.
 
 ### System Design Choices
@@ -49,7 +47,7 @@ The backend utilizes **Express.js** and **TypeScript**, with **Drizzle ORM** for
 - **Backend API:** RESTful API with structured error handling and Zod validation.
 - **Authentication:** Replit Auth for secure OIDC authentication with session storage.
 - **Data Access:** Drizzle ORM for type-safe database operations and transactions.
-- **Database Schema:** Core tables include `users`, `families`, `family_members`, `events`, `wishlist_items`, `item_purchases`, `activity_logs`, `managed_profiles`, `budget_allocations`, and `sessions`. Key fields like `eventId` enable multi-occasion support and event-scoped data isolation.
+- **Database Schema:** Core tables include `users`, `families`, `family_members`, `wishlist_items`, `item_purchases`, `activity_logs`, `managed_profiles`, `budget_allocations`, `personal_lists`, `personal_list_items`, `personal_list_purchases`, and `sessions`.
 - **Security:** Robust authorization with role-based access control, open redirect prevention, secure cookie management, and strict validation for budget modifications.
 - **Performance Optimizations:** Server-side caching for external APIs, optimized search, database indexing, batched queries, and smart React Query cache invalidation.
 

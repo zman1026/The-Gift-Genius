@@ -7,7 +7,6 @@ import { useLocation } from "wouter";
 
 interface MemberSpotlightProps {
   familyId: string;
-  eventId?: string;
 }
 
 interface FamilyMember {
@@ -28,7 +27,7 @@ interface FamilyMember {
   itemCount?: number;
 }
 
-export function MemberSpotlight({ familyId, eventId }: MemberSpotlightProps) {
+export function MemberSpotlight({ familyId }: MemberSpotlightProps) {
   const [, setLocation] = useLocation();
 
   const { data: members, isLoading } = useQuery<FamilyMember[]>({
@@ -37,19 +36,16 @@ export function MemberSpotlight({ familyId, eventId }: MemberSpotlightProps) {
   });
 
   const { data: itemCounts, isLoading: isLoadingCounts, error: countsError } = useQuery<Record<string, number>>({
-    queryKey: ["/api/wishlist/member-counts", familyId, eventId],
+    queryKey: ["/api/wishlist/member-counts", familyId],
     queryFn: async () => {
       const params = new URLSearchParams({ familyId });
-      if (eventId) {
-        params.append("eventId", eventId);
-      }
       const response = await fetch(`/api/wishlist/member-counts?${params.toString()}`, {
         credentials: "include",
       });
       if (!response.ok) throw new Error("Failed to fetch member counts");
       return response.json();
     },
-    enabled: !!familyId && !!eventId,
+    enabled: !!familyId,
   });
 
   const getDisplayName = (member: FamilyMember) => {
@@ -88,7 +84,6 @@ export function MemberSpotlight({ familyId, eventId }: MemberSpotlightProps) {
     setLocation(`/members/${identifier}`);
   };
 
-  // Wait for both members and counts to load
   if (isLoading || isLoadingCounts) {
     return (
       <Card>
@@ -109,19 +104,16 @@ export function MemberSpotlight({ familyId, eventId }: MemberSpotlightProps) {
     );
   }
 
-  // Don't render if there's an error loading counts or no event selected
-  if (countsError || !eventId || !members || members.length === 0 || !itemCounts) {
+  if (countsError || !members || members.length === 0 || !itemCounts) {
     return null;
   }
 
-  // Filter members to only show those with items in the selected event
   const membersWithItems = members.filter((member) => {
     const identifier = getMemberIdentifier(member);
     const itemCount = itemCounts[identifier] || 0;
     return itemCount > 0;
   });
 
-  // Don't render if no members have items in this event
   if (membersWithItems.length === 0) {
     return null;
   }
@@ -129,7 +121,7 @@ export function MemberSpotlight({ familyId, eventId }: MemberSpotlightProps) {
   return (
     <Card data-testid="member-spotlight">
       <CardHeader className="pb-3">
-        <CardTitle className="text-base">Family Wishlists</CardTitle>
+        <CardTitle className="text-base">Group Wishlists</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="flex gap-3 overflow-x-auto pb-2">

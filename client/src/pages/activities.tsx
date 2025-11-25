@@ -5,7 +5,6 @@ import { ActivityIcon, Gift, UserPlus, Trash2, ShoppingBag, X } from "lucide-rea
 import { formatDistanceToNow } from "date-fns";
 import { z } from "zod";
 import { useFamily } from "@/contexts/FamilyContext";
-import { useEvent } from "@/contexts/EventContext";
 
 const activitySchema = z.object({
   id: z.string(),
@@ -27,18 +26,14 @@ type Activity = z.infer<typeof activitySchema>;
 
 export default function Activities() {
   const { selectedFamilyId } = useFamily();
-  const { selectedEventId } = useEvent();
 
   const { data: activities, isLoading, isError } = useQuery<Activity[]>({
-    queryKey: ["/api/activities", selectedFamilyId, selectedEventId],
+    queryKey: ["/api/activities", selectedFamilyId],
     queryFn: async () => {
       const params = new URLSearchParams({ 
         familyId: selectedFamilyId!,
-        limit: "50", // Show more activities on the dedicated page
+        limit: "50",
       });
-      if (selectedEventId) {
-        params.append("eventId", selectedEventId);
-      }
       
       const response = await fetch(`/api/activities?${params.toString()}`, {
         credentials: "include",
@@ -51,7 +46,7 @@ export default function Activities() {
       return validatedData;
     },
     enabled: !!selectedFamilyId,
-    staleTime: 1000 * 60 * 3, // 3 minutes
+    staleTime: 1000 * 60 * 3,
     retry: 2,
   });
 

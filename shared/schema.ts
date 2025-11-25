@@ -73,7 +73,7 @@ export const insertManagedProfileSchema = createInsertSchema(managedProfiles).om
 export type InsertManagedProfile = z.infer<typeof insertManagedProfileSchema>;
 export type ManagedProfile = typeof managedProfiles.$inferSelect;
 
-// Families table
+// Families table (Groups)
 export const families = pgTable("families", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: varchar("name", { length: 255 }).notNull(),
@@ -88,6 +88,9 @@ export const familiesRelations = relations(families, ({ one, many }) => ({
     references: [users.id],
   }),
   members: many(familyMembers),
+  wishlistItems: many(wishlistItems),
+  activityLogs: many(activityLogs),
+  budgetAllocations: many(budgetAllocations),
 }));
 
 export const insertFamilySchema = createInsertSchema(families).omit({
@@ -98,57 +101,25 @@ export const insertFamilySchema = createInsertSchema(families).omit({
 export type InsertFamily = z.infer<typeof insertFamilySchema>;
 export type Family = typeof families.$inferSelect;
 
-// Events table (for occasions like birthdays, weddings, Christmas, etc.)
-export const events = pgTable("events", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  familyId: varchar("family_id").notNull().references(() => families.id, { onDelete: 'cascade' }),
-  name: varchar("name", { length: 255 }).notNull(),
-  date: timestamp("date"), // Optional date for the event
-  eventType: varchar("event_type", { length: 50 }).notNull(), // christmas, birthday, wedding, baby_shower, hanukkah, graduation, other
-  themePrimary: varchar("theme_primary", { length: 7 }).default("#DC2626"), // Hex color code for primary
-  themeAccent: varchar("theme_accent", { length: 7 }).default("#15803D"), // Hex color code for accent
-  isActive: boolean("is_active").default(true),
-  createdAt: timestamp("created_at").defaultNow(),
-}, (table) => [
-  index("idx_events_family_lookup").on(table.familyId, table.isActive),
-]);
-
-export const eventsRelations = relations(events, ({ one, many }) => ({
-  family: one(families, {
-    fields: [events.familyId],
-    references: [families.id],
-  }),
-  wishlistItems: many(wishlistItems),
-  activityLogs: many(activityLogs),
-}));
-
-export const insertEventSchema = createInsertSchema(events).omit({
-  id: true,
-  createdAt: true,
-});
-
-export type InsertEvent = z.infer<typeof insertEventSchema>;
-export type Event = typeof events.$inferSelect;
-
-// Budget allocations table (per-person budget tracking for events)
+// Budget allocations table (per-person budget tracking for groups)
 export const budgetAllocations = pgTable("budget_allocations", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  eventId: varchar("event_id").notNull().references(() => events.id, { onDelete: 'cascade' }),
+  familyId: varchar("family_id").notNull().references(() => families.id, { onDelete: 'cascade' }),
   userId: varchar("user_id").references(() => users.id, { onDelete: 'cascade' }), // Nullable - either userId OR managedProfileId
   managedProfileId: varchar("managed_profile_id").references(() => managedProfiles.id, { onDelete: 'cascade' }), // Nullable - for children/dependents
   allocatedAmount: decimal("allocated_amount", { precision: 10, scale: 2 }).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
-  index("idx_budget_allocations_event").on(table.eventId),
-  index("idx_budget_allocations_user").on(table.userId, table.eventId),
-  index("idx_budget_allocations_managed").on(table.managedProfileId, table.eventId),
+  index("idx_budget_allocations_family").on(table.familyId),
+  index("idx_budget_allocations_user").on(table.userId, table.familyId),
+  index("idx_budget_allocations_managed").on(table.managedProfileId, table.familyId),
 ]);
 
 export const budgetAllocationsRelations = relations(budgetAllocations, ({ one }) => ({
-  event: one(events, {
-    fields: [budgetAllocations.eventId],
-    references: [events.id],
+  family: one(families, {
+    fields: [budgetAllocations.familyId],
+    references: [families.id],
   }),
   user: one(users, {
     fields: [budgetAllocations.userId],
@@ -213,7 +184,6 @@ export const wishlistItems = pgTable("wishlist_items", {
   userId: varchar("user_id").references(() => users.id, { onDelete: 'cascade' }), // Nullable - either userId OR managedProfileId
   managedProfileId: varchar("managed_profile_id").references(() => managedProfiles.id, { onDelete: 'cascade' }), // Nullable - for children/dependents
   familyId: varchar("family_id").notNull().references(() => families.id, { onDelete: 'cascade' }),
-  eventId: varchar("event_id").references(() => events.id, { onDelete: 'cascade' }), // Nullable for backward compatibility
   name: varchar("name", { length: 255 }).notNull(),
   description: text("description"),
   price: decimal("price", { precision: 10, scale: 2 }),
@@ -229,7 +199,6 @@ export const wishlistItems = pgTable("wishlist_items", {
 }, (table) => [
   index("idx_wishlist_items_lookup").on(table.familyId, table.userId, table.priority),
   index("idx_wishlist_items_managed_lookup").on(table.familyId, table.managedProfileId, table.priority),
-  index("idx_wishlist_items_event_lookup").on(table.eventId, table.familyId),
 ]);
 
 export const wishlistItemsRelations = relations(wishlistItems, ({ one, many }) => ({
@@ -244,10 +213,6 @@ export const wishlistItemsRelations = relations(wishlistItems, ({ one, many }) =
   family: one(families, {
     fields: [wishlistItems.familyId],
     references: [families.id],
-  }),
-  event: one(events, {
-    fields: [wishlistItems.eventId],
-    references: [events.id],
   }),
   purchases: many(itemPurchases),
 }));
@@ -265,7 +230,7 @@ export type WishlistItem = typeof wishlistItems.$inferSelect;
 export const itemPurchases = pgTable("item_purchases", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   itemId: varchar("item_id").references(() => wishlistItems.id, { onDelete: 'set null' }), // Nullable - preserves purchase record if item is deleted
-  eventId: varchar("event_id").references(() => events.id, { onDelete: 'cascade' }), // Nullable during migration, will be populated
+  familyId: varchar("family_id").notNull().references(() => families.id, { onDelete: 'cascade' }),
   purchasedById: varchar("purchased_by_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
   recipientUserId: varchar("recipient_user_id").references(() => users.id, { onDelete: 'cascade' }), // For off-wishlist purchases
   recipientManagedProfileId: varchar("recipient_managed_profile_id").references(() => managedProfiles.id, { onDelete: 'cascade' }), // For off-wishlist purchases
@@ -277,7 +242,7 @@ export const itemPurchases = pgTable("item_purchases", {
   // Snapshot fields: preserve item details even if original item is deleted
   itemSnapshot: text("item_snapshot"), // JSON snapshot of item at purchase time (name, imageUrl, url, priority)
 }, (table) => [
-  index("idx_purchases_event").on(table.eventId),
+  index("idx_purchases_family").on(table.familyId),
   index("idx_purchases_recipient_user").on(table.recipientUserId),
   index("idx_purchases_recipient_managed").on(table.recipientManagedProfileId),
 ]);
@@ -287,9 +252,9 @@ export const itemPurchasesRelations = relations(itemPurchases, ({ one }) => ({
     fields: [itemPurchases.itemId],
     references: [wishlistItems.id],
   }),
-  event: one(events, {
-    fields: [itemPurchases.eventId],
-    references: [events.id],
+  family: one(families, {
+    fields: [itemPurchases.familyId],
+    references: [families.id],
   }),
   purchasedBy: one(users, {
     fields: [itemPurchases.purchasedById],
@@ -312,7 +277,7 @@ export const insertItemPurchaseSchema = createInsertSchema(itemPurchases).omit({
 
 // Schema for logging off-wishlist purchases
 export const logOffWishlistPurchaseSchema = z.object({
-  eventId: z.string().min(1, "Event ID is required"),
+  familyId: z.string().min(1, "Group ID is required"),
   recipientUserId: z.string().nullable(),
   recipientManagedProfileId: z.string().nullable(),
   price: z.number().min(0, "Price must be non-negative"),
@@ -336,7 +301,6 @@ export type ItemPurchase = typeof itemPurchases.$inferSelect;
 export const activityLogs = pgTable("activity_logs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   familyId: varchar("family_id").notNull().references(() => families.id, { onDelete: 'cascade' }),
-  eventId: varchar("event_id").references(() => events.id, { onDelete: 'cascade' }), // Nullable for backward compatibility
   actorId: varchar("actor_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
   targetUserId: varchar("target_user_id").references(() => users.id, { onDelete: 'cascade' }), // Optional: user affected by action
   itemId: varchar("item_id").references(() => wishlistItems.id, { onDelete: 'cascade' }), // Optional: related wishlist item
@@ -345,17 +309,12 @@ export const activityLogs = pgTable("activity_logs", {
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
   index("idx_activity_logs_family_created").on(table.familyId, table.createdAt),
-  index("idx_activity_logs_event_created").on(table.eventId, table.createdAt),
 ]);
 
 export const activityLogsRelations = relations(activityLogs, ({ one }) => ({
   family: one(families, {
     fields: [activityLogs.familyId],
     references: [families.id],
-  }),
-  event: one(events, {
-    fields: [activityLogs.eventId],
-    references: [events.id],
   }),
   actor: one(users, {
     fields: [activityLogs.actorId],
@@ -382,8 +341,7 @@ export type ActivityLog = typeof activityLogs.$inferSelect;
 // Bulk action schemas
 export const bulkDeleteItemsSchema = z.object({
   itemIds: z.array(z.string()).min(1, "At least one item ID is required").max(50, "Cannot delete more than 50 items at once"),
-  familyId: z.string().min(1, "Family ID is required"),
-  eventId: z.string().min(1, "Event ID is required"),
+  familyId: z.string().min(1, "Group ID is required"),
 });
 
 export type BulkDeleteItems = z.infer<typeof bulkDeleteItemsSchema>;
@@ -391,8 +349,7 @@ export type BulkDeleteItems = z.infer<typeof bulkDeleteItemsSchema>;
 export const bulkUpdatePrioritySchema = z.object({
   itemIds: z.array(z.string()).min(1, "At least one item ID is required").max(50, "Cannot update more than 50 items at once"),
   priority: z.enum(["low", "medium", "high"]),
-  familyId: z.string().min(1, "Family ID is required"),
-  eventId: z.string().min(1, "Event ID is required"),
+  familyId: z.string().min(1, "Group ID is required"),
 });
 
 export type BulkUpdatePriority = z.infer<typeof bulkUpdatePrioritySchema>;

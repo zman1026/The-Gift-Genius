@@ -48,7 +48,6 @@ import type { UploadResult } from "@uppy/core";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { CameraCapture } from "@/components/camera-capture";
-import { useEvent } from "@/contexts/EventContext";
 
 // Form schema for custom items
 const customItemSchema = z.object({
@@ -100,7 +99,6 @@ export function UnifiedAddItemDialog({
   const [imageSearchError, setImageSearchError] = useState<string | null>(null);
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const { toast } = useToast();
-  const { selectedEventId } = useEvent();
 
   // Keywords for detecting non-product queries
   const experienceKeywords = [
@@ -247,14 +245,9 @@ export function UnifiedAddItemDialog({
   // Add product from search results
   const addFromSearchMutation = useMutation({
     mutationFn: async ({ product, override = false }: { product: any; override?: boolean }) => {
-      if (!selectedEventId) {
-        throw new Error("Please select an event first");
-      }
-      
       const payload = {
         name: product.title,
         description: product.snippet || "",
-        // Backend expects price as string or null, not number
         price: product.extracted_price !== undefined && product.extracted_price !== null ? String(product.extracted_price) : null,
         url: product.link || "",
         imageUrl: product.thumbnail || "",
@@ -265,8 +258,7 @@ export function UnifiedAddItemDialog({
         category: null,
         itemType: "product",
         familyId,
-        eventId: selectedEventId,
-        override, // Pass override flag to bypass duplicate check if needed
+        override,
       };
 
       // Use organizer endpoint if adding for another user
@@ -309,17 +301,11 @@ export function UnifiedAddItemDialog({
   // Add custom item
   const addCustomItemMutation = useMutation({
     mutationFn: async ({ data, override = false }: { data: CustomItemFormData; override?: boolean }) => {
-      if (!selectedEventId) {
-        throw new Error("Please select an event first");
-      }
-      
       const payload = {
         ...data,
-        // Backend expects price as a string or null, not a number
         price: data.price || null,
         familyId,
-        eventId: selectedEventId,
-        override, // Pass override flag to bypass duplicate check if needed
+        override,
       };
 
       // Use organizer endpoint if adding for another user

@@ -558,35 +558,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const viewerId = req.user.claims.sub;
       const { userId } = req.params;
-      const { familyId, eventId } = req.query;
+      const { familyId } = req.query;
 
       // Don't allow viewing own wishlist this way
       if (userId === viewerId) {
         return res.status(400).json({ message: "Use /api/wishlist to view your own items" });
       }
 
-      // eventId is required for event-scoped wishlists
-      if (!eventId || typeof eventId !== 'string') {
-        return res.status(400).json({ message: "Event ID is required" });
+      // familyId is required for group-scoped wishlists
+      if (!familyId || typeof familyId !== 'string') {
+        return res.status(400).json({ message: "Group ID (familyId) is required" });
       }
 
-      // Verify event exists
-      const event = await storage.getEvent(eventId);
-      if (!event) {
-        return res.status(404).json({ message: "Event not found" });
-      }
-
-      // Verify viewer is a member of the event's family
-      const membership = await storage.getFamilyMember(event.familyId, viewerId);
+      // Verify viewer is a member of the group
+      const membership = await storage.getFamilyMember(familyId, viewerId);
       if (!membership) {
-        return res.status(403).json({ message: "You are not a member of this event's family" });
+        return res.status(403).json({ message: "You are not a member of this group" });
       }
 
       const items = await storage.getMemberWishlistItems(
         userId, 
         viewerId, 
-        familyId as string | undefined,
-        eventId
+        familyId
       );
       res.json(items);
     } catch (error) {
@@ -595,178 +588,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Event routes
-  app.get('/api/families/:familyId/events', isAuthenticated, async (req: any, res) => {
+  // Budget routes (group-level)
+  app.get('/api/families/:familyId/budget', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const { familyId } = req.params;
-      const { activeOnly } = req.query;
 
-      // Verify user is a member of the family
+      // Verify user is a member of the group
       const membership = await storage.getFamilyMember(familyId, userId);
       if (!membership) {
-        return res.status(403).json({ message: "You must be a family member to view events" });
+        return res.status(403).json({ message: "You are not a member of this group" });
       }
 
-      const events = activeOnly === 'true' 
-        ? await storage.getActiveEventsByFamily(familyId)
-        : await storage.getEventsByFamily(familyId);
-      
-      res.json(events);
-    } catch (error) {
-      console.error("Error fetching events:", error);
-      res.status(500).json({ message: "Failed to fetch events" });
-    }
-  });
-
-  app.post('/api/families/:familyId/events', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const { familyId } = req.params;
-
-      // Verify user is the family organizer (only organizers can create events)
-      const family = await storage.getFamily(familyId);
-      if (!family) {
-        return res.status(404).json({ message: "Family not found" });
-      }
-      if (family.createdById !== userId) {
-        return res.status(403).json({ message: "Only the family organizer can create events" });
-      }
-
-      // Validate input with Zod schema
-      const createEventSchema = z.object({
-        name: z.string().min(1, "Event name is required").max(255),
-        date: z.string().datetime().optional().nullable(),
-        eventType: z.enum(['christmas', 'birthday', 'wedding', 'baby_shower', 'hanukkah', 'graduation', 'anniversary', 'holiday', 'other']),
-        themePrimary: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Must be a valid hex color").optional(),
-        themeAccent: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Must be a valid hex color").optional(),
-        isActive: z.boolean().optional(),
-      });
-
-      const validatedData = createEventSchema.parse(req.body);
-
-      const event = await storage.createEvent({
-        ...validatedData,
-        date: validatedData.date ? new Date(validatedData.date) : null,
-        familyId,
-      });
-
-      res.status(201).json(event);
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Invalid event data", errors: error.errors });
-      }
-      console.error("Error creating event:", error);
-      res.status(500).json({ message: "Failed to create event" });
-    }
-  });
-
-  app.get('/api/events/:eventId', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const { eventId } = req.params;
-
-      const event = await storage.getEvent(eventId);
-      if (!event) {
-        return res.status(404).json({ message: "Event not found" });
-      }
-
-      // Verify user is a member of the event's family
-      const membership = await storage.getFamilyMember(event.familyId, userId);
-      if (!membership) {
-        return res.status(403).json({ message: "You must be a family member to view this event" });
-      }
-
-      res.json(event);
-    } catch (error) {
-      console.error("Error fetching event:", error);
-      res.status(500).json({ message: "Failed to fetch event" });
-    }
-  });
-
-  app.put('/api/events/:eventId', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const { eventId } = req.params;
-
-      // Validate input
-      const updateEventSchema = z.object({
-        name: z.string().min(1).max(255).optional(),
-        date: z.string().datetime().optional().nullable(),
-        eventType: z.enum(['christmas', 'birthday', 'wedding', 'baby_shower', 'hanukkah', 'graduation', 'anniversary', 'holiday', 'other']).optional(),
-        themePrimary: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
-        themeAccent: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
-        isActive: z.boolean().optional(),
-      });
-
-      const validatedData = updateEventSchema.parse(req.body);
-
-      // Convert date string to Date object if present
-      const updates: any = { ...validatedData };
-      if (validatedData.date !== undefined) {
-        updates.date = validatedData.date ? new Date(validatedData.date) : null;
-      }
-
-      const event = await storage.updateEvent(eventId, updates, userId);
-      res.json(event);
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Invalid event data", errors: error.errors });
-      }
-      if (error instanceof AuthorizationError) {
-        return res.status(403).json({ message: error.message });
-      }
-      if (error instanceof NotFoundError) {
-        return res.status(404).json({ message: error.message });
-      }
-      console.error("Error updating event:", error);
-      res.status(500).json({ message: "Failed to update event" });
-    }
-  });
-
-  app.delete('/api/events/:eventId', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const { eventId } = req.params;
-
-      const event = await storage.getEvent(eventId);
-      if (!event) {
-        return res.status(404).json({ message: "Event not found" });
-      }
-
-      await storage.deleteEvent(eventId, event.familyId, userId);
-      res.status(204).send();
-    } catch (error) {
-      if (error instanceof AuthorizationError) {
-        return res.status(403).json({ message: error.message });
-      }
-      if (error instanceof Error && error.message.includes("Cannot delete the last event")) {
-        return res.status(400).json({ message: error.message });
-      }
-      console.error("Error deleting event:", error);
-      res.status(500).json({ message: "Failed to delete event" });
-    }
-  });
-
-  // Budget routes
-  app.get('/api/events/:eventId/budget', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const { eventId } = req.params;
-
-      // Verify event exists
-      const event = await storage.getEvent(eventId);
-      if (!event) {
-        return res.status(404).json({ message: "Event not found" });
-      }
-
-      // Verify user is a member of the event's family
-      const membership = await storage.getFamilyMember(event.familyId, userId);
-      if (!membership) {
-        return res.status(403).json({ message: "You are not a member of this event's family" });
-      }
-
-      const budgetData = await storage.getEventBudgetOverview(eventId);
+      const budgetData = await storage.getGroupBudgetOverview(familyId);
       res.json(budgetData);
     } catch (error) {
       console.error("Error getting budget overview:", error);
@@ -774,37 +608,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put('/api/events/:eventId/budget/allocations', isAuthenticated, async (req: any, res) => {
+  app.put('/api/families/:familyId/budget/allocations', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const { eventId } = req.params;
+      const { familyId } = req.params;
 
-      // Verify event exists
-      const event = await storage.getEvent(eventId);
-      if (!event) {
-        return res.status(404).json({ message: "Event not found" });
-      }
-
-      // Verify user is an organizer of the event's family
-      const membership = await storage.getFamilyMember(event.familyId, userId);
+      // Verify user is an organizer of the group
+      const membership = await storage.getFamilyMember(familyId, userId);
       if (!membership) {
-        return res.status(403).json({ message: "You are not a member of this event's family" });
+        return res.status(403).json({ message: "You are not a member of this group" });
       }
 
-      const family = await storage.getFamily(event.familyId);
+      const family = await storage.getFamily(familyId);
       if (!family) {
-        return res.status(404).json({ message: "Family not found" });
+        return res.status(404).json({ message: "Group not found" });
       }
 
       if (family.createdById !== userId) {
-        return res.status(403).json({ message: "Only family organizers can set budget allocations" });
+        return res.status(403).json({ message: "Only group organizers can set budget allocations" });
       }
 
       // Validate payload with Zod
       const validatedData = setBudgetAllocationsSchema.parse(req.body);
 
-      // Verify all allocation targets belong to the event's family
-      const familyMembersData = await storage.getFamilyMembersByFamilyId(event.familyId);
+      // Verify all allocation targets belong to the group
+      const familyMembersData = await storage.getFamilyMembersByFamilyId(familyId);
       const familyMemberIds = new Set<string>();
       
       // Build set of valid member IDs (both userId and managedProfileId)
@@ -813,7 +641,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (member.managedProfileId) familyMemberIds.add(member.managedProfileId);
       }
 
-      // Validate each allocation target exists in the family
+      // Validate each allocation target exists in the group
       for (const allocation of validatedData.allocations) {
         const targetId = allocation.userId || allocation.managedProfileId;
         
@@ -824,16 +652,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         }
         
-        // Verify the target is a member of this family
+        // Verify the target is a member of this group
         if (!familyMemberIds.has(targetId)) {
           return res.status(400).json({ 
-            message: "All budget allocations must be for members of this event's family" 
+            message: "All budget allocations must be for members of this group" 
           });
         }
       }
 
-      await storage.setBudgetAllocations(eventId, validatedData.allocations);
-      const updatedBudget = await storage.getEventBudgetOverview(eventId);
+      await storage.setBudgetAllocations(familyId, validatedData.allocations);
+      const updatedBudget = await storage.getGroupBudgetOverview(familyId);
       res.json(updatedBudget);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -848,11 +676,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/wishlist', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const { familyId, eventId, sort, order, priority, itemType } = req.query;
+      const { familyId, sort, order, priority, itemType } = req.query;
       
-      // eventId is required for event-scoped wishlists
-      if (!eventId || typeof eventId !== 'string') {
-        return res.status(400).json({ message: "Event ID is required" });
+      // familyId is required for group-scoped wishlists
+      if (!familyId || typeof familyId !== 'string') {
+        return res.status(400).json({ message: "Group ID (familyId) is required" });
       }
       
       // Validate and sanitize query params
@@ -861,38 +689,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validPriorities = ['high', 'medium', 'low'];
       const validItemTypes = ['product', 'experience', 'service', 'membership', 'other'];
       
-      // Verify event exists and user has access via family membership
-      const event = await storage.getEvent(eventId);
-      if (!event) {
-        return res.status(404).json({ message: "Event not found" });
-      }
-      
-      // Verify user is a member of the event's family
-      const membership = await storage.getFamilyMember(event.familyId, userId);
+      // Verify user is a member of the group
+      const membership = await storage.getFamilyMember(familyId, userId);
       if (!membership) {
-        return res.status(403).json({ message: "You are not a member of this event's family" });
+        return res.status(403).json({ message: "You are not a member of this group" });
       }
       
       // Build filter options with validation
       const options = {
-        eventId,
         sort: sort && validSorts.includes(sort as string) ? (sort as 'name' | 'price' | 'priority' | 'createdAt') : undefined,
         order: order && validOrders.includes(order as string) ? (order as 'asc' | 'desc') : undefined,
         priority: priority && validPriorities.includes(priority as string) ? (priority as 'high' | 'medium' | 'low') : undefined,
         itemType: itemType && validItemTypes.includes(itemType as string) ? (itemType as 'product' | 'experience' | 'service' | 'membership' | 'other') : undefined,
       };
       
-      if (familyId && typeof familyId === 'string') {
-        // Verify familyId matches event's family
-        if (familyId !== event.familyId) {
-          return res.status(400).json({ message: "Event does not belong to this family" });
-        }
-        const items = await storage.getUserWishlistItemsByFamily(userId, familyId, options);
-        res.json(items);
-      } else {
-        const items = await storage.getUserWishlistItems(userId, options);
-        res.json(items);
-      }
+      const items = await storage.getUserWishlistItemsByFamily(userId, familyId, options);
+      res.json(items);
     } catch (error) {
       console.error("Error fetching wishlist:", error);
       res.status(500).json({ message: "Failed to fetch wishlist" });
@@ -902,44 +714,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/wishlist', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const { name, description, price, url, imageUrl, priority, quantity, category, itemType, familyId, eventId, override } = req.body;
+      const { name, description, price, url, imageUrl, priority, quantity, category, itemType, familyId, override } = req.body;
 
       if (!name || typeof name !== 'string') {
         return res.status(400).json({ message: "Item name is required" });
       }
 
-      if (!eventId || typeof eventId !== 'string') {
-        return res.status(400).json({ message: "Event ID is required" });
-      }
-
-      // Use provided familyId or get user's first family
+      // Use provided familyId or get user's first group
       let targetFamilyId = familyId;
       if (!targetFamilyId) {
         const families = await storage.getUserFamilies(userId);
         if (families.length === 0) {
-          return res.status(400).json({ message: "You must join a family before adding wishlist items" });
+          return res.status(400).json({ message: "You must join a group before adding wishlist items" });
         }
         targetFamilyId = families[0].id;
       }
 
-      // Verify user is a member of the target family
+      // Verify user is a member of the target group
       const membership = await storage.getFamilyMember(targetFamilyId, userId);
       if (!membership) {
-        return res.status(403).json({ message: "You are not a member of this family" });
-      }
-
-      // Verify event exists and belongs to the family
-      const event = await storage.getEvent(eventId);
-      if (!event || event.familyId !== targetFamilyId) {
-        return res.status(400).json({ message: "Invalid event for this family" });
+        return res.status(403).json({ message: "You are not a member of this group" });
       }
 
       // Check for duplicate items by URL (if provided and not overriding)
       if (url && !override) {
-        const duplicate = await storage.findDuplicateWishlistItem(userId, targetFamilyId, eventId, url);
+        const duplicate = await storage.findDuplicateWishlistItem(userId, targetFamilyId, url);
         if (duplicate) {
           return res.status(409).json({ 
-            message: "This item is already on your wishlist for this event",
+            message: "This item is already on your wishlist",
             duplicateItem: {
               id: duplicate.id,
               name: duplicate.name,
@@ -952,7 +754,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const item = await storage.createWishlistItem({
         userId,
         familyId: targetFamilyId,
-        eventId,
         name,
         description: description || null,
         price: price ? String(price) : null,
@@ -976,7 +777,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Log activity
       await storage.createActivityLog({
         familyId: targetFamilyId,
-        eventId,
         actorId: userId,
         action: "item_added",
         itemId: item.id,
@@ -1000,44 +800,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/wishlist/from-search', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const { name, description, price, url, imageUrl, productId, source, priority, quantity, category, itemType, familyId, eventId, override } = req.body;
+      const { name, description, price, url, imageUrl, productId, source, priority, quantity, category, itemType, familyId, override } = req.body;
 
       if (!name || typeof name !== 'string') {
         return res.status(400).json({ message: "Item name is required" });
       }
 
-      if (!eventId || typeof eventId !== 'string') {
-        return res.status(400).json({ message: "Event ID is required" });
-      }
-
-      // Use provided familyId or get user's first family
+      // Use provided familyId or get user's first group
       let targetFamilyId = familyId;
       if (!targetFamilyId) {
         const families = await storage.getUserFamilies(userId);
         if (families.length === 0) {
-          return res.status(400).json({ message: "You must join a family before adding wishlist items" });
+          return res.status(400).json({ message: "You must join a group before adding wishlist items" });
         }
         targetFamilyId = families[0].id;
       }
 
-      // Verify user is a member of the target family
+      // Verify user is a member of the target group
       const membership = await storage.getFamilyMember(targetFamilyId, userId);
       if (!membership) {
-        return res.status(403).json({ message: "You are not a member of this family" });
-      }
-
-      // Verify event exists and belongs to the family
-      const event = await storage.getEvent(eventId);
-      if (!event || event.familyId !== targetFamilyId) {
-        return res.status(400).json({ message: "Invalid event for this family" });
+        return res.status(403).json({ message: "You are not a member of this group" });
       }
 
       // Check for duplicate items by URL or productId (if provided and not overriding)
       if ((url || productId) && !override) {
-        const duplicate = await storage.findDuplicateWishlistItem(userId, targetFamilyId, eventId, url, productId);
+        const duplicate = await storage.findDuplicateWishlistItem(userId, targetFamilyId, url, productId);
         if (duplicate) {
           return res.status(409).json({ 
-            message: "This item is already on your wishlist for this event",
+            message: "This item is already on your wishlist",
             duplicateItem: {
               id: duplicate.id,
               name: duplicate.name,
@@ -1051,7 +841,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const item = await storage.createWishlistItem({
         userId,
         familyId: targetFamilyId,
-        eventId,
         name,
         description: description || null,
         price: price ? String(price) : null,
@@ -1075,7 +864,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Log activity
       await storage.createActivityLog({
         familyId: targetFamilyId,
-        eventId,
         actorId: userId,
         action: "item_added",
         itemId: item.id,
@@ -1102,38 +890,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const organizerId = req.user.claims.sub;
       const { familyId, targetUserId } = req.params;
-      const { name, description, price, url, imageUrl, productId, source, priority, quantity, category, eventId } = req.body;
+      const { name, description, price, url, imageUrl, productId, source, priority, quantity, category } = req.body;
 
       if (!name || typeof name !== 'string') {
         return res.status(400).json({ message: "Item name is required" });
       }
 
-      if (!eventId || typeof eventId !== 'string') {
-        return res.status(400).json({ message: "Event ID is required" });
-      }
-
-      // Verify requester is the organizer of the family
+      // Verify requester is the organizer of the group
       const family = await storage.getFamily(familyId);
       if (!family || family.createdById !== organizerId) {
-        return res.status(403).json({ message: "Only the family organizer can add items to other members' wishlists" });
+        return res.status(403).json({ message: "Only the group organizer can add items to other members' wishlists" });
       }
 
-      // Verify event exists and belongs to the family
-      const event = await storage.getEvent(eventId);
-      if (!event || event.familyId !== familyId) {
-        return res.status(400).json({ message: "Invalid event for this family" });
-      }
-
-      // Verify target is a member of the family (could be user or managed profile)
+      // Verify target is a member of the group (could be user or managed profile)
       const targetInfo = await storage.getFamilyMemberByAnyId(familyId, targetUserId);
       if (!targetInfo) {
-        return res.status(404).json({ message: "Target member not found in this family" });
+        return res.status(404).json({ message: "Target member not found in this group" });
       }
 
       // Create item with correct field based on which field matched
       const itemData: any = {
         familyId,
-        eventId,
         name,
         description: description || null,
         price: price ? String(price) : null,
@@ -1167,7 +944,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Log activity with recipient information
       await storage.createActivityLog({
         familyId,
-        eventId,
         actorId: organizerId,
         action: "item_added",
         itemId: item.id,
@@ -1203,20 +979,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "You can only edit your own items" });
       }
 
-      // Verify item has an eventId
-      if (!item.eventId) {
-        return res.status(400).json({ message: "Item is not associated with an event" });
-      }
-
-      // Verify event exists and user has access via family membership
-      const event = await storage.getEvent(item.eventId);
-      if (!event) {
-        return res.status(404).json({ message: "Event not found" });
-      }
-
-      const membership = await storage.getFamilyMember(event.familyId, userId);
+      // Verify user has access via group membership
+      const membership = await storage.getFamilyMember(item.familyId, userId);
       if (!membership) {
-        return res.status(403).json({ message: "You are not a member of this event's family" });
+        return res.status(403).json({ message: "You are not a member of this group" });
       }
 
       const updated = await storage.updateWishlistItem(id, {
@@ -1252,26 +1018,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "You can only delete your own items" });
       }
 
-      // Verify item has an eventId
-      if (!item.eventId) {
-        return res.status(400).json({ message: "Item is not associated with an event" });
-      }
-
-      // Verify event exists and user has access via family membership
-      const event = await storage.getEvent(item.eventId);
-      if (!event) {
-        return res.status(404).json({ message: "Event not found" });
-      }
-
-      const membership = await storage.getFamilyMember(event.familyId, userId);
+      // Verify user has access via group membership
+      const membership = await storage.getFamilyMember(item.familyId, userId);
       if (!membership) {
-        return res.status(403).json({ message: "You are not a member of this event's family" });
+        return res.status(403).json({ message: "You are not a member of this group" });
       }
 
-      // Log activity before deletion (with eventId)
+      // Log activity before deletion
       await storage.createActivityLog({
         familyId: item.familyId,
-        eventId: item.eventId,
         actorId: userId,
         action: "item_deleted",
         metadata: {
@@ -1298,31 +1053,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid request", errors: parsed.error.errors });
       }
 
-      const { itemIds, familyId, eventId } = parsed.data;
+      const { itemIds, familyId } = parsed.data;
 
-      // Verify event exists and belongs to the family
-      const event = await storage.getEvent(eventId);
-      if (!event) {
-        return res.status(404).json({ message: "Event not found" });
-      }
-      if (event.familyId !== familyId) {
-        return res.status(403).json({ message: "Event does not belong to this family" });
-      }
-
-      // Verify user is a member of the event's family
-      const membership = await storage.getFamilyMember(event.familyId, userId);
+      // Verify user is a member of the group
+      const membership = await storage.getFamilyMember(familyId, userId);
       if (!membership) {
-        return res.status(403).json({ message: "You are not a member of this event's family" });
+        return res.status(403).json({ message: "You are not a member of this group" });
       }
 
-      // Delete items (storage layer will verify all items belong to the same event)
-      const deletedItems = await storage.bulkDeleteWishlistItems(userId, familyId, itemIds, eventId);
+      // Delete items (storage layer will verify ownership)
+      const deletedItems = await storage.bulkDeleteWishlistItems(userId, familyId, itemIds);
 
-      // Log activity for each deleted item (with eventId)
+      // Log activity for each deleted item
       for (const item of deletedItems) {
         await storage.createActivityLog({
           familyId: item.familyId,
-          eventId: item.eventId || undefined,
           actorId: userId,
           action: "item_deleted",
           metadata: {
@@ -1358,25 +1103,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid request", errors: parsed.error.errors });
       }
 
-      const { itemIds, priority, familyId, eventId } = parsed.data;
+      const { itemIds, priority, familyId } = parsed.data;
 
-      // Verify event exists and belongs to the family
-      const event = await storage.getEvent(eventId);
-      if (!event) {
-        return res.status(404).json({ message: "Event not found" });
-      }
-      if (event.familyId !== familyId) {
-        return res.status(403).json({ message: "Event does not belong to this family" });
-      }
-
-      // Verify user is a member of the event's family
-      const membership = await storage.getFamilyMember(event.familyId, userId);
+      // Verify user is a member of the group
+      const membership = await storage.getFamilyMember(familyId, userId);
       if (!membership) {
-        return res.status(403).json({ message: "You are not a member of this event's family" });
+        return res.status(403).json({ message: "You are not a member of this group" });
       }
 
-      // Update items (storage layer will verify all items belong to the same event)
-      const updatedItems = await storage.bulkUpdateWishlistPriority(userId, familyId, itemIds, priority, eventId);
+      // Update items (storage layer will verify ownership)
+      const updatedItems = await storage.bulkUpdateWishlistPriority(userId, familyId, itemIds, priority);
 
       res.json({
         message: `${updatedItems.length} item(s) updated`,
@@ -1411,20 +1147,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "You cannot mark your own items as purchased" });
       }
 
-      // Verify item has an eventId
-      if (!item.eventId) {
-        return res.status(400).json({ message: "Item is not associated with an event" });
-      }
-
-      // Verify event exists and user has access via family membership
-      const event = await storage.getEvent(item.eventId);
-      if (!event) {
-        return res.status(404).json({ message: "Event not found" });
-      }
-
-      const membership = await storage.getFamilyMember(event.familyId, userId);
+      // Verify user has access via group membership
+      const membership = await storage.getFamilyMember(item.familyId, userId);
       if (!membership) {
-        return res.status(403).json({ message: "You are not a member of this event's family" });
+        return res.status(403).json({ message: "You are not a member of this group" });
       }
 
       // Check if this user has already purchased this item
@@ -1447,16 +1173,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const purchase = await storage.markItemPurchased({
         itemId: id,
-        eventId: item.eventId,
+        familyId: item.familyId,
         purchasedById: userId,
         notes: notes || null,
         itemSnapshot,
       });
 
-      // Log activity with eventId
+      // Log activity
       await storage.createActivityLog({
         familyId: item.familyId,
-        eventId: item.eventId,
         actorId: userId,
         targetUserId: item.userId,
         itemId: id,
@@ -1491,26 +1216,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Item not found" });
       }
 
-      // Verify item has an eventId
-      if (!item.eventId) {
-        return res.status(400).json({ message: "Item is not associated with an event" });
-      }
-
-      // Verify event exists and user has access via family membership
-      const event = await storage.getEvent(item.eventId);
-      if (!event) {
-        return res.status(404).json({ message: "Event not found" });
-      }
-
-      const membership = await storage.getFamilyMember(event.familyId, userId);
+      // Verify user has access via group membership
+      const membership = await storage.getFamilyMember(item.familyId, userId);
       if (!membership) {
-        return res.status(403).json({ message: "You are not a member of this event's family" });
+        return res.status(403).json({ message: "You are not a member of this group" });
       }
 
-      // Log activity with eventId before unmarking
+      // Log activity before unmarking
       await storage.createActivityLog({
         familyId: item.familyId,
-        eventId: item.eventId,
         actorId: userId,
         targetUserId: item.userId,
         itemId: id,
@@ -1531,9 +1245,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/purchases', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const { familyId, eventId } = req.query;
+      const { familyId } = req.query;
       
-      console.log('[DEBUG] GET /api/purchases called:', { userId, familyId, eventId });
+      console.log('[DEBUG] GET /api/purchases called:', { userId, familyId });
 
       if (!familyId || typeof familyId !== 'string') {
         return res.status(400).json({ message: "familyId is required" });
@@ -1541,14 +1255,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const isMember = await storage.getFamilyMember(familyId, userId);
       if (!isMember) {
-        return res.status(403).json({ message: "You are not a member of this family" });
+        return res.status(403).json({ message: "You are not a member of this group" });
       }
 
-      const purchases = await storage.getPurchasedItemsByUser(
-        userId, 
-        familyId, 
-        eventId && typeof eventId === 'string' ? eventId : undefined
-      );
+      const purchases = await storage.getPurchasedItemsByUser(userId, familyId);
       
       console.log('[DEBUG] Purchases found:', purchases.length);
       res.json(purchases);
@@ -2125,12 +1835,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/stats', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const { familyId, eventId } = req.query;
+      const { familyId } = req.query;
       
       if (familyId && typeof familyId === 'string') {
-        // Convert empty string to undefined to avoid SQL errors
-        const validEventId = eventId && typeof eventId === 'string' && eventId.trim() !== '' ? eventId : undefined;
-        const stats = await storage.getUserStatsByFamily(userId, familyId, validEventId);
+        const stats = await storage.getUserStatsByFamily(userId, familyId);
         res.json(stats);
       } else {
         const stats = await storage.getUserStats(userId);
@@ -2146,20 +1854,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/wishlist/member-counts', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const { familyId, eventId } = req.query;
+      const { familyId } = req.query;
       
       if (!familyId || typeof familyId !== 'string') {
-        return res.status(400).json({ message: "Family ID is required" });
+        return res.status(400).json({ message: "Group ID (familyId) is required" });
       }
       
-      // Convert empty string to undefined to avoid SQL errors
-      const validEventId = eventId && typeof eventId === 'string' && eventId.trim() !== '' ? eventId : undefined;
-      const counts = await storage.getMemberItemCounts(userId, familyId, validEventId);
+      const counts = await storage.getMemberItemCounts(userId, familyId);
       res.json(counts);
     } catch (error) {
       console.error("Error fetching member counts:", error);
       if ((error as Error).message === "You are not a member of this family") {
-        return res.status(403).json({ message: "You are not a member of this family" });
+        return res.status(403).json({ message: "You are not a member of this group" });
       }
       res.status(500).json({ message: "Failed to fetch member counts" });
     }
@@ -2169,23 +1875,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/coordination-insights', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const { familyId, eventId } = req.query;
+      const { familyId } = req.query;
       
       if (!familyId || typeof familyId !== 'string') {
-        return res.status(400).json({ message: "Family ID is required" });
+        return res.status(400).json({ message: "Group ID (familyId) is required" });
       }
       
-      // Convert empty string to undefined to avoid SQL errors
-      const validEventId = eventId && typeof eventId === 'string' && eventId.trim() !== '' ? eventId : undefined;
-      const insights = await storage.getCoordinationInsights(userId, familyId, validEventId);
+      const insights = await storage.getCoordinationInsights(userId, familyId);
       res.json(insights);
     } catch (error) {
       console.error("Error fetching coordination insights:", error);
       if ((error as Error).message === "You are not a member of this family") {
-        return res.status(403).json({ message: "You are not a member of this family" });
-      }
-      if ((error as Error).message === "Event not found or does not belong to this family") {
-        return res.status(404).json({ message: "Event not found or does not belong to this family" });
+        return res.status(403).json({ message: "You are not a member of this group" });
       }
       res.status(500).json({ message: "Failed to fetch coordination insights" });
     }
@@ -2270,23 +1971,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/activities', isAuthenticated, async (req: any, res) => {
     try {
-      const { familyId, eventId, limit } = req.query;
+      const { familyId, limit } = req.query;
       const userId = req.user.claims.sub;
 
       if (!familyId || typeof familyId !== 'string') {
-        return res.status(400).json({ message: "Family ID is required" });
+        return res.status(400).json({ message: "Group ID (familyId) is required" });
       }
 
-      // Verify user is a member of this family
+      // Verify user is a member of this group
       const membership = await storage.getFamilyMember(familyId, userId);
       if (!membership) {
-        return res.status(403).json({ message: "You are not a member of this family" });
+        return res.status(403).json({ message: "You are not a member of this group" });
       }
 
       const activities = await storage.getRecentActivities(
         familyId, 
-        limit ? parseInt(limit as string) : 10,
-        eventId as string | undefined
+        limit ? parseInt(limit as string) : 10
       );
 
       res.json(activities);

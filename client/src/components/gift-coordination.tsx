@@ -6,7 +6,6 @@ import { useLocation } from "wouter";
 
 interface GiftCoordinationProps {
   familyId: string;
-  eventId?: string;
 }
 
 interface CoordinationInsight {
@@ -17,16 +16,13 @@ interface CoordinationInsight {
   memberName?: string;
 }
 
-export function GiftCoordination({ familyId, eventId }: GiftCoordinationProps) {
+export function GiftCoordination({ familyId }: GiftCoordinationProps) {
   const [, setLocation] = useLocation();
 
   const { data: insights, isLoading } = useQuery<CoordinationInsight[]>({
-    queryKey: ["/api/coordination-insights", familyId, eventId],
+    queryKey: ["/api/coordination-insights", familyId],
     queryFn: async () => {
       const params = new URLSearchParams({ familyId });
-      if (eventId) {
-        params.append("eventId", eventId);
-      }
       const response = await fetch(`/api/coordination-insights?${params.toString()}`, {
         credentials: "include",
       });

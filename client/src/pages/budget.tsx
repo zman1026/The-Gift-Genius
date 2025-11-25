@@ -1,5 +1,4 @@
 import { useFamily } from "@/contexts/FamilyContext";
-import { useEvent } from "@/contexts/EventContext";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
@@ -17,7 +16,6 @@ import { Textarea } from "@/components/ui/textarea";
 
 export default function Budget() {
   const { selectedFamilyId, families } = useFamily();
-  const { selectedEventId } = useEvent();
   const { user } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [allocations, setAllocations] = useState<Record<string, string>>({});
@@ -36,18 +34,18 @@ export default function Budget() {
   });
 
   const { data: budgetData, isLoading } = useQuery({
-    queryKey: ['/api/events', selectedEventId, 'budget'],
+    queryKey: ['/api/families', selectedFamilyId, 'budget'],
     queryFn: async () => {
-      const response = await fetch(`/api/events/${selectedEventId}/budget`);
+      const response = await fetch(`/api/families/${selectedFamilyId}/budget`);
       if (!response.ok) throw new Error('Failed to fetch budget data');
       return response.json();
     },
-    enabled: !!selectedEventId,
+    enabled: !!selectedFamilyId,
   });
 
   const updateAllocationsMutation = useMutation({
     mutationFn: async (newAllocations: any[]) => {
-      const response = await fetch(`/api/events/${selectedEventId}/budget/allocations`, {
+      const response = await fetch(`/api/families/${selectedFamilyId}/budget/allocations`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ allocations: newAllocations }),
@@ -56,7 +54,7 @@ export default function Budget() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/events', selectedEventId, 'budget'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/families', selectedFamilyId, 'budget'] });
       setIsEditing(false);
       toast({
         title: "Budget updated",
@@ -74,7 +72,7 @@ export default function Budget() {
 
   const logPurchaseMutation = useMutation({
     mutationFn: async (data: {
-      eventId: string;
+      familyId: string;
       recipientUserId: string | null;
       recipientManagedProfileId: string | null;
       price: number;
@@ -91,7 +89,7 @@ export default function Budget() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/events', selectedEventId, 'budget'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/families', selectedFamilyId, 'budget'] });
       queryClient.invalidateQueries({ queryKey: ['/api/purchases'] });
       setLogPurchaseDialog({ open: false, member: null });
       setPurchaseForm({ price: '', description: '', purchasedFrom: '', notes: '' });
@@ -109,13 +107,13 @@ export default function Budget() {
     },
   });
 
-  if (!selectedEventId) {
+  if (!selectedFamilyId) {
     return (
       <div className="flex items-center justify-center h-full p-4">
         <div className="text-center space-y-2">
           <AlertCircle className="w-12 h-12 text-muted-foreground mx-auto" />
-          <h3 className="text-lg font-medium text-foreground">No Event Selected</h3>
-          <p className="text-sm text-muted-foreground">Please select an event from the sidebar to view its budget</p>
+          <h3 className="text-lg font-medium text-foreground">No Group Selected</h3>
+          <p className="text-sm text-muted-foreground">Please select a group from the sidebar to view its budget</p>
         </div>
       </div>
     );
@@ -174,7 +172,7 @@ export default function Budget() {
     }
 
     logPurchaseMutation.mutate({
-      eventId: selectedEventId!,
+      familyId: selectedFamilyId!,
       recipientUserId: logPurchaseDialog.member.userId || null,
       recipientManagedProfileId: logPurchaseDialog.member.managedProfileId || null,
       price,

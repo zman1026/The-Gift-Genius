@@ -17,7 +17,6 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { UserSettingsDialog } from "@/components/user-settings-dialog";
 import { FamilySwitcher } from "@/components/family-switcher";
-import { EventSwitcher } from "@/components/event-switcher";
 
 const menuItems = [
   {
@@ -88,10 +87,6 @@ export function AppSidebar() {
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-sidebar-foreground">Group</label>
               <FamilySwitcher />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-sidebar-foreground">Event</label>
-              <EventSwitcher />
             </div>
           </SidebarGroupContent>
         </SidebarGroup>

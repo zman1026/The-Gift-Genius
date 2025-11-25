@@ -6,7 +6,6 @@ import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useFamily } from "@/contexts/FamilyContext";
-import { useEvent } from "@/contexts/EventContext";
 import { useCurrentMember } from "@/contexts/CurrentMemberContext";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -36,7 +35,6 @@ export default function MemberWishlist() {
   const { toast } = useToast();
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const { selectedFamilyId, families } = useFamily();
-  const { selectedEventId } = useEvent();
   const { setCurrentMember, clearCurrentMember } = useCurrentMember();
   const currentUserId = (user as any)?.id;
   const [, params] = useRoute("/members/:userId");
@@ -99,10 +97,10 @@ export default function MemberWishlist() {
   });
 
   const { data: items, isLoading: itemsLoading } = useQuery({
-    queryKey: ["/api/members", userId, "wishlist", selectedFamilyId, selectedEventId],
+    queryKey: ["/api/members", userId, "wishlist", selectedFamilyId],
     queryFn: async () => {
-      if (!userId || !selectedFamilyId || !selectedEventId) return [];
-      const response = await fetch(`/api/members/${userId}/wishlist?familyId=${selectedFamilyId}&eventId=${selectedEventId}`, {
+      if (!userId || !selectedFamilyId) return [];
+      const response = await fetch(`/api/members/${userId}/wishlist?familyId=${selectedFamilyId}`, {
         credentials: "include",
       });
       if (!response.ok) {
@@ -110,7 +108,7 @@ export default function MemberWishlist() {
       }
       return response.json();
     },
-    enabled: !!userId && !!selectedFamilyId && !!selectedEventId,
+    enabled: !!userId && !!selectedFamilyId,
     retry: false,
   });
 

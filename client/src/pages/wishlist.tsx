@@ -5,7 +5,6 @@ import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useFamily } from "@/contexts/FamilyContext";
-import { useEvent } from "@/contexts/EventContext";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -51,7 +50,6 @@ export default function Wishlist() {
   const { toast } = useToast();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { selectedFamilyId } = useFamily();
-  const { selectedEventId } = useEvent();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
   const [uploadedImageUrl, setUploadedImageUrl] = useState<string>("");
@@ -123,14 +121,12 @@ export default function Wishlist() {
   }, [isAuthenticated, authLoading, toast]);
 
   const { data: items, isLoading } = useQuery({
-    queryKey: ["/api/wishlist", selectedFamilyId, selectedEventId, sortBy, sortOrder, priorityFilter, itemTypeFilter],
+    queryKey: ["/api/wishlist", selectedFamilyId, sortBy, sortOrder, priorityFilter, itemTypeFilter],
     queryFn: async () => {
-      if (!selectedFamilyId || !selectedEventId) return [];
+      if (!selectedFamilyId) return [];
       
-      // Build query string with filters
       const params = new URLSearchParams({ 
         familyId: selectedFamilyId,
-        eventId: selectedEventId,
       });
       if (sortBy) params.append("sort", sortBy);
       if (sortOrder) params.append("order", sortOrder);
@@ -145,7 +141,7 @@ export default function Wishlist() {
       }
       return response.json();
     },
-    enabled: !!selectedFamilyId && !!selectedEventId,
+    enabled: !!selectedFamilyId,
     retry: false,
   });
 
@@ -288,10 +284,9 @@ export default function Wishlist() {
     },
   });
 
-  // Bulk delete mutation
   const bulkDeleteMutation = useMutation({
-    mutationFn: async ({ itemIds, count, familyId, eventId }: { itemIds: string[]; count: number; familyId: string; eventId: string }) => {
-      return { response: await apiRequest("POST", "/api/wishlist/bulk-delete", { itemIds, familyId, eventId }), count };
+    mutationFn: async ({ itemIds, count, familyId }: { itemIds: string[]; count: number; familyId: string }) => {
+      return { response: await apiRequest("POST", "/api/wishlist/bulk-delete", { itemIds, familyId }), count };
     },
     onSuccess: (data) => {
       const currentFamilyId = selectedFamilyIdRef.current;
@@ -324,10 +319,9 @@ export default function Wishlist() {
     },
   });
 
-  // Bulk update priority mutation
   const bulkUpdatePriorityMutation = useMutation({
-    mutationFn: async ({ itemIds, priority, count, familyId, eventId }: { itemIds: string[]; priority: string; count: number; familyId: string; eventId: string }) => {
-      return { response: await apiRequest("PATCH", "/api/wishlist/bulk-priority", { itemIds, priority, familyId, eventId }), count };
+    mutationFn: async ({ itemIds, priority, count, familyId }: { itemIds: string[]; priority: string; count: number; familyId: string }) => {
+      return { response: await apiRequest("PATCH", "/api/wishlist/bulk-priority", { itemIds, priority, familyId }), count };
     },
     onSuccess: (data) => {
       const currentFamilyId = selectedFamilyIdRef.current;
@@ -382,15 +376,15 @@ export default function Wishlist() {
   };
 
   const handleBulkDelete = () => {
-    if (selectedItems.size === 0 || !selectedFamilyId || !selectedEventId) return;
+    if (selectedItems.size === 0 || !selectedFamilyId) return;
     const count = selectedItems.size;
-    bulkDeleteMutation.mutate({ itemIds: Array.from(selectedItems), count, familyId: selectedFamilyId, eventId: selectedEventId });
+    bulkDeleteMutation.mutate({ itemIds: Array.from(selectedItems), count, familyId: selectedFamilyId });
   };
 
   const handleBulkUpdatePriority = (priority: string) => {
-    if (selectedItems.size === 0 || !selectedFamilyId || !selectedEventId) return;
+    if (selectedItems.size === 0 || !selectedFamilyId) return;
     const count = selectedItems.size;
-    bulkUpdatePriorityMutation.mutate({ itemIds: Array.from(selectedItems), priority, count, familyId: selectedFamilyId, eventId: selectedEventId });
+    bulkUpdatePriorityMutation.mutate({ itemIds: Array.from(selectedItems), priority, count, familyId: selectedFamilyId });
   };
 
   const onSubmit = (data: AddItemFormData) => {
@@ -1235,15 +1229,15 @@ export default function Wishlist() {
         </SheetContent>
       </Sheet>
 
-      {!selectedEventId ? (
+      {!selectedFamilyId ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-20 md:py-24 text-center">
             <div className="w-24 h-24 rounded-full bg-muted flex items-center justify-center mb-6">
               <AlertCircle className="w-12 h-12 text-muted-foreground" />
             </div>
-            <h3 className="font-semibold text-xl mb-2 text-foreground">No Event Selected</h3>
+            <h3 className="font-semibold text-xl mb-2 text-foreground">No Group Selected</h3>
             <p className="text-muted-foreground mb-6 max-w-md px-4">
-              Please select an event from the dropdown above to view and manage wishlist items for that occasion.
+              Please select a group from the sidebar to view and manage your wishlist items.
             </p>
           </CardContent>
         </Card>

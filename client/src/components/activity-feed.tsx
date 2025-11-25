@@ -26,22 +26,18 @@ type Activity = z.infer<typeof activitySchema>;
 
 interface ActivityFeedProps {
   familyId: string;
-  eventId?: string;
   limit?: number;
   compact?: boolean;
 }
 
-export function ActivityFeed({ familyId, eventId, limit = 10, compact = false }: ActivityFeedProps) {
+export function ActivityFeed({ familyId, limit = 10, compact = false }: ActivityFeedProps) {
   const { data: activities, isLoading, isError } = useQuery<Activity[]>({
-    queryKey: ["/api/activities", familyId, eventId],
+    queryKey: ["/api/activities", familyId],
     queryFn: async () => {
       const params = new URLSearchParams({ 
         familyId,
         limit: limit.toString(),
       });
-      if (eventId) {
-        params.append("eventId", eventId);
-      }
       
       const response = await fetch(`/api/activities?${params.toString()}`, {
         credentials: "include",
@@ -50,12 +46,11 @@ export function ActivityFeed({ familyId, eventId, limit = 10, compact = false }:
         throw new Error("Failed to fetch activities");
       }
       const data = await response.json();
-      // Validate response schema to prevent crashes from malformed data
       const validatedData = activitiesResponseSchema.parse(data);
       return validatedData;
     },
     enabled: !!familyId,
-    staleTime: 1000 * 60 * 3, // 3 minutes
+    staleTime: 1000 * 60 * 3,
     retry: 2,
   });
 

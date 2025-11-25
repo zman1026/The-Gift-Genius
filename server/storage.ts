@@ -6,7 +6,6 @@ import {
   itemPurchases,
   activityLogs,
   managedProfiles,
-  events,
   budgetAllocations,
   personalLists,
   personalListItems,
@@ -26,8 +25,6 @@ import {
   type InsertActivityLog,
   type ManagedProfile,
   type InsertManagedProfile,
-  type Event,
-  type InsertEvent,
   type PersonalList,
   type InsertPersonalList,
   type PersonalListItem,
@@ -38,7 +35,6 @@ import {
 import { db } from "./db";
 import { eq, and, or, sql, desc, asc, inArray } from "drizzle-orm";
 
-// Custom error types for better error handling
 export class AuthorizationError extends Error {
   constructor(message: string) {
     super(message);
@@ -58,23 +54,19 @@ export interface WishlistFilterOptions {
   order?: 'asc' | 'desc';
   priority?: 'high' | 'medium' | 'low';
   itemType?: 'product' | 'experience' | 'service' | 'membership' | 'other';
-  eventId?: string; // Filter by specific event
 }
 
 export interface IStorage {
-  // User operations (required for Replit Auth)
   getUser(id: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
   updateUser(id: string, updates: Partial<UpsertUser>): Promise<User>;
   
-  // Family operations
   createFamily(family: InsertFamily): Promise<Family>;
   getFamilyByInviteCode(inviteCode: string): Promise<Family | undefined>;
   getUserFamilies(userId: string): Promise<any[]>;
   getFamily(id: string): Promise<Family | undefined>;
   updateFamily(id: string, updates: Partial<InsertFamily>, requesterId: string): Promise<Family>;
   
-  // Family member operations
   addFamilyMember(member: InsertFamilyMember): Promise<FamilyMember>;
   getFamilyMembers(userId: string): Promise<any[]>;
   getFamilyMember(familyId: string, userId: string): Promise<FamilyMember | undefined>;
@@ -82,57 +74,42 @@ export interface IStorage {
   removeFamilyMember(familyId: string, userIdToRemove: string, requesterId: string): Promise<void>;
   leaveFamily(familyId: string, userId: string): Promise<void>;
   
-  // Managed profile operations (children/dependents)
   createManagedProfile(profile: InsertManagedProfile, familyId: string): Promise<ManagedProfile>;
   updateManagedProfile(id: string, updates: Partial<InsertManagedProfile>, requesterId: string): Promise<ManagedProfile>;
   deleteManagedProfile(id: string, familyId: string, requesterId: string): Promise<void>;
   getManagedProfile(id: string): Promise<ManagedProfile | undefined>;
   getManagedProfilesByCreator(createdById: string): Promise<ManagedProfile[]>;
   
-  // Wishlist operations
   createWishlistItem(item: InsertWishlistItem): Promise<WishlistItem>;
   updateWishlistItem(id: string, item: Partial<InsertWishlistItem>): Promise<WishlistItem>;
   deleteWishlistItem(id: string): Promise<void>;
-  bulkDeleteWishlistItems(userId: string, familyId: string, itemIds: string[], eventId: string): Promise<WishlistItem[]>;
-  bulkUpdateWishlistPriority(userId: string, familyId: string, itemIds: string[], priority: 'low' | 'medium' | 'high', eventId: string): Promise<WishlistItem[]>;
+  bulkDeleteWishlistItems(userId: string, familyId: string, itemIds: string[]): Promise<WishlistItem[]>;
+  bulkUpdateWishlistPriority(userId: string, familyId: string, itemIds: string[], priority: 'low' | 'medium' | 'high'): Promise<WishlistItem[]>;
   getUserWishlistItems(userId: string, options?: WishlistFilterOptions): Promise<WishlistItem[]>;
   getUserWishlistItemsByFamily(userId: string, familyId: string, options?: WishlistFilterOptions): Promise<WishlistItem[]>;
-  getMemberWishlistItems(userId: string, viewerId: string, familyId?: string, eventId?: string): Promise<any[]>;
+  getMemberWishlistItems(userId: string, viewerId: string, familyId?: string): Promise<any[]>;
   getWishlistItem(id: string): Promise<WishlistItem | undefined>;
-  findDuplicateWishlistItem(userId: string, familyId: string, eventId?: string, url?: string, productId?: string): Promise<WishlistItem | undefined>;
+  findDuplicateWishlistItem(userId: string, familyId: string, url?: string, productId?: string): Promise<WishlistItem | undefined>;
   
-  // Purchase operations
   markItemPurchased(purchase: InsertItemPurchase): Promise<ItemPurchase>;
   unmarkItemPurchased(itemId: string, userId: string): Promise<void>;
   getItemPurchase(itemId: string): Promise<ItemPurchase | undefined>;
-  getPurchasedItemsByUser(userId: string, familyId: string, eventId?: string): Promise<any[]>;
+  getPurchasedItemsByUser(userId: string, familyId: string): Promise<any[]>;
   logOffWishlistPurchase(purchase: LogOffWishlistPurchase, purchasedById: string): Promise<ItemPurchase>;
   
-  // Stats operations
   getUserStats(userId: string): Promise<any>;
-  getUserStatsByFamily(userId: string, familyId: string, eventId?: string): Promise<any>;
+  getUserStatsByFamily(userId: string, familyId: string): Promise<any>;
   getPurchaseTotalsByMember(userId: string, familyId: string): Promise<any[]>;
   getUserPurchaseForItem(itemId: string, userId: string): Promise<ItemPurchase | undefined>;
-  getMemberItemCounts(userId: string, familyId: string, eventId?: string): Promise<Record<string, number>>;
-  getCoordinationInsights(userId: string, familyId: string, eventId?: string): Promise<any[]>;
+  getMemberItemCounts(userId: string, familyId: string): Promise<Record<string, number>>;
+  getCoordinationInsights(userId: string, familyId: string): Promise<any[]>;
   
-  // Activity log operations
   createActivityLog(log: InsertActivityLog): Promise<ActivityLog>;
-  getRecentActivities(familyId: string, limit?: number, eventId?: string): Promise<any[]>;
+  getRecentActivities(familyId: string, limit?: number): Promise<any[]>;
   
-  // Event operations
-  createEvent(event: InsertEvent): Promise<Event>;
-  getEventsByFamily(familyId: string): Promise<Event[]>;
-  getActiveEventsByFamily(familyId: string): Promise<Event[]>;
-  getEvent(id: string): Promise<Event | undefined>;
-  updateEvent(id: string, updates: Partial<InsertEvent>, requesterId: string): Promise<Event>;
-  deleteEvent(id: string, familyId: string, requesterId: string): Promise<void>;
+  getBudgetOverview(familyId: string): Promise<any>;
+  setBudgetAllocations(familyId: string, allocations: any[]): Promise<void>;
   
-  // Budget operations
-  getEventBudgetOverview(eventId: string): Promise<any>;
-  setBudgetAllocations(eventId: string, allocations: any[]): Promise<void>;
-  
-  // Personal list operations
   createPersonalList(list: InsertPersonalList): Promise<PersonalList>;
   getPersonalList(id: string): Promise<PersonalList | undefined>;
   getPersonalListBySlug(slug: string): Promise<PersonalList | undefined>;
@@ -140,14 +117,12 @@ export interface IStorage {
   updatePersonalList(id: string, updates: Partial<InsertPersonalList>, requesterId: string): Promise<PersonalList>;
   deletePersonalList(id: string, requesterId: string): Promise<void>;
   
-  // Personal list item operations
   createPersonalListItem(item: InsertPersonalListItem): Promise<PersonalListItem>;
   getPersonalListItems(listId: string): Promise<PersonalListItem[]>;
   getPersonalListItem(id: string): Promise<PersonalListItem | undefined>;
   updatePersonalListItem(id: string, updates: Partial<InsertPersonalListItem>, requesterId: string): Promise<PersonalListItem>;
   deletePersonalListItem(id: string, requesterId: string): Promise<void>;
   
-  // Personal list purchase operations
   markPersonalListItemPurchased(itemId: string, purchasedByUserId: string): Promise<PersonalListPurchase>;
   unmarkPersonalListItemPurchased(itemId: string, requesterId: string): Promise<void>;
   getPersonalListItemPurchase(itemId: string): Promise<PersonalListPurchase | undefined>;
@@ -156,7 +131,6 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
-  // User operations
   async getUser(id: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
     return user;
@@ -192,11 +166,9 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  // Family operations
   async createFamily(familyData: InsertFamily): Promise<Family> {
     const [family] = await db.insert(families).values(familyData).returning();
     
-    // Automatically add creator as a member
     await this.addFamilyMember({
       familyId: family.id,
       userId: family.createdById,
@@ -241,15 +213,14 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateFamily(id: string, updates: Partial<InsertFamily>, requesterId: string): Promise<Family> {
-    // Get family to check if requester is the organizer
     const [family] = await db.select().from(families).where(eq(families.id, id));
     
     if (!family) {
-      throw new Error("Family not found");
+      throw new Error("Group not found");
     }
     
     if (family.createdById !== requesterId) {
-      throw new Error("Only the family organizer can update the family");
+      throw new Error("Only the group organizer can update the group");
     }
     
     const [updatedFamily] = await db
@@ -261,14 +232,12 @@ export class DatabaseStorage implements IStorage {
     return updatedFamily;
   }
 
-  // Family member operations
   async addFamilyMember(memberData: InsertFamilyMember): Promise<FamilyMember> {
     const [member] = await db.insert(familyMembers).values(memberData).returning();
     return member;
   }
 
   async getFamilyMembers(userId: string): Promise<any[]> {
-    // Get all unique family members from families the user belongs to
     const result = await db
       .select({
         userId: users.id,
@@ -297,13 +266,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getFamilyMembersByFamily(familyId: string, requestingUserId: string): Promise<any[]> {
-    // First verify that the requesting user is a member of this family
     const membership = await this.getFamilyMember(familyId, requestingUserId);
     if (!membership) {
-      throw new Error("You are not a member of this family");
+      throw new Error("You are not a member of this group");
     }
 
-    // Get all family members (both users and managed profiles) for a specific family
     const result = await db.execute(sql`
       SELECT 
         COALESCE(u.id, mp.id) as "userId",
@@ -349,7 +316,6 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getFamilyMemberByAnyId(familyId: string, memberId: string): Promise<{ member: FamilyMember; matchedField: 'userId' | 'managedProfileId' } | undefined> {
-    // Check which field this ID belongs to by querying the family_members table
     const [member] = await db
       .select()
       .from(familyMembers)
@@ -367,19 +333,16 @@ export class DatabaseStorage implements IStorage {
       return undefined;
     }
 
-    // Determine which field the memberId matches
     if (member.userId === memberId) {
       return { member, matchedField: 'userId' };
     } else if (member.managedProfileId === memberId) {
       return { member, matchedField: 'managedProfileId' };
     }
 
-    // This should never happen due to the WHERE clause, but adding for safety
     return undefined;
   }
 
   async getFamilyMembersByFamilyId(familyId: string): Promise<Array<{ userId: string | null; managedProfileId: string | null }>> {
-    // Get all members (users and managed profiles) for a specific family
     const members = await db
       .select({
         userId: familyMembers.userId,
@@ -392,15 +355,14 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateFamilyMemberDisplayName(familyId: string, userId: string, displayName: string | null, requesterId: string): Promise<FamilyMember> {
-    // Check if requester is the family organizer
     const [family] = await db.select().from(families).where(eq(families.id, familyId));
     
     if (!family) {
-      throw new Error("Family not found");
+      throw new Error("Group not found");
     }
     
     if (family.createdById !== requesterId) {
-      throw new Error("Only the family organizer can update member display names");
+      throw new Error("Only the group organizer can update member display names");
     }
     
     const [member] = await db
@@ -410,7 +372,7 @@ export class DatabaseStorage implements IStorage {
       .returning();
     
     if (!member) {
-      throw new Error("Family member not found");
+      throw new Error("Group member not found");
     }
     
     return member;
@@ -424,84 +386,72 @@ export class DatabaseStorage implements IStorage {
       .returning();
     
     if (!member) {
-      throw new Error("Family member not found");
+      throw new Error("Group member not found");
     }
     
     return member;
   }
 
   async removeFamilyMember(familyId: string, userIdToRemove: string, requesterId: string): Promise<void> {
-    // Check if requester is the family organizer
     const [family] = await db
       .select()
       .from(families)
       .where(eq(families.id, familyId));
     
     if (!family) {
-      throw new Error("Family not found");
+      throw new Error("Group not found");
     }
     
     if (family.createdById !== requesterId) {
-      throw new Error("Only the family organizer can remove members");
+      throw new Error("Only the group organizer can remove members");
     }
     
-    // Don't allow removing themselves using this method
     if (requesterId === userIdToRemove) {
-      throw new Error("Use leave family to remove yourself");
+      throw new Error("Use leave group to remove yourself");
     }
     
-    // Remove the member
     await db
       .delete(familyMembers)
       .where(and(eq(familyMembers.familyId, familyId), eq(familyMembers.userId, userIdToRemove)));
   }
 
   async leaveFamily(familyId: string, userId: string): Promise<void> {
-    // Check if user is the organizer
     const [family] = await db
       .select()
       .from(families)
       .where(eq(families.id, familyId));
     
     if (!family) {
-      throw new Error("Family not found");
+      throw new Error("Group not found");
     }
     
-    // Check if this is the last member
     const members = await db
       .select()
       .from(familyMembers)
       .where(eq(familyMembers.familyId, familyId));
     
-    // If they're the organizer and last member, delete the whole family
     if (family.createdById === userId && members.length === 1) {
       await db.delete(families).where(eq(families.id, familyId));
       return;
     }
     
-    // If they're the organizer but not the last member, they need to transfer ownership first
     if (family.createdById === userId && members.length > 1) {
-      throw new Error("As the family organizer, you must transfer ownership or remove all other members before leaving");
+      throw new Error("As the group organizer, you must transfer ownership or remove all other members before leaving");
     }
     
-    // Remove the member
     await db
       .delete(familyMembers)
       .where(and(eq(familyMembers.familyId, familyId), eq(familyMembers.userId, userId)));
   }
 
-  // Managed profile operations (children/dependents)
   async createManagedProfile(profileData: InsertManagedProfile, familyId: string): Promise<ManagedProfile> {
-    // Verify the creator is a member of the family
     const membership = await this.getFamilyMember(familyId, profileData.createdById);
     if (!membership) {
-      throw new AuthorizationError("You must be a member of the family to create a child profile");
+      throw new AuthorizationError("You must be a member of the group to create a child profile");
     }
 
-    // Create the managed profile
     const [profile] = await db.insert(managedProfiles).values(profileData).returning();
     
-    // Automatically add the managed profile as a family member
     await db.insert(familyMembers).values({
       familyId,
       managedProfileId: profile.id,
@@ -512,7 +462,6 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateManagedProfile(id: string, updates: Partial<InsertManagedProfile>, requesterId: string): Promise<ManagedProfile> {
-    // Get the profile to verify ownership
     const [profile] = await db
       .select()
       .from(managedProfiles)
@@ -522,12 +471,10 @@ export class DatabaseStorage implements IStorage {
       throw new NotFoundError("Managed profile not found");
     }
     
-    // Verify the requester is the creator
     if (profile.createdById !== requesterId) {
       throw new AuthorizationError("You can only edit child profiles you created");
     }
     
-    // Update the profile
     const [updatedProfile] = await db
       .update(managedProfiles)
       .set(updates)
@@ -538,7 +485,6 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteManagedProfile(id: string, familyId: string, requesterId: string): Promise<void> {
-    // Get the profile to verify ownership
     const [profile] = await db
       .select()
       .from(managedProfiles)
@@ -548,12 +494,10 @@ export class DatabaseStorage implements IStorage {
       throw new NotFoundError("Managed profile not found");
     }
     
-    // Verify the requester is the creator
     if (profile.createdById !== requesterId) {
       throw new AuthorizationError("You can only delete child profiles you created");
     }
     
-    // Delete the profile (cascade will handle familyMembers and wishlistItems)
     await db.delete(managedProfiles).where(eq(managedProfiles.id, id));
   }
 
@@ -573,7 +517,6 @@ export class DatabaseStorage implements IStorage {
     return profiles;
   }
 
-  // Wishlist operations
   async createWishlistItem(itemData: InsertWishlistItem): Promise<WishlistItem> {
     const [item] = await db.insert(wishlistItems).values(itemData).returning();
     return item;
@@ -592,78 +535,66 @@ export class DatabaseStorage implements IStorage {
     await db.delete(wishlistItems).where(eq(wishlistItems.id, id));
   }
 
-  async bulkDeleteWishlistItems(userId: string, familyId: string, itemIds: string[], eventId: string): Promise<WishlistItem[]> {
-    // Verify user is a member of the family
+  async bulkDeleteWishlistItems(userId: string, familyId: string, itemIds: string[]): Promise<WishlistItem[]> {
     const membership = await this.getFamilyMember(familyId, userId);
     if (!membership) {
-      throw new AuthorizationError("You are not a member of this family");
+      throw new AuthorizationError("You are not a member of this group");
     }
 
-    // Fetch all items to verify ownership, family membership, and event membership
     const items = await db
       .select()
       .from(wishlistItems)
       .where(and(
         inArray(wishlistItems.id, itemIds),
         eq(wishlistItems.userId, userId),
-        eq(wishlistItems.familyId, familyId),
-        eq(wishlistItems.eventId, eventId)
+        eq(wishlistItems.familyId, familyId)
       ));
 
-    // Check if any items were not found or don't belong to the user/family/event
     if (items.length < itemIds.length) {
       const foundIds = new Set(items.map(item => item.id));
       const missingIds = itemIds.filter(id => !foundIds.has(id));
-      throw new AuthorizationError(`Cannot delete ${missingIds.length} item(s): not found or unauthorized in this event`);
+      throw new AuthorizationError(`Cannot delete ${missingIds.length} item(s): not found or unauthorized`);
     }
 
-    // Delete all items
     await db
       .delete(wishlistItems)
       .where(and(
         inArray(wishlistItems.id, itemIds),
         eq(wishlistItems.userId, userId),
-        eq(wishlistItems.familyId, familyId),
-        eq(wishlistItems.eventId, eventId)
+        eq(wishlistItems.familyId, familyId)
       ));
 
     return items;
   }
 
-  async bulkUpdateWishlistPriority(userId: string, familyId: string, itemIds: string[], priority: 'low' | 'medium' | 'high', eventId: string): Promise<WishlistItem[]> {
-    // Verify user is a member of the family
+  async bulkUpdateWishlistPriority(userId: string, familyId: string, itemIds: string[], priority: 'low' | 'medium' | 'high'): Promise<WishlistItem[]> {
     const membership = await this.getFamilyMember(familyId, userId);
     if (!membership) {
-      throw new AuthorizationError("You are not a member of this family");
+      throw new AuthorizationError("You are not a member of this group");
     }
 
-    // Verify all items belong to the user, family, and event
     const existingItems = await db
       .select()
       .from(wishlistItems)
       .where(and(
         inArray(wishlistItems.id, itemIds),
         eq(wishlistItems.userId, userId),
-        eq(wishlistItems.familyId, familyId),
-        eq(wishlistItems.eventId, eventId)
+        eq(wishlistItems.familyId, familyId)
       ));
 
-    // Check if any items were not found or don't belong to the user/family/event
     if (existingItems.length < itemIds.length) {
       const foundIds = new Set(existingItems.map(item => item.id));
       const missingIds = itemIds.filter(id => !foundIds.has(id));
-      throw new AuthorizationError(`Cannot update ${missingIds.length} item(s): not found or unauthorized in this event`);
+      throw new AuthorizationError(`Cannot update ${missingIds.length} item(s): not found or unauthorized`);
     }
 
-    // Update all items
     const items = await db
       .update(wishlistItems)
       .set({ priority })
       .where(and(
         inArray(wishlistItems.id, itemIds),
         eq(wishlistItems.userId, userId),
-        eq(wishlistItems.familyId, familyId),
-        eq(wishlistItems.eventId, eventId)
+        eq(wishlistItems.familyId, familyId)
       ))
       .returning();
 
@@ -671,12 +602,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUserWishlistItems(userId: string, options?: WishlistFilterOptions): Promise<WishlistItem[]> {
-    // Build where conditions
     const whereConditions = [eq(wishlistItems.userId, userId)];
-    
-    if (options?.eventId) {
-      whereConditions.push(eq(wishlistItems.eventId, options.eventId));
-    }
     
     if (options?.priority) {
       whereConditions.push(eq(wishlistItems.priority, options.priority));
@@ -686,44 +612,37 @@ export class DatabaseStorage implements IStorage {
       whereConditions.push(eq(wishlistItems.itemType, options.itemType));
     }
     
-    // Build order by clauses (primary + secondary for stable sorting)
     const orderByClauses = [];
     const orderDirection = options?.order === 'asc' ? asc : desc;
     
     switch (options?.sort) {
       case 'name':
         orderByClauses.push(orderDirection(sql`LOWER(${wishlistItems.name})`));
-        orderByClauses.push(desc(wishlistItems.createdAt)); // Secondary: newest first
+        orderByClauses.push(desc(wishlistItems.createdAt));
         break;
       case 'price':
-        // Handle nulls: nulls last for both asc and desc
         if (options?.order === 'asc') {
           orderByClauses.push(sql`${wishlistItems.price} ASC NULLS LAST`);
         } else {
           orderByClauses.push(sql`${wishlistItems.price} DESC NULLS LAST`);
         }
-        orderByClauses.push(desc(wishlistItems.createdAt)); // Secondary: newest first
+        orderByClauses.push(desc(wishlistItems.createdAt));
         break;
       case 'priority':
-        // Priority sorting: low=1, medium=2, high=3
-        // DESC: 3→2→1 = high→medium→low
-        // ASC: 1→2→3 = low→medium→high
         orderByClauses.push(sql`CASE ${wishlistItems.priority} 
           WHEN 'low' THEN 1 
           WHEN 'medium' THEN 2 
           WHEN 'high' THEN 3 
           ELSE 0
           END ${options?.order === 'asc' ? sql`ASC` : sql`DESC`}`);
-        orderByClauses.push(desc(wishlistItems.createdAt)); // Secondary: newest first
+        orderByClauses.push(desc(wishlistItems.createdAt));
         break;
       case 'createdAt':
       default:
-        // Default: newest first (desc createdAt)
         orderByClauses.push(orderDirection(wishlistItems.createdAt));
         break;
     }
     
-    // Fallback: ensure we always have at least one ordering clause
     if (orderByClauses.length === 0) {
       orderByClauses.push(desc(wishlistItems.createdAt));
     }
@@ -738,21 +657,15 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUserWishlistItemsByFamily(userId: string, familyId: string, options?: WishlistFilterOptions): Promise<WishlistItem[]> {
-    // First verify that the user is a member of this family
     const membership = await this.getFamilyMember(familyId, userId);
     if (!membership) {
-      throw new Error("You are not a member of this family");
+      throw new Error("You are not a member of this group");
     }
 
-    // Build where conditions
     const whereConditions = [
       eq(wishlistItems.userId, userId),
       eq(wishlistItems.familyId, familyId)
     ];
-    
-    if (options?.eventId) {
-      whereConditions.push(eq(wishlistItems.eventId, options.eventId));
-    }
     
     if (options?.priority) {
       whereConditions.push(eq(wishlistItems.priority, options.priority));
@@ -762,44 +675,37 @@ export class DatabaseStorage implements IStorage {
       whereConditions.push(eq(wishlistItems.itemType, options.itemType));
     }
     
-    // Build order by clauses (primary + secondary for stable sorting)
     const orderByClauses = [];
     const orderDirection = options?.order === 'asc' ? asc : desc;
     
     switch (options?.sort) {
       case 'name':
         orderByClauses.push(orderDirection(sql`LOWER(${wishlistItems.name})`));
-        orderByClauses.push(desc(wishlistItems.createdAt)); // Secondary: newest first
+        orderByClauses.push(desc(wishlistItems.createdAt));
         break;
       case 'price':
-        // Handle nulls: nulls last for both asc and desc
         if (options?.order === 'asc') {
           orderByClauses.push(sql`${wishlistItems.price} ASC NULLS LAST`);
         } else {
           orderByClauses.push(sql`${wishlistItems.price} DESC NULLS LAST`);
         }
-        orderByClauses.push(desc(wishlistItems.createdAt)); // Secondary: newest first
+        orderByClauses.push(desc(wishlistItems.createdAt));
         break;
       case 'priority':
-        // Priority sorting: low=1, medium=2, high=3
-        // DESC: 3→2→1 = high→medium→low
-        // ASC: 1→2→3 = low→medium→high
         orderByClauses.push(sql`CASE ${wishlistItems.priority} 
           WHEN 'low' THEN 1 
           WHEN 'medium' THEN 2 
           WHEN 'high' THEN 3 
           ELSE 0
           END ${options?.order === 'asc' ? sql`ASC` : sql`DESC`}`);
-        orderByClauses.push(desc(wishlistItems.createdAt)); // Secondary: newest first
+        orderByClauses.push(desc(wishlistItems.createdAt));
         break;
       case 'createdAt':
       default:
-        // Default: newest first (desc createdAt)
         orderByClauses.push(orderDirection(wishlistItems.createdAt));
         break;
     }
     
-    // Fallback: ensure we always have at least one ordering clause
     if (orderByClauses.length === 0) {
       orderByClauses.push(desc(wishlistItems.createdAt));
     }
@@ -813,8 +719,7 @@ export class DatabaseStorage implements IStorage {
     return items as WishlistItem[];
   }
 
-  async getMemberWishlistItems(memberId: string, viewerId: string, familyId?: string, eventId?: string): Promise<any[]> {
-    // First, determine if this is a userId or managedProfileId by checking the family_members table
+  async getMemberWishlistItems(memberId: string, viewerId: string, familyId?: string): Promise<any[]> {
     const memberCheck = await db
       .select({ 
         userId: familyMembers.userId, 
@@ -834,9 +739,7 @@ export class DatabaseStorage implements IStorage {
     }
 
     const isUserId = memberCheck[0].userId === memberId;
-    const isManagedProfile = memberCheck[0].managedProfileId === memberId;
 
-    // Get all families that both the member and viewer share
     const sharedFamilies = await db
       .select({ familyId: sql<string>`fm1.family_id` })
       .from(sql`${familyMembers} as fm1`)
@@ -854,19 +757,17 @@ export class DatabaseStorage implements IStorage {
       );
 
     if (sharedFamilies.length === 0) {
-      throw new Error("You do not share any families with this member");
+      throw new Error("You do not share any groups with this member");
     }
 
     const sharedFamilyIds = sharedFamilies.map(f => f.familyId);
 
-    // If familyId is provided, verify it's in the shared families
     if (familyId) {
       if (!sharedFamilyIds.includes(familyId)) {
-        throw new Error("You do not share this family with this member");
+        throw new Error("You do not share this group with this member");
       }
     }
 
-    // Build where conditions - filter by specific family if provided, otherwise all shared families
     const memberCondition = isUserId 
       ? eq(wishlistItems.userId, memberId)
       : eq(wishlistItems.managedProfileId, memberId);
@@ -876,14 +777,8 @@ export class DatabaseStorage implements IStorage {
       : inArray(wishlistItems.familyId, sharedFamilyIds);
 
     const conditions = [memberCondition, familyCondition];
-    
-    if (eventId) {
-      conditions.push(eq(wishlistItems.eventId, eventId));
-    }
-
     const whereConditions = and(...conditions);
 
-    // Only return items from shared families (or specific family if provided)
     const items = await db
       .select({
         id: wishlistItems.id,
@@ -937,41 +832,30 @@ export class DatabaseStorage implements IStorage {
   async findDuplicateWishlistItem(
     userId: string,
     familyId: string,
-    eventId?: string,
     url?: string,
     productId?: string
   ): Promise<WishlistItem | undefined> {
-    // Check for duplicate by URL or productId
     if (!url && !productId) {
       return undefined;
     }
 
-    // Base conditions (user, family, and event must match)
     const conditions = [
       eq(wishlistItems.userId, userId),
       eq(wishlistItems.familyId, familyId)
     ];
     
-    if (eventId) {
-      conditions.push(eq(wishlistItems.eventId, eventId));
-    }
-    
     const baseConditions = and(...conditions);
 
-    // Build OR condition for URL and/or productId
     const matchConditions = [];
     
     if (url) {
-      // Case-insensitive URL comparison
       matchConditions.push(sql`LOWER(${wishlistItems.url}) = LOWER(${url})`);
     }
     
     if (productId) {
-      // Exact productId match
       matchConditions.push(eq(wishlistItems.productId, productId));
     }
 
-    // Combine: must match user+family AND (URL OR productId)
     const whereClause = matchConditions.length === 1
       ? and(baseConditions, matchConditions[0])
       : and(baseConditions, sql`(${matchConditions[0]} OR ${matchConditions[1]})`);
@@ -985,7 +869,6 @@ export class DatabaseStorage implements IStorage {
     return item;
   }
 
-  // Purchase operations
   async markItemPurchased(purchaseData: InsertItemPurchase): Promise<ItemPurchase> {
     const [purchase] = await db.insert(itemPurchases).values(purchaseData).returning();
     return purchase;
@@ -1014,40 +897,31 @@ export class DatabaseStorage implements IStorage {
   }
 
   async logOffWishlistPurchase(purchase: LogOffWishlistPurchase, purchasedById: string): Promise<ItemPurchase> {
-    // Validate that the purchaser is a member of the family associated with the event
-    const event = await this.getEvent(purchase.eventId);
-    if (!event) {
-      throw new NotFoundError("Event not found");
-    }
-
-    const membership = await this.getFamilyMember(event.familyId, purchasedById);
+    const membership = await this.getFamilyMember(purchase.familyId, purchasedById);
     if (!membership) {
-      throw new AuthorizationError("You must be a member of the family to log purchases");
+      throw new AuthorizationError("You must be a member of the group to log purchases");
     }
 
-    // Validate recipient is a member or managed profile in the family
     if (purchase.recipientUserId) {
-      const recipientMembership = await this.getFamilyMember(event.familyId, purchase.recipientUserId);
+      const recipientMembership = await this.getFamilyMember(purchase.familyId, purchase.recipientUserId);
       if (!recipientMembership) {
-        throw new AuthorizationError("Recipient must be a member of the family");
+        throw new AuthorizationError("Recipient must be a member of the group");
       }
     } else if (purchase.recipientManagedProfileId) {
       const managedProfile = await this.getManagedProfile(purchase.recipientManagedProfileId);
       if (!managedProfile) {
         throw new NotFoundError("Managed profile not found");
       }
-      // Verify the managed profile belongs to a member of this family
-      const creatorMembership = await this.getFamilyMember(event.familyId, managedProfile.createdById);
+      const creatorMembership = await this.getFamilyMember(purchase.familyId, managedProfile.createdById);
       if (!creatorMembership) {
-        throw new AuthorizationError("Managed profile must belong to a family member");
+        throw new AuthorizationError("Managed profile must belong to a group member");
       }
     }
 
-    // Create the off-wishlist purchase
     const [newPurchase] = await db
       .insert(itemPurchases)
       .values({
-        eventId: purchase.eventId,
+        familyId: purchase.familyId,
         purchasedById,
         recipientUserId: purchase.recipientUserId || null,
         recipientManagedProfileId: purchase.recipientManagedProfileId || null,
@@ -1055,38 +929,24 @@ export class DatabaseStorage implements IStorage {
         description: purchase.description,
         purchasedFrom: purchase.purchasedFrom || null,
         notes: purchase.notes || null,
-        itemId: null, // No associated wishlist item
+        itemId: null,
       })
       .returning();
 
     return newPurchase;
   }
 
-  async getPurchasedItemsByUser(userId: string, familyId: string, eventId?: string): Promise<any[]> {
-    // Get event IDs for this family to filter purchases
-    const familyEvents = await this.getEventsByFamily(familyId);
-    const eventIds = familyEvents.map(e => e.id);
-
-    if (eventIds.length === 0) {
-      return [];
-    }
-
-    // Build where conditions
+  async getPurchasedItemsByUser(userId: string, familyId: string): Promise<any[]> {
     const conditions = [
-      inArray(itemPurchases.eventId, eventIds),
+      eq(itemPurchases.familyId, familyId),
       eq(itemPurchases.purchasedById, userId)
     ];
 
-    if (eventId) {
-      conditions.push(eq(itemPurchases.eventId, eventId));
-    }
-
-    // Query with LEFT JOIN to support both wishlist and off-wishlist purchases
     const purchases = await db
       .select({
         id: itemPurchases.id,
         itemId: itemPurchases.itemId,
-        eventId: itemPurchases.eventId,
+        familyId: itemPurchases.familyId,
         notes: itemPurchases.notes,
         purchasedAt: itemPurchases.purchasedAt,
         price: itemPurchases.price,
@@ -1131,9 +991,7 @@ export class DatabaseStorage implements IStorage {
     return purchases;
   }
 
-  // Stats operations
   async getUserStats(userId: string): Promise<any> {
-    // Single optimized query using raw SQL for maximum performance
     const result = await db.execute(sql`
       SELECT 
         (
@@ -1173,18 +1031,12 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async getUserStatsByFamily(userId: string, familyId: string, eventId?: string): Promise<any> {
-    // First verify that the user is a member of this family
+  async getUserStatsByFamily(userId: string, familyId: string): Promise<any> {
     const membership = await this.getFamilyMember(familyId, userId);
     if (!membership) {
-      throw new Error("You are not a member of this family");
+      throw new Error("You are not a member of this group");
     }
 
-    // Build event filter for SQL queries (qualified with table alias where needed)
-    const eventFilterWishlistItems = eventId ? sql`AND wishlist_items.event_id = ${eventId}` : sql``;
-    const eventFilterWi = eventId ? sql`AND wi.event_id = ${eventId}` : sql``;
-
-    // Single optimized query using raw SQL for maximum performance
     const result = await db.execute(sql`
       SELECT 
         (
@@ -1192,7 +1044,6 @@ export class DatabaseStorage implements IStorage {
           FROM ${wishlistItems}
           WHERE user_id = ${userId}
           AND family_id = ${familyId}
-          ${eventFilterWishlistItems}
         ) as my_items_count,
         (
           SELECT COUNT(DISTINCT user_id)::int
@@ -1207,7 +1058,6 @@ export class DatabaseStorage implements IStorage {
           AND wi.user_id != ${userId}
           AND ip.id IS NULL
           AND wi.priority = 'high'
-          ${eventFilterWi}
         ) as items_to_purchase_count,
         (
           SELECT COALESCE(SUM(COALESCE(wi.price, 0)), 0)::text
@@ -1215,7 +1065,6 @@ export class DatabaseStorage implements IStorage {
           INNER JOIN ${wishlistItems} wi ON ip.item_id = wi.id
           WHERE ip.purchased_by_id = ${userId}
           AND wi.family_id = ${familyId}
-          ${eventFilterWi}
         ) as total_purchased
     `);
 
@@ -1229,14 +1078,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getPurchaseTotalsByMember(userId: string, familyId: string) {
-    // Verify membership
     const membership = await this.getFamilyMember(familyId, userId);
     if (!membership) {
-      throw new Error("You are not a member of this family");
+      throw new Error("You are not a member of this group");
     }
 
-    // Get purchase totals grouped by wishlist owner (person receiving the gift)
-    // Strip currency symbols and convert to numeric safely
     const result = await db.execute(sql`
       SELECT 
         wi.user_id,
@@ -1256,23 +1102,18 @@ export class DatabaseStorage implements IStorage {
     }));
   }
 
-  async getMemberItemCounts(userId: string, familyId: string, eventId?: string): Promise<Record<string, number>> {
-    // Verify membership
+  async getMemberItemCounts(userId: string, familyId: string): Promise<Record<string, number>> {
     const membership = await this.getFamilyMember(familyId, userId);
     if (!membership) {
-      throw new Error("You are not a member of this family");
+      throw new Error("You are not a member of this group");
     }
 
-    const eventFilter = eventId ? sql`AND wi.event_id = ${eventId}` : sql``;
-
-    // Get item counts for each member (both users and managed profiles)
     const result = await db.execute(sql`
       SELECT 
         COALESCE(wi.user_id, wi.managed_profile_id) as member_id,
         COUNT(*)::int as item_count
       FROM ${wishlistItems} wi
       WHERE wi.family_id = ${familyId}
-      ${eventFilter}
       GROUP BY COALESCE(wi.user_id, wi.managed_profile_id)
     `);
 
@@ -1286,25 +1127,14 @@ export class DatabaseStorage implements IStorage {
     return counts;
   }
 
-  async getCoordinationInsights(userId: string, familyId: string, eventId?: string): Promise<any[]> {
-    // Verify membership
+  async getCoordinationInsights(userId: string, familyId: string): Promise<any[]> {
     const membership = await this.getFamilyMember(familyId, userId);
     if (!membership) {
-      throw new Error("You are not a member of this family");
-    }
-
-    // Verify event belongs to family if eventId is provided
-    if (eventId) {
-      const event = await this.getEvent(eventId);
-      if (!event || event.familyId !== familyId) {
-        throw new Error("Event not found or does not belong to this family");
-      }
+      throw new Error("You are not a member of this group");
     }
 
     const insights: any[] = [];
-    const eventFilter = eventId ? sql`AND wi.event_id = ${eventId}` : sql``;
 
-    // Get high-priority items that need gifts
     const highPriorityResult = await db.execute(sql`
       SELECT COUNT(*)::int as count
       FROM ${wishlistItems} wi
@@ -1313,7 +1143,6 @@ export class DatabaseStorage implements IStorage {
       AND wi.user_id != ${userId}
       AND wi.priority = 'high'
       AND ip.id IS NULL
-      ${eventFilter}
     `);
 
     const highPriorityCount = (highPriorityResult.rows[0] as any)?.count || 0;
@@ -1325,7 +1154,6 @@ export class DatabaseStorage implements IStorage {
       });
     }
 
-    // Get members with no items purchased yet (excluding current user)
     const membersWithNoGiftsResult = await db.execute(sql`
       SELECT 
         fm.user_id,
@@ -1342,7 +1170,6 @@ export class DatabaseStorage implements IStorage {
       LEFT JOIN ${managedProfiles} mp ON fm.managed_profile_id = mp.id
       LEFT JOIN ${wishlistItems} wi ON (wi.user_id = fm.user_id OR wi.managed_profile_id = fm.managed_profile_id)
         AND wi.family_id = ${familyId}
-        ${eventFilter}
       LEFT JOIN ${itemPurchases} ip ON wi.id = ip.item_id
       WHERE fm.family_id = ${familyId}
       AND (fm.user_id != ${userId} OR fm.user_id IS NULL)
@@ -1365,14 +1192,12 @@ export class DatabaseStorage implements IStorage {
       });
     }
 
-    // Get user's personal progress
     const personalProgressResult = await db.execute(sql`
       SELECT COUNT(*)::int as count
       FROM ${itemPurchases} ip
       INNER JOIN ${wishlistItems} wi ON ip.item_id = wi.id
       WHERE ip.purchased_by_id = ${userId}
       AND wi.family_id = ${familyId}
-      ${eventFilter}
     `);
 
     const purchasedCount = (personalProgressResult.rows[0] as any)?.count || 0;
@@ -1387,7 +1212,6 @@ export class DatabaseStorage implements IStorage {
     return insights;
   }
 
-  // Activity log operations
   async createActivityLog(log: InsertActivityLog): Promise<ActivityLog> {
     const [activity] = await db
       .insert(activityLogs)
@@ -1396,13 +1220,7 @@ export class DatabaseStorage implements IStorage {
     return activity;
   }
 
-  async getRecentActivities(familyId: string, limit: number = 10, eventId?: string): Promise<any[]> {
-    // Build where conditions
-    const conditions = [eq(activityLogs.familyId, familyId)];
-    if (eventId) {
-      conditions.push(eq(activityLogs.eventId, eventId));
-    }
-    
+  async getRecentActivities(familyId: string, limit: number = 10): Promise<any[]> {
     const activities = await db
       .select({
         id: activityLogs.id,
@@ -1419,89 +1237,19 @@ export class DatabaseStorage implements IStorage {
       })
       .from(activityLogs)
       .leftJoin(users, eq(activityLogs.actorId, users.id))
-      .where(and(...conditions))
+      .where(eq(activityLogs.familyId, familyId))
       .orderBy(desc(activityLogs.createdAt))
       .limit(limit);
 
     return activities;
   }
 
-  // Event operations
-  async createEvent(eventData: InsertEvent): Promise<Event> {
-    const [event] = await db.insert(events).values(eventData).returning();
-    return event;
-  }
-
-  async getEventsByFamily(familyId: string): Promise<Event[]> {
-    const eventsList = await db
-      .select()
-      .from(events)
-      .where(eq(events.familyId, familyId))
-      .orderBy(desc(events.createdAt));
-    return eventsList;
-  }
-
-  async getActiveEventsByFamily(familyId: string): Promise<Event[]> {
-    const eventsList = await db
-      .select()
-      .from(events)
-      .where(and(eq(events.familyId, familyId), eq(events.isActive, true)))
-      .orderBy(desc(events.createdAt));
-    return eventsList;
-  }
-
-  async getEvent(id: string): Promise<Event | undefined> {
-    const [event] = await db.select().from(events).where(eq(events.id, id));
-    return event;
-  }
-
-  async updateEvent(id: string, updates: Partial<InsertEvent>, requesterId: string): Promise<Event> {
-    // First get the event to verify it exists and get familyId
-    const event = await this.getEvent(id);
-    if (!event) {
-      throw new NotFoundError("Event not found");
+  async getBudgetOverview(familyId: string): Promise<any> {
+    const family = await this.getFamily(familyId);
+    if (!family) {
+      throw new Error("Group not found");
     }
 
-    // Verify requester is a member of the family
-    const membership = await this.getFamilyMember(event.familyId, requesterId);
-    if (!membership) {
-      throw new AuthorizationError("You must be a family member to update this event");
-    }
-
-    const [updatedEvent] = await db
-      .update(events)
-      .set(updates)
-      .where(eq(events.id, id))
-      .returning();
-    
-    return updatedEvent;
-  }
-
-  async deleteEvent(id: string, familyId: string, requesterId: string): Promise<void> {
-    // Verify requester is a member of the family
-    const membership = await this.getFamilyMember(familyId, requesterId);
-    if (!membership) {
-      throw new AuthorizationError("You must be a family member to delete this event");
-    }
-
-    // Check if this is the only event for the family
-    const allEvents = await this.getEventsByFamily(familyId);
-    if (allEvents.length === 1) {
-      throw new Error("Cannot delete the last event in a family");
-    }
-
-    await db.delete(events).where(eq(events.id, id));
-  }
-
-  // Budget operations
-  async getEventBudgetOverview(eventId: string): Promise<any> {
-    // Get event details
-    const event = await this.getEvent(eventId);
-    if (!event) {
-      throw new Error("Event not found");
-    }
-
-    // Get all family members for this event's family
     const membersQuery = await db
       .select({
         userId: familyMembers.userId,
@@ -1514,17 +1262,13 @@ export class DatabaseStorage implements IStorage {
       .from(familyMembers)
       .leftJoin(users, eq(familyMembers.userId, users.id))
       .leftJoin(managedProfiles, eq(familyMembers.managedProfileId, managedProfiles.id))
-      .where(eq(familyMembers.familyId, event.familyId));
+      .where(eq(familyMembers.familyId, familyId));
 
-    // Get budget allocations for this event
     const allocations = await db
       .select()
       .from(budgetAllocations)
-      .where(eq(budgetAllocations.eventId, eventId));
+      .where(eq(budgetAllocations.familyId, familyId));
 
-    // Get spending per member
-    // For wishlist purchases: get price from wishlist_items
-    // For off-wishlist purchases: get price from item_purchases
     const spendingQuery = await db
       .select({
         recipientUserId: sql<string>`COALESCE(${wishlistItems.userId}, ${itemPurchases.recipientUserId})`,
@@ -1533,13 +1277,12 @@ export class DatabaseStorage implements IStorage {
       })
       .from(itemPurchases)
       .leftJoin(wishlistItems, eq(wishlistItems.id, itemPurchases.itemId))
-      .where(eq(itemPurchases.eventId, eventId))
+      .where(eq(itemPurchases.familyId, familyId))
       .groupBy(
         sql`COALESCE(${wishlistItems.userId}, ${itemPurchases.recipientUserId})`,
         sql`COALESCE(${wishlistItems.managedProfileId}, ${itemPurchases.recipientManagedProfileId})`
       );
 
-    // Build spending map
     const spendingMap = new Map<string, number>();
     for (const row of spendingQuery) {
       const key = row.recipientUserId || row.recipientManagedProfileId || '';
@@ -1548,14 +1291,12 @@ export class DatabaseStorage implements IStorage {
       }
     }
 
-    // Build allocation map
     const allocationMap = new Map<string, number>();
     for (const allocation of allocations) {
       const key = allocation.userId || allocation.managedProfileId || '';
       allocationMap.set(key, parseFloat(allocation.allocatedAmount));
     }
 
-    // Build member budget data
     const memberBudgets = membersQuery.map(member => {
       const key = member.userId || member.managedProfileId || '';
       const allocated = allocationMap.get(key) || 0;
@@ -1585,13 +1326,12 @@ export class DatabaseStorage implements IStorage {
       };
     });
 
-    // Calculate totals
     const totalAllocated = memberBudgets.reduce((sum, m) => sum + m.allocated, 0);
     const totalSpent = memberBudgets.reduce((sum, m) => sum + m.spent, 0);
     const totalRemaining = totalAllocated - totalSpent;
 
     return {
-      event,
+      family,
       totalAllocated,
       totalSpent,
       totalRemaining,
@@ -1599,8 +1339,7 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async setBudgetAllocations(eventId: string, allocations: any[]): Promise<void> {
-    // Validate all allocations have valid numbers
+  async setBudgetAllocations(familyId: string, allocations: any[]): Promise<void> {
     for (const allocation of allocations) {
       const amount = parseFloat(allocation.allocatedAmount);
       if (isNaN(amount) || amount < 0) {
@@ -1608,16 +1347,13 @@ export class DatabaseStorage implements IStorage {
       }
     }
 
-    // Use transaction to ensure atomic delete + insert
     await db.transaction(async (tx) => {
-      // Delete existing allocations for this event
-      await tx.delete(budgetAllocations).where(eq(budgetAllocations.eventId, eventId));
+      await tx.delete(budgetAllocations).where(eq(budgetAllocations.familyId, familyId));
 
-      // Insert new allocations
       if (allocations.length > 0) {
         await tx.insert(budgetAllocations).values(
           allocations.map(allocation => ({
-            eventId,
+            familyId,
             userId: allocation.userId || null,
             managedProfileId: allocation.managedProfileId || null,
             allocatedAmount: allocation.allocatedAmount.toString(),
@@ -1627,7 +1363,6 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
-  // Personal list operations
   async createPersonalList(listData: InsertPersonalList): Promise<PersonalList> {
     const [list] = await db.insert(personalLists).values(listData).returning();
     return list;
@@ -1684,7 +1419,6 @@ export class DatabaseStorage implements IStorage {
     await db.delete(personalLists).where(eq(personalLists.id, id));
   }
 
-  // Personal list item operations
   async createPersonalListItem(itemData: InsertPersonalListItem): Promise<PersonalListItem> {
     const [item] = await db.insert(personalListItems).values(itemData).returning();
     return item;
@@ -1737,21 +1471,17 @@ export class DatabaseStorage implements IStorage {
     await db.delete(personalListItems).where(eq(personalListItems.id, id));
   }
 
-  // Personal list purchase operations
   async markPersonalListItemPurchased(itemId: string, purchasedByUserId: string): Promise<PersonalListPurchase> {
-    // Check if item exists
     const item = await this.getPersonalListItem(itemId);
     if (!item) {
       throw new NotFoundError("Personal list item not found");
     }
     
-    // Check if list owner is trying to mark their own item
     const list = await this.getPersonalList(item.listId);
     if (list && list.userId === purchasedByUserId) {
       throw new AuthorizationError("You cannot mark items on your own list as purchased");
     }
     
-    // Check if already purchased
     const existingPurchase = await this.getPersonalListItemPurchase(itemId);
     if (existingPurchase) {
       throw new Error("This item has already been purchased");
@@ -1771,7 +1501,6 @@ export class DatabaseStorage implements IStorage {
       throw new NotFoundError("Purchase record not found");
     }
     
-    // Only the person who marked it purchased can unmark it
     if (purchase.purchasedByUserId !== requesterId) {
       throw new AuthorizationError("You can only unmark items you purchased");
     }
@@ -1796,30 +1525,21 @@ export class DatabaseStorage implements IStorage {
     const items = await this.getPersonalListItems(listId);
     const isOwner = viewerId && list.userId === viewerId;
     
-    // Get owner info
     const owner = await this.getUser(list.userId);
     
-    // Get purchase info for each item
-    // PRIVACY: Owner should NEVER see purchase info (to preserve gift surprise)
-    // Non-owners only see if an item is purchased and if THEY are the purchaser
     const itemsWithPurchases = await Promise.all(
       items.map(async (item) => {
         const purchase = await this.getPersonalListItemPurchase(item.id);
         
-        // Owner should not see any purchase info (to preserve surprise)
         if (isOwner) {
           return { ...item, isPurchased: false, isPurchasedByViewer: false };
         }
         
-        // Non-owners: only see if purchased and if THEY are the purchaser
-        // Never expose purchasedByUserId to protect purchaser identity from other viewers
         const isPurchasedByViewer = !!(purchase && viewerId && purchase.purchasedByUserId === viewerId);
         return {
           ...item,
           isPurchased: !!purchase,
           isPurchasedByViewer,
-          // Only include purchasedByUserId if the viewer is the purchaser (for their own records)
-          // This allows purchasers to see their own purchases but hides identity from others
         };
       })
     );
@@ -1846,7 +1566,6 @@ export class DatabaseStorage implements IStorage {
     const items = await this.getPersonalListItems(list.id);
     const owner = await this.getUser(list.userId);
     
-    // For public view, only show if item is purchased (no purchaser identity)
     const itemsWithStatus = await Promise.all(
       items.map(async (item) => {
         const purchase = await this.getPersonalListItemPurchase(item.id);

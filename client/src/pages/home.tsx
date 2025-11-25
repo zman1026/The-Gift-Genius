@@ -3,7 +3,6 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { useFamily } from "@/contexts/FamilyContext";
-import { useEvent } from "@/contexts/EventContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -12,7 +11,6 @@ import { useLocation } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { BudgetDialog } from "@/components/budget-dialog";
 import { ActivityFeed } from "@/components/activity-feed";
-import { EventHero } from "@/components/event-hero";
 import { MemberSpotlight } from "@/components/member-spotlight";
 import { QuickActions } from "@/components/quick-actions";
 import { GiftCoordination } from "@/components/gift-coordination";
@@ -34,7 +32,6 @@ export default function Home() {
   const { toast } = useToast();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { selectedFamilyId, families } = useFamily();
-  const { selectedEventId, selectedEvent } = useEvent();
   const [, setLocation] = useLocation();
   const [isBudgetDialogOpen, setIsBudgetDialogOpen] = useState(false);
   const [isAddItemDialogOpen, setIsAddItemDialogOpen] = useState(false);
@@ -71,14 +68,11 @@ export default function Home() {
   });
 
   const { data: stats, isLoading: statsLoading } = useQuery<DashboardStats | null>({
-    queryKey: ["/api/stats", selectedFamilyId, selectedEventId],
+    queryKey: ["/api/stats", selectedFamilyId],
     queryFn: async () => {
       if (!selectedFamilyId) return null;
       
       const params = new URLSearchParams({ familyId: selectedFamilyId });
-      if (selectedEventId) {
-        params.append("eventId", selectedEventId);
-      }
       
       const response = await fetch(`/api/stats?${params.toString()}`, {
         credentials: "include",
@@ -158,50 +152,18 @@ export default function Home() {
     );
   }
 
-  // No event selected state
-  if (!selectedEventId || !selectedEvent) {
-    return (
-      <div className="p-3 md:p-8">
-        <Card className="border-2 border-dashed">
-          <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-            <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-              <Users className="w-8 h-8 text-primary" aria-hidden="true" />
-            </div>
-            <h3 className="font-serif text-xl font-semibold mb-2 text-foreground">No Event Selected</h3>
-            <p className="text-sm text-muted-foreground mb-6 max-w-md">
-              Please select an event from the header to view your dashboard and start coordinating gifts.
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
   const hasBudget = selectedFamily?.giftBudget !== null && selectedFamily?.giftBudget !== undefined;
 
   return (
     <div className="p-3 md:p-8 space-y-3 md:space-y-4">
-      {/* Event Hero Section */}
-      {selectedEvent && (
-        <EventHero
-          eventName={selectedEvent.name}
-          eventDate={selectedEvent.date}
-          themePrimary={selectedEvent.themePrimary}
-          themeAccent={selectedEvent.themeAccent}
-          myItemsCount={stats?.myItemsCount || 0}
-          groupMembersCount={stats?.groupMembersCount || 0}
-          itemsPurchasedByOthers={stats?.itemsPurchasedByOthers || 0}
-        />
-      )}
-
       {/* Member Spotlight Section */}
-      <MemberSpotlight familyId={selectedFamilyId!} eventId={selectedEventId || undefined} />
+      <MemberSpotlight familyId={selectedFamilyId!} />
 
       {/* Quick Actions Section */}
       <QuickActions onAddItemClick={handleAddItemClick} />
 
       {/* Gift Coordination Section */}
-      <GiftCoordination familyId={selectedFamilyId!} eventId={selectedEventId || undefined} />
+      <GiftCoordination familyId={selectedFamilyId!} />
 
       {/* Recent Activity Feed */}
       <Card>
@@ -219,7 +181,7 @@ export default function Home() {
           </div>
         </CardHeader>
         <CardContent>
-          <ActivityFeed familyId={selectedFamilyId!} eventId={selectedEventId || undefined} limit={5} compact />
+          <ActivityFeed familyId={selectedFamilyId!} limit={5} compact />
         </CardContent>
       </Card>
 

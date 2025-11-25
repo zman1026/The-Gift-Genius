@@ -1,6 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
 import { useFamily } from "@/contexts/FamilyContext";
-import { useEvent } from "@/contexts/EventContext";
 import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -13,7 +12,6 @@ import { format } from "date-fns";
 interface PurchasedItem {
   id: string;
   itemId: string | null;
-  eventId: string;
   notes: string | null;
   purchasedAt: string;
   price: string | null;
@@ -51,17 +49,13 @@ interface PurchasedItem {
 
 export default function Purchased() {
   const { selectedFamilyId } = useFamily();
-  const { selectedEventId } = useEvent();
   const { user } = useAuth();
 
   const { data: purchases, isLoading } = useQuery<PurchasedItem[]>({
-    queryKey: ["/api/purchases", selectedFamilyId, selectedEventId, (user as any)?.id],
+    queryKey: ["/api/purchases", selectedFamilyId, (user as any)?.id],
     queryFn: async () => {
       const url = new URL('/api/purchases', window.location.origin);
       url.searchParams.set('familyId', selectedFamilyId || '');
-      if (selectedEventId) {
-        url.searchParams.set('eventId', selectedEventId);
-      }
       const response = await fetch(url.toString(), {
         credentials: "include",
       });
