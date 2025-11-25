@@ -93,7 +93,7 @@ export function MemberSpotlight({ familyId, eventId }: MemberSpotlightProps) {
     return (
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Family Wishlists</CardTitle>
+          <CardTitle className="text-base">Group Wishlists</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex gap-3 overflow-x-auto pb-2">

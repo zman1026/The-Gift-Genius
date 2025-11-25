@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/input";
 import { ArrowLeft } from "lucide-react";
 
 const createFamilySchema = z.object({
-  name: z.string().min(1, "Family name is required").max(255, "Name is too long"),
+  name: z.string().min(1, "Group name is required").max(255, "Name is too long"),
 });
 
 type CreateFamilyFormData = z.infer<typeof createFamilySchema>;
@@ -55,7 +55,7 @@ export default function CreateFamily() {
       queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
       toast({
         title: "Success",
-        description: "Family group created successfully!",
+        description: "Group created successfully!",
       });
       setLocation("/");
     },
@@ -73,7 +73,7 @@ export default function CreateFamily() {
       }
       toast({
         title: "Error",
-        description: error.message || "Failed to create family group",
+        description: error.message || "Failed to create group",
         variant: "destructive",
       });
     },
@@ -99,9 +99,9 @@ export default function CreateFamily() {
       <div className="max-w-2xl mx-auto">
         <Card>
           <CardHeader>
-            <CardTitle className="font-serif text-2xl">Create Family Group</CardTitle>
+            <CardTitle className="font-serif text-2xl">Create Group</CardTitle>
             <CardDescription>
-              Create a new family group and invite members to share wishlists together.
+              Create a new group and invite members to share wishlists together.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -112,16 +112,16 @@ export default function CreateFamily() {
                   name="name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Family Name</FormLabel>
+                      <FormLabel>Group Name</FormLabel>
                       <FormControl>
                         <Input
-                          placeholder="e.g., Smith Family Christmas 2025"
+                          placeholder="e.g., Smith's Christmas 2025"
                           {...field}
-                          data-testid="input-family-name"
+                          data-testid="input-group-name"
                         />
                       </FormControl>
                       <FormDescription>
-                        Choose a memorable name for your family group.
+                        Choose a memorable name for your group.
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
@@ -134,7 +134,7 @@ export default function CreateFamily() {
                     disabled={createFamilyMutation.isPending}
                     data-testid="button-submit"
                   >
-                    {createFamilyMutation.isPending ? "Creating..." : "Create Family"}
+                    {createFamilyMutation.isPending ? "Creating..." : "Create Group"}
                   </Button>
                   <Button
                     type="button"

@@ -125,7 +125,7 @@ export function ActivityFeed({ familyId, eventId, limit = 10, compact = false }:
         };
       case "member_joined":
         return {
-          text: `${actorName} joined the family`,
+          text: `${actorName} joined the group`,
           color: "text-primary",
         };
       default:
@@ -160,7 +160,7 @@ export function ActivityFeed({ familyId, eventId, limit = 10, compact = false }:
             <CardTitle className="text-xl">Recent Activity</CardTitle>
           </div>
           <CardDescription>
-            What's happening in your family
+            What's happening in your group
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -183,7 +183,7 @@ export function ActivityFeed({ familyId, eventId, limit = 10, compact = false }:
     <div className="text-center py-8">
       <ActivityIcon className="w-12 h-12 mx-auto text-muted-foreground mb-3" />
       <p className="text-muted-foreground text-sm">
-        No recent activity yet. Start adding items or inviting family members!
+        No recent activity yet. Start adding items or inviting group members!
       </p>
     </div>
   );
@@ -198,7 +198,7 @@ export function ActivityFeed({ familyId, eventId, limit = 10, compact = false }:
             <CardTitle className="text-xl">Recent Activity</CardTitle>
           </div>
           <CardDescription>
-            What's happening in your family
+            What's happening in your group
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -218,7 +218,7 @@ export function ActivityFeed({ familyId, eventId, limit = 10, compact = false }:
             <CardTitle className="text-xl">Recent Activity</CardTitle>
           </div>
           <CardDescription>
-            What's happening in your family
+            What's happening in your group
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -287,7 +287,7 @@ export function ActivityFeed({ familyId, eventId, limit = 10, compact = false }:
           <CardTitle className="text-xl">Recent Activity</CardTitle>
         </div>
         <CardDescription>
-          What's happening in your family
+          What's happening in your group
         </CardDescription>
       </CardHeader>
       <CardContent>

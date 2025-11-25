@@ -112,8 +112,8 @@ export function UserSettingsDialog({ open, onOpenChange }: UserSettingsDialogPro
       }
       
       toast({
-        title: "Left family",
-        description: "You have successfully left the family",
+        title: "Left group",
+        description: "You have successfully left the group",
       });
       setShowLeaveConfirm(false);
       setFamilyToLeave(""); // Reset dropdown selection
@@ -124,7 +124,7 @@ export function UserSettingsDialog({ open, onOpenChange }: UserSettingsDialogPro
     onError: (error: any) => {
       toast({
         title: "Error",
-        description: error.message || "Failed to leave family",
+        description: error.message || "Failed to leave group",
         variant: "destructive",
       });
       setShowLeaveConfirm(false);
@@ -275,13 +275,13 @@ export function UserSettingsDialog({ open, onOpenChange }: UserSettingsDialogPro
               <Separator />
               <div className="space-y-4">
                 <div>
-                  <h3 className="font-semibold text-foreground mb-1">Leave Family</h3>
-                  <p className="text-sm text-muted-foreground">Remove yourself from a family group</p>
+                  <h3 className="font-semibold text-foreground mb-1">Leave Group</h3>
+                  <p className="text-sm text-muted-foreground">Remove yourself from a group</p>
                 </div>
                 <div className="flex gap-2">
                   <Select value={familyToLeave} onValueChange={setFamilyToLeave}>
                     <SelectTrigger className="flex-1" data-testid="select-family-to-leave">
-                      <SelectValue placeholder="Select a family to leave" />
+                      <SelectValue placeholder="Select a group to leave" />
                     </SelectTrigger>
                     <SelectContent>
                       {families.map((family: any) => (
@@ -338,9 +338,9 @@ export function UserSettingsDialog({ open, onOpenChange }: UserSettingsDialogPro
       <AlertDialog open={showLeaveConfirm} onOpenChange={setShowLeaveConfirm}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Leave Family?</AlertDialogTitle>
+            <AlertDialogTitle>Leave Group?</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to leave this family? This action cannot be undone and you will need a new invite code to rejoin.
+              Are you sure you want to leave this group? This action cannot be undone and you will need a new invite code to rejoin.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -351,7 +351,7 @@ export function UserSettingsDialog({ open, onOpenChange }: UserSettingsDialogPro
               className="bg-destructive hover:bg-destructive/90"
               data-testid="button-confirm-leave"
             >
-              {leaveFamilyMutation.isPending ? "Leaving..." : "Leave Family"}
+              {leaveFamilyMutation.isPending ? "Leaving..." : "Leave Group"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

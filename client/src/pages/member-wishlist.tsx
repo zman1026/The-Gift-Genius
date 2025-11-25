@@ -274,7 +274,7 @@ export default function MemberWishlist() {
   const fullName = memberData?.firstName || memberData?.lastName
     ? `${memberData.firstName || ""} ${memberData.lastName || ""}`.trim()
     : "";
-  const primaryDisplayName = memberData?.displayName || fullName || memberData?.email || "Family Member";
+  const primaryDisplayName = memberData?.displayName || fullName || memberData?.email || "Group Member";
   const showEmailFallback = !memberData?.displayName && !fullName && memberData?.email;
 
   return (

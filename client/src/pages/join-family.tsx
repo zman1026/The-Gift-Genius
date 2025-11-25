@@ -69,7 +69,7 @@ export default function JoinFamily() {
       queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
       toast({
         title: "Success",
-        description: "You've joined the family group!",
+        description: "You've joined the group!",
       });
       setLocation("/");
     },
@@ -87,7 +87,7 @@ export default function JoinFamily() {
       }
       toast({
         title: "Error",
-        description: error.message || "Failed to join family group",
+        description: error.message || "Failed to join group",
         variant: "destructive",
       });
     },
@@ -116,15 +116,15 @@ export default function JoinFamily() {
               </div>
               <CardTitle className="font-serif text-3xl">You're Invited!</CardTitle>
               <CardDescription className="text-base">
-                A family member has invited you to join their Christmas wishlist group. 
-                Create an account or log in to start sharing your holiday wishes!
+                You've been invited to join a gift wishlist group. 
+                Create an account or log in to start sharing your wishes!
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="bg-muted/50 rounded-lg p-4 flex items-start gap-3">
-                <Users className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
+                <Users className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" aria-hidden="true" />
                 <div className="space-y-1">
-                  <p className="font-medium text-sm">Join your family group</p>
+                  <p className="font-medium text-sm">Join the group</p>
                   <p className="text-sm text-muted-foreground">
                     View wishlists, add your own items, and coordinate gift-giving together
                   </p>
@@ -172,9 +172,9 @@ export default function JoinFamily() {
       <div className="max-w-2xl mx-auto">
         <Card>
           <CardHeader>
-            <CardTitle className="font-serif text-2xl">Join Family Group</CardTitle>
+            <CardTitle className="font-serif text-2xl">Join Group</CardTitle>
             <CardDescription>
-              Enter the invite code shared by your family organizer to join their group.
+              Enter the invite code shared by your group organizer to join.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -195,7 +195,7 @@ export default function JoinFamily() {
                         />
                       </FormControl>
                       <FormDescription>
-                        The invite code is provided by the family organizer.
+                        The invite code is provided by the group organizer.
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
@@ -208,7 +208,7 @@ export default function JoinFamily() {
                     disabled={joinFamilyMutation.isPending}
                     data-testid="button-submit"
                   >
-                    {joinFamilyMutation.isPending ? "Joining..." : "Join Family"}
+                    {joinFamilyMutation.isPending ? "Joining..." : "Join Group"}
                   </Button>
                   <Button
                     type="button"

@@ -1,10 +1,11 @@
 # The Gift Genius
 
 ## Overview
-The Gift Genius is a mobile-first web application designed to facilitate collaborative wishlist management for families across various occasions. It allows users to create, share, and manage wishlists, add items, and secretly mark purchases to preserve gift surprises. The application aims to streamline gift coordination year-round, expanding beyond traditional holiday gift-giving.
+The Gift Genius is a mobile-first web application designed to facilitate collaborative wishlist management for groups across various occasions. It allows users to create, share, and manage wishlists, add items, and secretly mark purchases to preserve gift surprises. The application aims to streamline gift coordination year-round, expanding beyond traditional holiday gift-giving.
 
 ## Recent Changes (November 25, 2025)
-- **Event Editing Feature**: Added dedicated edit page at `/events/:eventId/edit` allowing users to modify event name, type, and date. EventSwitcher component now shows pencil icon edit button for all events. Form includes theme preview cards and automatic theme color updates based on event type selection. Uses PUT `/api/events/:eventId` endpoint with proper family membership authorization.
+- **UI Terminology Update: "Family" → "Group"**: Comprehensive update across the entire application to use "Group" instead of "Family" in all user-facing text. This change affects 25+ files including component labels, error messages, empty states, form placeholders, and API response fields (e.g., `familyMembersCount` → `groupMembersCount`). Internal variable names (e.g., `familyId`, `selectedFamilyId`) and API route paths (`/api/families/`) remain unchanged for stability.
+- **Event Editing Feature**: Added dedicated edit page at `/events/:eventId/edit` allowing users to modify event name, type, and date. EventSwitcher component now shows pencil icon edit button for all events. Form includes theme preview cards and automatic theme color updates based on event type selection. Uses PUT `/api/events/:eventId` endpoint with proper group membership authorization.
 - **API Migration: SerpApi → Scrapingdog**: Migrated product search from SerpApi to Scrapingdog for ~5x cost savings. Updated text search (Google Shopping API - 10 credits/request) and image/camera search (Google Lens API - 5 credits/request). Free tier includes 1,000 credits (~100-200 searches). Required secret: `SCRAPINGDOG_API_KEY`.
 
 ## Recent Changes (November 24, 2025)
@@ -20,7 +21,7 @@ Preferred communication style: Simple, everyday language.
 ## System Architecture
 
 ### UI/UX Decisions
-The application features a warm, family-oriented aesthetic with a responsive design optimized for mobile. It uses a Pinterest-style visual card layout combined with Notion-style data presentation. Key UI elements include a 4-tab bottom navigation bar, an always-accessible "Add Item" button, and a dashboard with an EventHero, QuickActions, MemberSpotlight, GiftCoordination insights, Activity Feed, and an optional Budget Tracker. Navigation and context selection (family/event) are managed via a sidebar menu. Wishlist items are displayed in compact grid layouts with square aspect-ratio images and priority badge overlays.
+The application features a warm, family-oriented aesthetic with a responsive design optimized for mobile. It uses a Pinterest-style visual card layout combined with Notion-style data presentation. Key UI elements include a 4-tab bottom navigation bar, an always-accessible "Add Item" button, and a dashboard with an EventHero, QuickActions, MemberSpotlight, GiftCoordination insights, Activity Feed, and an optional Budget Tracker. Navigation and context selection (group/event) are managed via a sidebar menu. Wishlist items are displayed in compact grid layouts with square aspect-ratio images and priority badge overlays. Note: User-facing terminology uses "Group" while internal code uses "family" for stability.
 
 ### Technical Implementations
 The frontend is built with **React 18**, **TypeScript**, **Wouter** for routing, **TanStack Query v5** for server state, and **Vite**. UI components leverage **shadcn/ui**, **Radix UI**, and **Tailwind CSS**. Form management uses **react-hook-form** with **Zod** validation.
@@ -31,10 +32,10 @@ The backend utilizes **Express.js** and **TypeScript**, with **Drizzle ORM** for
 - **User & Managed Profiles:** Supports individual user profiles and "managed profiles" for children, allowing parents to manage wishlists without separate accounts.
 - **Unified Add Item Dialog:** Offers multiple item addition methods: text/URL search (Scrapingdog Google Shopping API), camera-based visual search (Scrapingdog Google Lens API), and manual entry.
 - **Wishlist Management:** Items are filterable, sortable, and support image uploads via Uppy v5.
-- **Family & Event Management:** Includes an invitation system, organizer controls for family settings, and support for multiple, event-specific wishlists (e.g., birthdays, holidays) with customizable themes.
+- **Group & Event Management:** Includes an invitation system, organizer controls for group settings, and support for multiple, event-specific wishlists (e.g., birthdays, holidays) with customizable themes.
 - **Purchase Tracking:** Users can privately mark wishlist items as purchased and log off-wishlist purchases, impacting budget calculations.
-- **Activity Feed:** Real-time tracking of family actions.
-- **Budget Tracker:** An event-scoped, parent-focused tool for allocating and tracking gift spending per family member, with visual indicators and organizer-only controls.
+- **Activity Feed:** Real-time tracking of group actions.
+- **Budget Tracker:** An event-scoped, parent-focused tool for allocating and tracking gift spending per group member, with visual indicators and organizer-only controls.
 - **Error Handling:** App-level error boundary with authenticated logging.
 
 ### System Design Choices

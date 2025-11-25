@@ -57,7 +57,7 @@ export default function Landing() {
               The Gift Genius
             </h1>
             <p className="text-xl md:text-2xl text-white/90 max-w-2xl mx-auto">
-              Share the joy of giving with your family. Create wishlists for any occasion, coordinate gifts, and make celebrations delightful all year round.
+              Share the joy of giving with your loved ones. Create wishlists for any occasion, coordinate gifts, and make celebrations delightful all year round.
             </p>
             <div className="pt-4">
               <Button
@@ -86,9 +86,9 @@ export default function Landing() {
                 <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
                   <Users className="w-6 h-6 text-primary" />
                 </div>
-                <h3 className="font-semibold text-lg text-foreground">Family Groups</h3>
+                <h3 className="font-semibold text-lg text-foreground">Gift Groups</h3>
                 <p className="text-muted-foreground text-sm">
-                  Create family groups and invite members with a simple code. Everyone stays organized together.
+                  Create groups and invite members with a simple code. Everyone stays organized together.
                 </p>
               </CardContent>
             </Card>
@@ -139,7 +139,7 @@ export default function Landing() {
             Ready to Make This Christmas Special?
           </h2>
           <p className="text-lg text-muted-foreground">
-            Join families who are already using our platform to coordinate the perfect gifts.
+            Join groups who are already using our platform to coordinate the perfect gifts.
           </p>
           <Button
             size="lg"
@@ -155,7 +155,7 @@ export default function Landing() {
       {/* Footer */}
       <footer className="py-8 px-4 border-t border-border">
         <div className="max-w-6xl mx-auto text-center text-muted-foreground text-sm">
-          <p>© 2025 Family Christmas Wishlist. Making gift giving magical.</p>
+          <p>© 2025 The Gift Genius. Making gift giving magical.</p>
         </div>
       </footer>
     </div>

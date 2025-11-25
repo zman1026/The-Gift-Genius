@@ -21,18 +21,18 @@ export function FamilySwitcher() {
   const handleFamilyChange = (value: string) => {
     if (value === 'create-new') {
       setLocation('/families/create');
-    } else if (value === 'join-family') {
+    } else if (value === 'join-group') {
       setLocation('/families/join');
     } else if (value !== selectedFamilyId) {
-      // Only update if actually changing to a different family
+      // Only update if actually changing to a different group
       setSelectedFamilyId(value);
     }
   };
 
   return (
     <Select value={selectedFamilyId || undefined} onValueChange={handleFamilyChange}>
-      <SelectTrigger className="w-full" data-testid="family-switcher">
-        <SelectValue placeholder="Select family" />
+      <SelectTrigger className="w-full" data-testid="group-switcher">
+        <SelectValue placeholder="Select group" />
       </SelectTrigger>
       <SelectContent>
         {families.map((family) => (
@@ -47,20 +47,20 @@ export function FamilySwitcher() {
         <SelectSeparator />
         <SelectItem 
           value="create-new"
-          data-testid="family-option-create-new"
+          data-testid="group-option-create-new"
         >
           <div className="flex items-center gap-2 text-primary">
-            <Plus className="w-4 h-4" />
-            <span>Create New Family</span>
+            <Plus className="w-4 h-4" aria-hidden="true" />
+            <span>Create New Group</span>
           </div>
         </SelectItem>
         <SelectItem 
-          value="join-family"
-          data-testid="family-option-join"
+          value="join-group"
+          data-testid="group-option-join"
         >
           <div className="flex items-center gap-2 text-primary">
-            <UserPlus className="w-4 h-4" />
-            <span>Join a Family</span>
+            <UserPlus className="w-4 h-4" aria-hidden="true" />
+            <span>Join a Group</span>
           </div>
         </SelectItem>
       </SelectContent>

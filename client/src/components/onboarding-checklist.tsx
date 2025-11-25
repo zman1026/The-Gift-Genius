@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Check, Circle, X, ChevronRight } from "lucide-react";
+import { Check, Circle, X, ChevronRight, Gift } from "lucide-react";
 import { useLocation } from "wouter";
 import { useFamily } from "@/contexts/FamilyContext";
 import { cn } from "@/lib/utils";
@@ -52,10 +52,10 @@ export function OnboardingChecklist() {
   // Define checklist tasks
   const tasks: ChecklistTask[] = [
     {
-      id: "create-family",
-      title: "Create or join a family",
-      description: "Start by creating a family group or joining an existing one",
-      action: "Create Family",
+      id: "create-group",
+      title: "Create or join a group",
+      description: "Start by creating a group or joining an existing one",
+      action: "Create Group",
       path: "/families/create",
       completed: hasFamilies,
     },
@@ -69,17 +69,17 @@ export function OnboardingChecklist() {
     },
     {
       id: "invite-member",
-      title: "Invite a family member",
-      description: "Share your wishlist with family and friends",
+      title: "Invite a group member",
+      description: "Share your wishlist with your group",
       action: "Invite",
       path: "/dashboard",
-      completed: (stats?.familyMembersCount || 0) > 1,
+      completed: (stats?.groupMembersCount || 0) > 1,
     },
     {
       id: "view-wishlist",
       title: "View someone's wishlist",
       description: "Check out what others are wishing for",
-      action: "View Family",
+      action: "View Group",
       path: "/members",
       completed: false, // Can't easily track this, so leave as manual completion
     },
@@ -105,7 +105,7 @@ export function OnboardingChecklist() {
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1">
             <CardTitle className="text-lg flex items-center gap-2">
-              <span className="text-xl">🎁</span>
+              <Gift className="w-5 h-5 text-primary" />
               Getting Started
             </CardTitle>
             <p className="text-sm text-muted-foreground mt-1">

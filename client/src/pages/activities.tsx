@@ -5,6 +5,7 @@ import { ActivityIcon, Gift, UserPlus, Trash2, ShoppingBag, X } from "lucide-rea
 import { formatDistanceToNow } from "date-fns";
 import { z } from "zod";
 import { useFamily } from "@/contexts/FamilyContext";
+import { useEvent } from "@/contexts/EventContext";
 
 const activitySchema = z.object({
   id: z.string(),
@@ -25,7 +26,8 @@ const activitiesResponseSchema = z.array(activitySchema);
 type Activity = z.infer<typeof activitySchema>;
 
 export default function Activities() {
-  const { selectedFamilyId, selectedEventId } = useFamily();
+  const { selectedFamilyId } = useFamily();
+  const { selectedEventId } = useEvent();
 
   const { data: activities, isLoading, isError } = useQuery<Activity[]>({
     queryKey: ["/api/activities", selectedFamilyId, selectedEventId],
@@ -119,7 +121,7 @@ export default function Activities() {
         };
       case "member_joined":
         return {
-          text: `${actorName} joined the family`,
+          text: `${actorName} joined the group`,
           color: "text-primary",
         };
       default:
@@ -137,13 +139,13 @@ export default function Activities() {
           <div className="mb-6">
             <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Activity Log</h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Recent actions from your family members
+              Recent actions from your group members
             </p>
           </div>
           <div className="text-center py-12">
             <ActivityIcon className="w-12 h-12 mx-auto text-muted-foreground mb-3" />
             <p className="text-muted-foreground">
-              Please select a family to view activity
+              Please select a group to view activity
             </p>
           </div>
         </div>
@@ -188,7 +190,7 @@ export default function Activities() {
           <div className="text-center py-12" data-testid="activities-empty">
             <ActivityIcon className="w-12 h-12 mx-auto text-muted-foreground mb-3" />
             <p className="text-muted-foreground text-sm">
-              No recent activity yet. Start adding items or inviting family members!
+              No recent activity yet. Start adding items or inviting group members!
             </p>
           </div>
         )}

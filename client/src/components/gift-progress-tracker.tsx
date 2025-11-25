@@ -94,7 +94,7 @@ export function GiftProgressTracker() {
           Who Needs Gifts?
         </CardTitle>
         <p className="text-sm text-muted-foreground">
-          Track your gift-buying progress for each family member
+          Track your gift-buying progress for each group member
         </p>
       </CardHeader>
       <CardContent className="space-y-3">

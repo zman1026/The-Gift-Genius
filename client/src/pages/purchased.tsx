@@ -145,9 +145,9 @@ export default function Purchased() {
         <div className="text-center space-y-4">
           <AlertCircle className="w-12 h-12 mx-auto text-muted-foreground" />
           <div>
-            <h2 className="text-xl font-semibold">No Family Selected</h2>
+            <h2 className="text-xl font-semibold">No Group Selected</h2>
             <p className="text-muted-foreground mt-2">
-              Please select or create a family to view purchased items.
+              Please select or create a group to view purchased items.
             </p>
           </div>
         </div>
@@ -178,7 +178,7 @@ export default function Purchased() {
           Purchased Items
         </h1>
         <p className="text-muted-foreground mt-2">
-          Items you've marked as purchased across your family
+          Items you've marked as purchased across your group
         </p>
       </div>
 
@@ -192,7 +192,7 @@ export default function Purchased() {
               </Badge>
             </CardTitle>
             <CardDescription>
-              How much you've spent on gifts for each family member
+              How much you've spent on gifts for each group member
             </CardDescription>
           </CardHeader>
           <CardContent>

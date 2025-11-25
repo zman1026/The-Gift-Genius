@@ -1137,7 +1137,7 @@ export class DatabaseStorage implements IStorage {
     const row = result.rows[0] as any;
     return {
       myItemsCount: row?.my_items_count || 0,
-      familyMembersCount: row?.family_members_count || 0,
+      groupMembersCount: row?.family_members_count || 0,
       itemsToPurchaseCount: row?.items_to_purchase_count || 0,
     };
   }
@@ -1191,7 +1191,7 @@ export class DatabaseStorage implements IStorage {
     const row = result.rows[0] as any;
     return {
       myItemsCount: row?.my_items_count || 0,
-      familyMembersCount: row?.family_members_count || 0,
+      groupMembersCount: row?.family_members_count || 0,
       itemsToPurchaseCount: row?.items_to_purchase_count || 0,
       totalPurchased: parseFloat(row?.total_purchased || '0'),
     };

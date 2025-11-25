@@ -19,7 +19,7 @@ import { GiftCoordination } from "@/components/gift-coordination";
 
 interface DashboardStats {
   myItemsCount: number;
-  familyMembersCount: number;
+  groupMembersCount: number;
   itemsPurchasedByOthers: number;
   totalPurchased: number;
 }
@@ -133,23 +133,23 @@ export default function Home() {
             </div>
             <h3 className="font-serif text-xl font-semibold mb-2 text-foreground">Welcome to The Gift Genius!</h3>
             <p className="text-sm text-muted-foreground mb-6 max-w-md">
-              Start by creating a family group or joining one to begin sharing wishlists and coordinating gifts.
+              Start by creating a group or joining one to begin sharing wishlists and coordinating gifts.
             </p>
             <div className="flex flex-col sm:flex-row gap-3">
               <Button
                 onClick={() => setLocation('/families/create')}
-                data-testid="button-create-family-empty"
+                data-testid="button-create-group-empty"
               >
                 <Plus className="w-4 h-4 mr-2" aria-hidden="true" />
-                Create Family
+                Create Group
               </Button>
               <Button
                 onClick={() => setLocation('/families/join')}
                 variant="outline"
-                data-testid="button-join-family-empty"
+                data-testid="button-join-group-empty"
               >
                 <UserPlus className="w-4 h-4 mr-2" aria-hidden="true" />
-                Join Family
+                Join Group
               </Button>
             </div>
           </CardContent>
@@ -189,7 +189,7 @@ export default function Home() {
           themePrimary={selectedEvent.themePrimary}
           themeAccent={selectedEvent.themeAccent}
           myItemsCount={stats?.myItemsCount || 0}
-          familyMembersCount={stats?.familyMembersCount || 0}
+          groupMembersCount={stats?.groupMembersCount || 0}
           itemsPurchasedByOthers={stats?.itemsPurchasedByOthers || 0}
         />
       )}

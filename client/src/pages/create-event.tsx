@@ -92,7 +92,7 @@ export default function CreateEvent() {
   if (!selectedFamilyId) {
     return (
       <div className="p-8 text-center">
-        <p className="text-muted-foreground">Please select a family first</p>
+        <p className="text-muted-foreground">Please select a group first</p>
       </div>
     );
   }
@@ -114,7 +114,7 @@ export default function CreateEvent() {
           <div>
             <h1 className="text-2xl font-bold">Create Event</h1>
             <p className="text-sm text-muted-foreground">
-              Create a new occasion for your family
+              Create a new occasion for your group
             </p>
           </div>
         </div>

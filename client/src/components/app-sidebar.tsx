@@ -45,7 +45,7 @@ const menuItems = [
     testId: "nav-budget",
   },
   {
-    title: "Family Members",
+    title: "Group Members",
     url: "/members",
     icon: Users,
     testId: "nav-members",
@@ -80,7 +80,7 @@ export function AppSidebar() {
         <SidebarGroup>
           <SidebarGroupContent className="px-4 space-y-3">
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-sidebar-foreground">Family</label>
+              <label className="text-xs font-medium text-sidebar-foreground">Group</label>
               <FamilySwitcher />
             </div>
             <div className="space-y-1.5">

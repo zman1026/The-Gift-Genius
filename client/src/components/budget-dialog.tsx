@@ -41,7 +41,7 @@ export function BudgetDialog({ open, onOpenChange, currentBudget, onSave, isSavi
         <DialogHeader>
           <DialogTitle>Set Your Gift-Buying Budget</DialogTitle>
           <DialogDescription>
-            Track how much you personally plan to spend on gifts for others in this family.
+            Track how much you personally plan to spend on gifts for others in this group.
           </DialogDescription>
         </DialogHeader>
 

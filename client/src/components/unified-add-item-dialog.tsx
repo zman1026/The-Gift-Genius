@@ -920,7 +920,7 @@ export function UnifiedAddItemDialog({
                       <FormLabel>Description</FormLabel>
                       <FormControl>
                         <Textarea
-                          placeholder="Tell your family more about this..."
+                          placeholder="Tell your group more about this..."
                           className="resize-none h-24"
                           {...field}
                           data-testid="input-item-description"

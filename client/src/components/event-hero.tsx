@@ -8,7 +8,7 @@ interface EventHeroProps {
   themePrimary: string | null;
   themeAccent: string | null;
   myItemsCount: number;
-  familyMembersCount: number;
+  groupMembersCount: number;
   itemsPurchasedByOthers: number;
 }
 
@@ -18,7 +18,7 @@ export function EventHero({
   themePrimary,
   themeAccent,
   myItemsCount,
-  familyMembersCount,
+  groupMembersCount,
   itemsPurchasedByOthers,
 }: EventHeroProps) {
   const primaryColor = themePrimary || "#DC2626";
@@ -97,8 +97,8 @@ export function EventHero({
           
           <div className="flex items-center gap-1.5" data-testid="event-hero-members">
             <Users className="w-4 h-4 text-muted-foreground" />
-            <span className="font-medium text-foreground">{familyMembersCount}</span>
-            <span className="text-muted-foreground">family members</span>
+            <span className="font-medium text-foreground">{groupMembersCount}</span>
+            <span className="text-muted-foreground">members</span>
           </div>
         </div>
       </div>

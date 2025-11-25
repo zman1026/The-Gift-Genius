@@ -51,7 +51,7 @@ const editMemberSchema = z.object({
 type EditMemberForm = z.infer<typeof editMemberSchema>;
 
 const editFamilyNameSchema = z.object({
-  name: z.string().trim().min(1, "Family name cannot be empty"),
+  name: z.string().trim().min(1, "Group name cannot be empty"),
 });
 
 type EditFamilyNameForm = z.infer<typeof editFamilyNameSchema>;
@@ -145,7 +145,7 @@ export default function Members() {
       queryClient.invalidateQueries({ queryKey: ["/api/families"] });
       toast({
         title: "Member removed",
-        description: "The member has been removed from the family",
+        description: "The member has been removed from the group",
       });
       setShowRemoveConfirm(false);
       setMemberToRemove(null);
@@ -209,15 +209,15 @@ export default function Members() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/families"] });
       toast({
-        title: "Family name updated",
-        description: "The family name has been updated successfully",
+        title: "Group name updated",
+        description: "The group name has been updated successfully",
       });
       setIsEditFamilyNameDialogOpen(false);
     },
     onError: (error: any) => {
       toast({
-        title: "Failed to update family name",
-        description: error.message || "There was a problem updating the family name",
+        title: "Failed to update group name",
+        description: error.message || "There was a problem updating the group name",
         variant: "destructive",
       });
     },
@@ -371,10 +371,10 @@ export default function Members() {
       <div className="flex items-center gap-3">
         <div>
           <h1 className="font-serif text-3xl md:text-4xl font-semibold text-foreground">
-            {selectedFamily?.name || "Family Members"}
+            {selectedFamily?.name || "Group Members"}
           </h1>
           <p className="text-muted-foreground mt-1">
-            View wishlists from all your family members
+            View wishlists from all your group members
           </p>
         </div>
         {isOrganizer && (
@@ -385,7 +385,7 @@ export default function Members() {
               editFamilyNameForm.reset({ name: selectedFamily?.name || "" });
               setIsEditFamilyNameDialogOpen(true);
             }}
-            data-testid="button-edit-family-name"
+            data-testid="button-edit-group-name"
             className="ml-2"
           >
             <Edit className="w-4 h-4" />
@@ -475,9 +475,9 @@ export default function Members() {
             </DialogTrigger>
             <DialogContent className="max-w-lg">
             <DialogHeader>
-              <DialogTitle>Invite Family Member</DialogTitle>
+              <DialogTitle>Invite Group Member</DialogTitle>
               <DialogDescription>
-                Send an invitation email or share the invite code/link with your family member
+                Send an invitation email or share the invite code/link with someone you want to add
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-6">
@@ -555,7 +555,7 @@ export default function Members() {
                         </Button>
                       </div>
                       <p className="text-xs text-muted-foreground mt-1">
-                        They can use this code on the "Join Family" page
+                        They can use this code on the "Join Group" page
                       </p>
                     </div>
                     <div>
@@ -585,7 +585,7 @@ export default function Members() {
               ) : (
                 <div className="p-4 bg-muted rounded-md text-center">
                   <p className="text-sm text-muted-foreground">
-                    No family selected or invite code unavailable.
+                    No group selected or invite code unavailable.
                   </p>
                 </div>
               )}
@@ -600,9 +600,9 @@ export default function Members() {
             <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center mb-4">
               <Users className="w-10 h-10 text-muted-foreground" />
             </div>
-            <h3 className="font-semibold text-xl mb-2 text-foreground">No Family Members Yet</h3>
+            <h3 className="font-semibold text-xl mb-2 text-foreground">No Group Members Yet</h3>
             <p className="text-muted-foreground mb-6 max-w-md">
-              Invite family members to join your group and start sharing wishlists.
+              Invite members to join your group and start sharing wishlists.
             </p>
             <Button onClick={() => setLocation("/")} data-testid="button-go-home">
               Go to Dashboard
@@ -707,7 +707,7 @@ export default function Members() {
                       <h3 className="font-semibold text-xs text-foreground line-clamp-1" data-testid={`member-name-${memberId}`}>
                         {member.displayName || (member.firstName || member.lastName
                           ? `${member.firstName || ""} ${member.lastName || ""}`.trim()
-                          : member.email || "Family Member")}
+                          : member.email || "Group Member")}
                       </h3>
                       <div className="flex items-center justify-center gap-1 text-muted-foreground text-xs mt-1">
                         <Gift className="w-3 h-3" />
@@ -728,10 +728,10 @@ export default function Members() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {memberToRemove?.isManagedProfile ? "Remove Child Profile?" : "Remove Family Member?"}
+              {memberToRemove?.isManagedProfile ? "Remove Child Profile?" : "Remove Group Member?"}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to remove {memberToRemove?.firstName || "this member"} from the family? This action cannot be undone.
+              Are you sure you want to remove {memberToRemove?.firstName || "this member"} from the group? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -762,7 +762,7 @@ export default function Members() {
           <DialogHeader>
             <DialogTitle>Edit Member Information</DialogTitle>
             <DialogDescription>
-              Update the display name (family-specific nickname) or actual profile name
+              Update the display name (group-specific nickname) or actual profile name
             </DialogDescription>
           </DialogHeader>
           <Form {...editMemberForm}>
@@ -776,7 +776,7 @@ export default function Members() {
                 name="displayName"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Display Name (Family Nickname)</FormLabel>
+                    <FormLabel>Display Name (Group Nickname)</FormLabel>
                     <FormControl>
                       <Input
                         {...field}
@@ -786,7 +786,7 @@ export default function Members() {
                       />
                     </FormControl>
                     <p className="text-xs text-muted-foreground">
-                      This name only shows within this family group
+                      This name only shows within this group
                     </p>
                     <FormMessage />
                   </FormItem>
@@ -854,13 +854,13 @@ export default function Members() {
         </DialogContent>
       </Dialog>
 
-      {/* Edit Family Name Dialog */}
+      {/* Edit Group Name Dialog */}
       <Dialog open={isEditFamilyNameDialogOpen} onOpenChange={setIsEditFamilyNameDialogOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Edit Family Name</DialogTitle>
+            <DialogTitle>Edit Group Name</DialogTitle>
             <DialogDescription>
-              Change the name of your family group
+              Change the name of your group
             </DialogDescription>
           </DialogHeader>
           <Form {...editFamilyNameForm}>
@@ -870,12 +870,12 @@ export default function Members() {
                 name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Family Name</FormLabel>
+                    <FormLabel>Group Name</FormLabel>
                     <FormControl>
                       <Input
                         {...field}
-                        placeholder="Enter family name"
-                        data-testid="input-family-name"
+                        placeholder="Enter group name"
+                        data-testid="input-group-name"
                       />
                     </FormControl>
                     <FormMessage />
@@ -887,14 +887,14 @@ export default function Members() {
                   type="button"
                   variant="outline"
                   onClick={() => setIsEditFamilyNameDialogOpen(false)}
-                  data-testid="button-cancel-edit-family"
+                  data-testid="button-cancel-edit-group"
                 >
                   Cancel
                 </Button>
                 <Button
                   type="submit"
                   disabled={editFamilyNameMutation.isPending}
-                  data-testid="button-save-family-name"
+                  data-testid="button-save-group-name"
                 >
                   {editFamilyNameMutation.isPending ? "Saving..." : "Save Changes"}
                 </Button>

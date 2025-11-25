@@ -615,7 +615,7 @@ export default function Wishlist() {
                       <FormLabel>Description</FormLabel>
                       <FormControl>
                         <Textarea
-                          placeholder="Tell your family more about this item..."
+                          placeholder="Tell your group more about this item..."
                           className="resize-none h-24"
                           {...field}
                           data-testid="input-item-description"
@@ -1065,7 +1065,7 @@ export default function Wishlist() {
                           <FormLabel>Description</FormLabel>
                           <FormControl>
                             <Textarea
-                              placeholder="Tell your family more about this item..."
+                              placeholder="Tell your group more about this item..."
                               className="resize-none h-24"
                               {...field}
                               data-testid="input-item-description-detail"
