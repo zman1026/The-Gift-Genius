@@ -1675,26 +1675,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Cached product search function (memoized for 10 minutes)
+  // Uses Scrapingdog Google Shopping API (10 credits per request)
   const cachedProductSearch = memoize(
     async (query: string, apiKey: string) => {
-      const searchUrl = new URL('https://serpapi.com/search');
-      searchUrl.searchParams.set('engine', 'google_shopping');
-      searchUrl.searchParams.set('q', query);
+      const searchUrl = new URL('https://api.scrapingdog.com/google_shopping');
       searchUrl.searchParams.set('api_key', apiKey);
-      
-      // Add location and language parameters for better, faster results
-      searchUrl.searchParams.set('location', 'United States');
-      searchUrl.searchParams.set('google_domain', 'google.com');
-      searchUrl.searchParams.set('hl', 'en');
-      searchUrl.searchParams.set('gl', 'us');
-      
-      // Reduced from 20 to 10 for faster response
-      searchUrl.searchParams.set('num', '10');
+      searchUrl.searchParams.set('query', query);
+      searchUrl.searchParams.set('country', 'us');
+      searchUrl.searchParams.set('results', '10');
 
-      const response = await fetch(searchUrl.toString(), { signal: AbortSignal.timeout(10000) });
+      const response = await fetch(searchUrl.toString(), { signal: AbortSignal.timeout(15000) });
       if (!response.ok) {
         const errorText = await response.text();
-        console.error("SerpApi error:", response.status, errorText);
+        console.error("Scrapingdog error:", response.status, errorText);
         throw new Error('Search service error');
       }
 
@@ -1919,7 +1912,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   );
 
-  // Product search route (SerpApi integration)
+  // Product search route (Scrapingdog Google Shopping integration)
   app.get('/api/search', isAuthenticated, async (req: any, res) => {
     try {
       const { q } = req.query;
@@ -1928,7 +1921,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Search query is required" });
       }
 
-      const apiKey = process.env.SERPAPI_KEY;
+      const apiKey = process.env.SCRAPINGDOG_API_KEY;
       if (!apiKey) {
         return res.status(500).json({ message: "Search service not configured" });
       }
@@ -1941,7 +1934,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Image search route (Google Lens via SerpApi)
+  // Image search route (Google Lens via Scrapingdog - 5 credits per request)
   app.post('/api/search/image', isAuthenticated, async (req: any, res) => {
     try {
       // Validate request body with proper Base64 payload validation
@@ -1983,9 +1976,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const image = imageSearchSchema.parse(req.body.image);
 
-      const apiKey = process.env.SERPAPI_KEY;
+      const apiKey = process.env.SCRAPINGDOG_API_KEY;
       if (!apiKey) {
-        console.error("SERPAPI_KEY environment variable not set");
+        console.error("SCRAPINGDOG_API_KEY environment variable not set");
         return res.status(500).json({ message: "Search service not configured" });
       }
 
@@ -2037,23 +2030,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const imageUrl = `${baseUrl}/objects/${tempFileName}`;
       console.log(`Public URL: ${imageUrl}`);
 
-      // Call SerpApi Google Lens API with the public URL
-      const searchUrl = new URL('https://serpapi.com/search');
-      searchUrl.searchParams.set('engine', 'google_lens');
+      // Call Scrapingdog Google Lens API with the public URL
+      // Scrapingdog expects the URL in a specific format for Google Lens
+      const lensUrl = `https://lens.google.com/uploadbyurl?url=${encodeURIComponent(imageUrl)}`;
+      const searchUrl = new URL('https://api.scrapingdog.com/google_lens');
       searchUrl.searchParams.set('api_key', apiKey);
-      searchUrl.searchParams.set('url', imageUrl);
+      searchUrl.searchParams.set('url', lensUrl);
       
       const response = await fetch(searchUrl.toString(), {
         method: 'GET',
-        signal: AbortSignal.timeout(15000), // 15 second timeout for image processing
+        signal: AbortSignal.timeout(20000), // 20 second timeout for image processing
       });
 
-      console.log(`SerpApi response: ${response.status} ${response.statusText}`);
+      console.log(`Scrapingdog response: ${response.status} ${response.statusText}`);
 
       if (!response.ok) {
         const errorText = await response.text();
         const truncatedError = errorText.substring(0, 500);
-        console.error(`SerpApi Google Lens error: ${response.status} - ${truncatedError}`);
+        console.error(`Scrapingdog Google Lens error: ${response.status} - ${truncatedError}`);
         
         // Provide user-friendly error messages
         if (response.status === 401) {
@@ -2070,52 +2064,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const data = await response.json();
       
       // Log the raw response structure for debugging
-      console.log(`SerpApi response keys: ${Object.keys(data).join(', ')}`);
+      console.log(`Scrapingdog response keys: ${Object.keys(data).join(', ')}`);
       
       // Check for error in response
       if (data.error) {
-        console.error(`SerpApi error: ${JSON.stringify(data.error)}`);
+        console.error(`Scrapingdog error: ${JSON.stringify(data.error)}`);
       }
       
-      // Log search parameters sent
-      if (data.search_parameters) {
-        console.log(`Search params: ${JSON.stringify(data.search_parameters)}`);
-      }
-      
-      console.log(`visual_matches count: ${data.visual_matches?.length || 0}`);
-      console.log(`shopping_results count: ${data.shopping_results?.length || 0}`);
+      // Scrapingdog returns lens_results array
+      const lensResults = data.lens_results || [];
+      console.log(`lens_results count: ${lensResults.length}`);
       
       // Log first result if available
-      if (data.visual_matches?.[0]) {
-        console.log(`First visual match: ${JSON.stringify(data.visual_matches[0]).substring(0, 200)}`);
-      }
-      if (data.shopping_results?.[0]) {
-        console.log(`First shopping result: ${JSON.stringify(data.shopping_results[0]).substring(0, 200)}`);
+      if (lensResults[0]) {
+        console.log(`First lens result: ${JSON.stringify(lensResults[0]).substring(0, 200)}`);
       }
       
-      // Extract visual matches and shopping results
-      const visualMatches = data.visual_matches || [];
-      const shoppingResults = data.shopping_results || [];
-      
-      // Combine and format results to match our existing product format
-      const results = [...shoppingResults, ...visualMatches].slice(0, 10).map((result: any) => ({
-        position: result.position || 0,
-        title: result.title || result.name,
-        link: result.link || result.product_link,
-        product_link: result.product_link || result.link,
-        source: result.source || result.store || 'Google Lens',
-        price: result.price,
-        extracted_price: result.extracted_price || (result.price ? parseFloat(result.price.replace(/[^0-9.]/g, '')) : undefined),
+      // Format Scrapingdog lens results to match our existing product format
+      const results = lensResults.slice(0, 10).map((result: any, index: number) => ({
+        position: result.position || index + 1,
+        title: result.title,
+        link: result.link,
+        product_link: result.link,
+        source: result.source || 'Google Lens',
+        price: result.tag, // Scrapingdog returns price in 'tag' field
+        extracted_price: result.tag ? parseFloat(result.tag.replace(/[^0-9.]/g, '')) : undefined,
         thumbnail: result.thumbnail,
-        rating: result.rating,
-        reviews: result.reviews,
-        snippet: result.snippet || result.description,
+        rating: undefined,
+        reviews: undefined,
+        snippet: undefined,
+        in_stock: result.in_stock,
       }));
 
       console.log(`Image search successful: ${results.length} results found`);
       
       // Clean up the temporary file after sending response (best effort)
-      // Wait a bit to ensure SerpApi had time to fetch it
+      // Wait a bit to ensure Scrapingdog had time to fetch it
       setTimeout(() => {
         file.delete().catch((err: any) => console.error(`Failed to cleanup temp file: ${err.message}`));
       }, 5000);
