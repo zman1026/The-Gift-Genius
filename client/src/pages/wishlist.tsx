@@ -15,7 +15,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Gift, Plus, Trash2, Edit, ExternalLink, AlertCircle, Circle, ArrowUp, Search, Upload, SlidersHorizontal, X, CheckSquare, Square, Filter } from "lucide-react";
+import { Gift, Plus, Trash2, Edit, ExternalLink, AlertCircle, Circle, ArrowUp, Search, Upload, SlidersHorizontal, X, CheckSquare, Square, Filter, TreePine, DollarSign, ChevronRight } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -143,6 +144,22 @@ export default function Wishlist() {
     },
     enabled: !!selectedFamilyId,
     retry: false,
+  });
+
+  const { data: budgetData } = useQuery<{
+    totalAllocated: number;
+    totalSpent: number;
+    totalRemaining: number;
+  }>({
+    queryKey: ['/api/families', selectedFamilyId, 'budget'],
+    queryFn: async () => {
+      const response = await fetch(`/api/families/${selectedFamilyId}/budget`, {
+        credentials: "include",
+      });
+      if (!response.ok) throw new Error('Failed to fetch budget data');
+      return response.json();
+    },
+    enabled: !!selectedFamilyId,
   });
 
   const addItemMutation = useMutation({
@@ -544,21 +561,67 @@ export default function Wishlist() {
     setItemTypeFilter("all");
   };
 
+  const christmasTheme = { primary: "#DC2626", accent: "#15803D", background: "#FEF2F2" };
+
   return (
     <div className="p-4 md:p-8 lg:p-12 space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-          <h1 className="font-serif text-2xl md:text-4xl font-semibold text-foreground">
-            My Wishlist
-          </h1>
-          <p className="text-sm md:text-base text-muted-foreground mt-1">
-            Add items you'd love to receive this Christmas
-          </p>
+      <nav className="flex items-center gap-1 text-sm text-muted-foreground" aria-label="Breadcrumb">
+        <Link href="/my-wishlists" className="hover:text-foreground transition-colors" data-testid="link-my-wishlists">
+          My Wishlists
+        </Link>
+        <ChevronRight className="w-4 h-4" aria-hidden="true" />
+        <span className="text-foreground font-medium flex items-center gap-1">
+          <TreePine className="w-3.5 h-3.5" style={{ color: christmasTheme.accent }} aria-hidden="true" />
+          Christmas Wishlist
+        </span>
+      </nav>
+      
+      <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div 
+            className="p-2.5 rounded-lg shrink-0 hidden sm:flex"
+            style={{ backgroundColor: christmasTheme.background }}
+          >
+            <TreePine 
+              className="w-6 h-6" 
+              style={{ color: christmasTheme.accent }}
+              aria-hidden="true"
+            />
+          </div>
+          <div>
+            <h1 className="font-serif text-2xl md:text-4xl font-semibold text-foreground">
+              My Christmas Wishlist
+            </h1>
+            <p className="text-sm md:text-base text-muted-foreground mt-1">
+              Add items you'd love to receive this Christmas
+            </p>
+          </div>
         </div>
-        <Button onClick={() => setIsAddDialogOpen(true)} data-testid="button-add-manually">
-          <Plus className="w-4 h-4 mr-2" />
-          Add Item
-        </Button>
+        <div className="flex items-center gap-2 flex-wrap">
+          {budgetData && budgetData.totalAllocated > 0 && (
+            <Link href="/budget">
+              <div 
+                className="rounded-lg px-3 py-2 flex items-center gap-2 hover-elevate cursor-pointer"
+                style={{ backgroundColor: christmasTheme.background }}
+                data-testid="link-budget-summary"
+              >
+                <DollarSign 
+                  className="w-4 h-4" 
+                  style={{ color: christmasTheme.accent }}
+                  aria-hidden="true" 
+                />
+                <div className="text-xs">
+                  <span className="font-medium">${budgetData.totalRemaining.toFixed(0)}</span>
+                  <span className="text-muted-foreground"> left</span>
+                </div>
+              </div>
+            </Link>
+          )}
+          <Button onClick={() => setIsAddDialogOpen(true)} data-testid="button-add-manually">
+            <Plus className="w-4 h-4 mr-2" aria-hidden="true" />
+            Add Item
+          </Button>
+        </div>
       </div>
 
       {/* Unified Add Item Dialog */}

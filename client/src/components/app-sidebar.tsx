@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Home, Gift, Users, Settings, LogOut, ShoppingBag, Plus, DollarSign } from "lucide-react";
+import { Home, Gift, Users, Settings, LogOut, ShoppingBag, Plus } from "lucide-react";
 import { useLocation } from "wouter";
 import {
   Sidebar,
@@ -36,12 +36,6 @@ const menuItems = [
     url: "/search",
     icon: Plus,
     testId: "nav-add-item",
-  },
-  {
-    title: "Budget",
-    url: "/budget",
-    icon: DollarSign,
-    testId: "nav-budget",
   },
   {
     title: "Group Members",

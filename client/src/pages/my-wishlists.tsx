@@ -8,13 +8,14 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Gift, Cake, GraduationCap, Heart, Baby, Home, PartyPopper, Calendar, Trash2, Edit, TreePine, Users } from "lucide-react";
+import { Plus, Gift, Cake, GraduationCap, Heart, Baby, Home, PartyPopper, Calendar, Trash2, Edit, TreePine, Users, DollarSign } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -103,6 +104,23 @@ export default function MyWishlists() {
       if (!response.ok) {
         throw new Error("Failed to fetch wishlist");
       }
+      return response.json();
+    },
+    enabled: isAuthenticated && !!selectedFamilyId,
+  });
+
+  const { data: budgetData } = useQuery<{
+    totalAllocated: number;
+    totalSpent: number;
+    totalRemaining: number;
+    memberBudgets: any[];
+  }>({
+    queryKey: ['/api/families', selectedFamilyId, 'budget'],
+    queryFn: async () => {
+      const response = await fetch(`/api/families/${selectedFamilyId}/budget`, {
+        credentials: "include",
+      });
+      if (!response.ok) throw new Error('Failed to fetch budget data');
       return response.json();
     },
     enabled: isAuthenticated && !!selectedFamilyId,
@@ -403,12 +421,67 @@ export default function MyWishlists() {
               </div>
             </div>
           </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground mb-3">
+          <CardContent className="space-y-4">
+            <p className="text-sm text-muted-foreground">
               Items on this list are visible to your group members for gift coordination.
             </p>
+            
+            {budgetData && budgetData.totalAllocated > 0 && (
+              <div 
+                className="rounded-lg p-3 space-y-2"
+                style={{ backgroundColor: christmasTheme.background }}
+                data-testid="budget-summary"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <DollarSign 
+                      className="w-4 h-4" 
+                      style={{ color: christmasTheme.accent }}
+                      aria-hidden="true" 
+                    />
+                    <span className="text-sm font-medium">Gift Budget</span>
+                  </div>
+                  <Link href="/budget">
+                    <Button variant="ghost" size="sm" className="h-7 text-xs" data-testid="button-manage-budget">
+                      Manage
+                    </Button>
+                  </Link>
+                </div>
+                <div className="space-y-1">
+                  <Progress
+                    value={Math.min((budgetData.totalSpent / budgetData.totalAllocated) * 100, 100)}
+                    className="h-2"
+                    data-testid="progress-budget"
+                  />
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span data-testid="text-budget-spent">
+                      ${budgetData.totalSpent.toFixed(2)} spent
+                    </span>
+                    <span data-testid="text-budget-remaining">
+                      ${budgetData.totalRemaining.toFixed(2)} left of ${budgetData.totalAllocated.toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {(!budgetData || budgetData.totalAllocated === 0) && (
+              <Link href="/budget" className="block">
+                <div 
+                  className="rounded-lg p-3 border border-dashed flex items-center justify-between hover-elevate"
+                  data-testid="budget-setup-prompt"
+                >
+                  <div className="flex items-center gap-2">
+                    <DollarSign className="w-4 h-4 text-muted-foreground" aria-hidden="true" />
+                    <span className="text-sm text-muted-foreground">Set up your gift budget</span>
+                  </div>
+                  <Badge variant="secondary" className="text-xs">Optional</Badge>
+                </div>
+              </Link>
+            )}
+            
             <div className="flex items-center gap-2">
-              <Link href="/my-list">
+              <Link href="/wishlist">
                 <Button variant="outline" size="sm" data-testid="button-view-christmas-list">
                   View List
                 </Button>

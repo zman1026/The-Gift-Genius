@@ -8,11 +8,13 @@ import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { DollarSign, TrendingUp, TrendingDown, AlertCircle, Edit2, Check, X, ShoppingBag } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { DollarSign, TrendingUp, TrendingDown, AlertCircle, Edit2, Check, X, ShoppingBag, TreePine, ChevronRight } from "lucide-react";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { Link } from "wouter";
 
 export default function Budget() {
   const { selectedFamilyId, families } = useFamily();
@@ -256,16 +258,48 @@ export default function Budget() {
   const currentFamily = families.find((f: any) => f.id === selectedFamilyId);
   const isOrganizer = currentFamily?.createdById === (user as any)?.id;
 
+  const christmasTheme = { primary: "#DC2626", accent: "#15803D", background: "#FEF2F2" };
+
   return (
     <div className="container mx-auto p-3 sm:p-4 space-y-4 max-w-6xl">
+      <nav className="flex items-center gap-1 text-sm text-muted-foreground mb-2" aria-label="Breadcrumb">
+        <Link href="/my-wishlists" className="hover:text-foreground transition-colors" data-testid="link-my-wishlists">
+          My Wishlists
+        </Link>
+        <ChevronRight className="w-4 h-4" aria-hidden="true" />
+        <Link href="/wishlist" className="hover:text-foreground transition-colors flex items-center gap-1" data-testid="link-christmas-wishlist">
+          <TreePine className="w-3.5 h-3.5" style={{ color: christmasTheme.accent }} aria-hidden="true" />
+          Christmas Wishlist
+        </Link>
+        <ChevronRight className="w-4 h-4" aria-hidden="true" />
+        <span className="text-foreground font-medium">Budget</span>
+      </nav>
+      
       <div className="flex items-center justify-between gap-2">
         <div className="min-w-0">
-          <h1 className="text-2xl sm:text-3xl font-bold text-foreground truncate" data-testid="title-budget">
-            Budget
-          </h1>
-          <p className="text-xs sm:text-sm text-muted-foreground mt-0.5 truncate">
-            {budgetData?.event?.name || 'Event Budget'}
-          </p>
+          <div className="flex items-center gap-3">
+            <div 
+              className="p-2 rounded-lg shrink-0"
+              style={{ backgroundColor: christmasTheme.background }}
+            >
+              <DollarSign 
+                className="w-5 h-5" 
+                style={{ color: christmasTheme.accent }}
+                aria-hidden="true"
+              />
+            </div>
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-foreground truncate" data-testid="title-budget">
+                Christmas Gift Budget
+              </h1>
+              <p className="text-xs sm:text-sm text-muted-foreground mt-0.5 truncate flex items-center gap-1">
+                <Badge variant="secondary" className="text-xs">
+                  {currentFamily?.name || 'Group'}
+                </Badge>
+                Track spending for your group gift exchange
+              </p>
+            </div>
+          </div>
         </div>
         {!isEditing && isOrganizer && (
           <Button
@@ -273,7 +307,7 @@ export default function Budget() {
             variant="outline"
             data-testid="button-edit-budget"
           >
-            <Edit2 className="w-4 h-4 sm:mr-2" />
+            <Edit2 className="w-4 h-4 sm:mr-2" aria-hidden="true" />
             <span className="hidden sm:inline">Edit</span>
           </Button>
         )}
@@ -284,7 +318,7 @@ export default function Budget() {
               disabled={updateAllocationsMutation.isPending}
               data-testid="button-save-budget"
             >
-              <Check className="w-4 h-4 sm:mr-2" />
+              <Check className="w-4 h-4 sm:mr-2" aria-hidden="true" />
               <span className="hidden sm:inline">Save</span>
             </Button>
             <Button
@@ -293,7 +327,7 @@ export default function Budget() {
               data-testid="button-cancel-edit"
               aria-label="Cancel editing"
             >
-              <X className="w-4 h-4 sm:mr-2" />
+              <X className="w-4 h-4 sm:mr-2" aria-hidden="true" />
               <span className="hidden sm:inline">Cancel</span>
             </Button>
           </div>
