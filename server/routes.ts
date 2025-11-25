@@ -600,7 +600,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "You are not a member of this group" });
       }
 
-      const budgetData = await storage.getGroupBudgetOverview(familyId);
+      const budgetData = await storage.getBudgetOverview(familyId);
       res.json(budgetData);
     } catch (error) {
       console.error("Error getting budget overview:", error);
@@ -661,7 +661,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       await storage.setBudgetAllocations(familyId, validatedData.allocations);
-      const updatedBudget = await storage.getGroupBudgetOverview(familyId);
+      const updatedBudget = await storage.getBudgetOverview(familyId);
       res.json(updatedBudget);
     } catch (error) {
       if (error instanceof z.ZodError) {

@@ -618,13 +618,28 @@ export function UnifiedAddItemDialog({
                     <Card key={index} className="hover-elevate" data-testid={`search-result-${index}`}>
                       <CardContent className="p-4">
                         <div className="flex gap-4">
-                          {result.thumbnail && (
-                            <img
-                              src={result.thumbnail}
-                              alt={result.title}
-                              className="w-20 h-20 object-cover rounded-md"
-                            />
-                          )}
+                          <div className="w-20 h-20 rounded-md bg-muted flex items-center justify-center flex-shrink-0 overflow-hidden">
+                            {result.thumbnail ? (
+                              <img
+                                src={result.thumbnail}
+                                alt={result.title}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  const target = e.target as HTMLImageElement;
+                                  target.style.display = 'none';
+                                  const parent = target.parentElement;
+                                  if (parent && !parent.querySelector('.fallback-icon')) {
+                                    const fallback = document.createElement('div');
+                                    fallback.className = 'fallback-icon w-full h-full flex items-center justify-center';
+                                    fallback.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted-foreground"><path d="M20 12v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h6"/><circle cx="11.5" cy="12.5" r="2.5"/><path d="m12.5 10 4-4"/><path d="M16 6h4v4"/></svg>';
+                                    parent.appendChild(fallback);
+                                  }
+                                }}
+                              />
+                            ) : (
+                              <Gift className="w-8 h-8 text-muted-foreground" />
+                            )}
+                          </div>
                           <div className="flex-1 min-w-0">
                             <h4 className="font-medium line-clamp-2 mb-1">{result.title}</h4>
                             {result.snippet && (
