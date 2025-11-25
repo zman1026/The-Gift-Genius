@@ -4,11 +4,12 @@
 The Gift Genius is a mobile-first web application designed to facilitate collaborative wishlist management for groups. It allows users to create, share, and manage wishlists at the group level, add items, and secretly mark purchases to preserve gift surprises. Users can also create personal shareable wishlists for any occasion.
 
 ## Recent Changes (November 25, 2025)
-- **Self-Exclusion from Budget/Purchases**: Users are now correctly excluded from buying gifts for themselves:
-  - Budget allocations filter out current user
-  - Off-list purchase recipient dropdown excludes current user
-  - Gift-Giving Progress dashboard component excludes current user from member counts and budget calculations
-  - Gift Coordination page stat cards exclude current user
+- **Self-Exclusion from Gift Purchases (Not Budget)**: Users cannot buy gifts for themselves:
+  - Budget totals (Total Budget, Total Spent, etc.) include ALL members including current user
+  - Budget per Person list shows ALL members - current user marked with "You" badge
+  - Organizers can view AND edit their own budget allocation
+  - Off-list purchase "Log Purchase" button hidden for current user's row (can't buy for self)
+  - Gift-Giving Progress "Members Gifted" count excludes current user (can't gift yourself)
 - **Wishlist UI Improvements**:
   - Mobile-first 3-column grid layout (3 items per row on mobile, scales up for larger screens)
   - Compact card design with smaller text, reduced padding, and icon-only priority badges
