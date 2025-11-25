@@ -20,7 +20,7 @@ export function BottomNav({ onAddItemClick, disabled = false }: BottomNavProps) 
     {
       path: "/members",
       icon: Users,
-      label: "Family",
+      label: "Group",
       testId: "nav-members",
     },
     {
