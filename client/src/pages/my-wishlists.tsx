@@ -441,7 +441,7 @@ export default function MyWishlists() {
                     />
                     <span className="text-sm font-medium">Gift Budget</span>
                   </div>
-                  <Link href="/budget">
+                  <Link href="/gift-coordination">
                     <Button variant="ghost" size="sm" className="h-7 text-xs" data-testid="button-manage-budget">
                       Manage
                     </Button>
@@ -466,16 +466,16 @@ export default function MyWishlists() {
             )}
             
             {(!budgetData || budgetData.totalAllocated === 0) && (
-              <Link href="/budget" className="block">
+              <Link href="/gift-coordination" className="block">
                 <div 
                   className="rounded-lg p-3 border border-dashed flex items-center justify-between hover-elevate"
                   data-testid="budget-setup-prompt"
                 >
                   <div className="flex items-center gap-2">
                     <DollarSign className="w-4 h-4 text-muted-foreground" aria-hidden="true" />
-                    <span className="text-sm text-muted-foreground">Set up your gift budget</span>
+                    <span className="text-sm text-muted-foreground">Coordinate gifts and set a budget</span>
                   </div>
-                  <Badge variant="secondary" className="text-xs">Optional</Badge>
+                  <Badge variant="secondary" className="text-xs">Recommended</Badge>
                 </div>
               </Link>
             )}

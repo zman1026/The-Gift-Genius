@@ -25,6 +25,7 @@ import MemberWishlist from "@/pages/member-wishlist";
 import Search from "@/pages/search";
 import Purchased from "@/pages/purchased";
 import Budget from "@/pages/budget";
+import GiftCoordination from "@/pages/gift-coordination";
 import Activities from "@/pages/activities";
 import More from "@/pages/more";
 import MyWishlists from "@/pages/my-wishlists";
@@ -101,6 +102,7 @@ function AuthenticatedContent() {
               <Route path="/search" component={Search} />
               <Route path="/purchased" component={Purchased} />
               <Route path="/budget" component={Budget} />
+              <Route path="/gift-coordination" component={GiftCoordination} />
               <Route path="/activities" component={Activities} />
               <Route path="/more" component={More} />
               <Route path="/my-wishlists" component={MyWishlists} />

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Home, Gift, Users, Settings, LogOut, ShoppingBag, Plus } from "lucide-react";
+import { Home, Gift, Users, Settings, LogOut, ShoppingBag, Plus, Sparkles } from "lucide-react";
 import { useLocation } from "wouter";
 import {
   Sidebar,
@@ -30,6 +30,12 @@ const menuItems = [
     url: "/my-wishlists",
     icon: Gift,
     testId: "nav-wishlists",
+  },
+  {
+    title: "Gift Coordination",
+    url: "/gift-coordination",
+    icon: Sparkles,
+    testId: "nav-gift-coordination",
   },
   {
     title: "Add Item",

@@ -598,25 +598,29 @@ export default function Wishlist() {
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          {budgetData && budgetData.totalAllocated > 0 && (
-            <Link href="/budget">
-              <div 
-                className="rounded-lg px-3 py-2 flex items-center gap-2 hover-elevate cursor-pointer"
-                style={{ backgroundColor: christmasTheme.background }}
-                data-testid="link-budget-summary"
-              >
-                <DollarSign 
-                  className="w-4 h-4" 
-                  style={{ color: christmasTheme.accent }}
-                  aria-hidden="true" 
-                />
-                <div className="text-xs">
-                  <span className="font-medium">${budgetData.totalRemaining.toFixed(0)}</span>
-                  <span className="text-muted-foreground"> left</span>
-                </div>
+          <Link href="/gift-coordination">
+            <div 
+              className="rounded-lg px-3 py-2 flex items-center gap-2 hover-elevate cursor-pointer"
+              style={{ backgroundColor: christmasTheme.background }}
+              data-testid="link-gift-coordination"
+            >
+              <DollarSign 
+                className="w-4 h-4" 
+                style={{ color: christmasTheme.accent }}
+                aria-hidden="true" 
+              />
+              <div className="text-xs">
+                {budgetData && budgetData.totalAllocated > 0 ? (
+                  <>
+                    <span className="font-medium">${budgetData.totalRemaining.toFixed(0)}</span>
+                    <span className="text-muted-foreground"> left</span>
+                  </>
+                ) : (
+                  <span className="text-muted-foreground">Coordinate</span>
+                )}
               </div>
-            </Link>
-          )}
+            </div>
+          </Link>
           <Button onClick={() => setIsAddDialogOpen(true)} data-testid="button-add-manually">
             <Plus className="w-4 h-4 mr-2" aria-hidden="true" />
             Add Item
