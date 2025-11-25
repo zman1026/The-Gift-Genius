@@ -3,6 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { useFamily } from "@/contexts/FamilyContext";
+import { useCurrentMember } from "@/contexts/CurrentMemberContext";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,6 +20,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Link } from "wouter";
 import { format } from "date-fns";
+import { UnifiedAddItemDialog } from "@/components/unified-add-item-dialog";
 import type { PersonalList, WishlistItem, Family } from "@shared/schema";
 
 const occasionTypes = [
@@ -54,12 +56,26 @@ const createListSchema = z.object({
 
 type CreateListFormData = z.infer<typeof createListSchema>;
 
+const addPersonalItemSchema = z.object({
+  name: z.string().min(1, "Item name is required").max(255),
+  description: z.string().optional(),
+  price: z.string().optional(),
+  link: z.union([z.string().url("Must be a valid URL"), z.literal("")]).optional(),
+  priority: z.enum(["high", "medium", "low"]).optional(),
+  quantity: z.coerce.number().int().positive().optional(),
+});
+
+type AddPersonalItemFormData = z.infer<typeof addPersonalItemSchema>;
+
 export default function MyWishlists() {
   const { toast } = useToast();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { selectedFamilyId, families } = useFamily();
+  const { currentMemberId, currentMemberName } = useCurrentMember();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [deletingListId, setDeletingListId] = useState<string | null>(null);
+  const [isChristmasAddDialogOpen, setIsChristmasAddDialogOpen] = useState(false);
+  const [addingToListId, setAddingToListId] = useState<string | null>(null);
 
   const form = useForm<CreateListFormData>({
     resolver: zodResolver(createListSchema),
@@ -141,8 +157,58 @@ export default function MyWishlists() {
     },
   });
 
+  const personalItemForm = useForm<AddPersonalItemFormData>({
+    resolver: zodResolver(addPersonalItemSchema),
+    defaultValues: {
+      name: "",
+      description: "",
+      price: "",
+      link: "",
+      priority: "medium",
+      quantity: 1,
+    },
+  });
+
+  const addPersonalItemMutation = useMutation({
+    mutationFn: async ({ listId, data }: { listId: string; data: AddPersonalItemFormData }) => {
+      const priceValue = data.price?.trim();
+      return await apiRequest("POST", `/api/personal-lists/${listId}/items`, {
+        ...data,
+        price: priceValue ? parseFloat(priceValue) : undefined,
+        link: data.link?.trim() || undefined,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/personal-lists"] });
+      toast({
+        title: "Item added",
+        description: "The item has been added to your list.",
+      });
+      setAddingToListId(null);
+      personalItemForm.reset();
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to add item",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleCreateSubmit = (data: CreateListFormData) => {
     createListMutation.mutate(data);
+  };
+
+  const handlePersonalItemSubmit = (data: AddPersonalItemFormData) => {
+    if (addingToListId) {
+      addPersonalItemMutation.mutate({ listId: addingToListId, data });
+    }
+  };
+
+  const handleChristmasAddSuccess = () => {
+    queryClient.invalidateQueries({ queryKey: ["/api/wishlist", selectedFamilyId] });
+    setIsChristmasAddDialogOpen(false);
   };
 
   const getOccasionIcon = (type: string) => {
@@ -341,13 +407,34 @@ export default function MyWishlists() {
             <p className="text-sm text-muted-foreground mb-3">
               Items on this list are visible to your group members for gift coordination.
             </p>
-            <Link href="/my-list">
-              <Button variant="outline" size="sm" data-testid="button-view-christmas-list">
-                View List
+            <div className="flex items-center gap-2">
+              <Link href="/my-list">
+                <Button variant="outline" size="sm" data-testid="button-view-christmas-list">
+                  View List
+                </Button>
+              </Link>
+              <Button 
+                size="sm" 
+                onClick={() => setIsChristmasAddDialogOpen(true)}
+                data-testid="button-add-christmas-item"
+              >
+                <Plus className="w-4 h-4 mr-1" aria-hidden="true" />
+                Add Item
               </Button>
-            </Link>
+            </div>
           </CardContent>
         </Card>
+      )}
+
+      {selectedFamilyId && (
+        <UnifiedAddItemDialog 
+          open={isChristmasAddDialogOpen} 
+          onOpenChange={setIsChristmasAddDialogOpen}
+          familyId={selectedFamilyId}
+          targetUserId={currentMemberId || undefined}
+          targetUserName={currentMemberName || undefined}
+          onSuccess={handleChristmasAddSuccess}
+        />
       )}
 
       {!selectedFamilyId && (
@@ -417,11 +504,21 @@ export default function MyWishlists() {
                       </p>
                     )}
                     <div className="flex items-center justify-between gap-2">
-                      <Link href={`/personal-lists/${list.id}`}>
-                        <Button variant="outline" size="sm" data-testid={`button-view-list-${list.id}`}>
-                          View List
+                      <div className="flex items-center gap-2">
+                        <Link href={`/personal-lists/${list.id}`}>
+                          <Button variant="outline" size="sm" data-testid={`button-view-list-${list.id}`}>
+                            View List
+                          </Button>
+                        </Link>
+                        <Button 
+                          size="sm" 
+                          onClick={() => setAddingToListId(list.id)}
+                          data-testid={`button-add-item-${list.id}`}
+                        >
+                          <Plus className="w-4 h-4 mr-1" aria-hidden="true" />
+                          Add Item
                         </Button>
-                      </Link>
+                      </div>
                       <div className="flex gap-1">
                         <Link href={`/personal-lists/${list.id}`}>
                           <Button variant="ghost" size="icon" data-testid={`button-edit-list-${list.id}`}>
@@ -486,6 +583,143 @@ export default function MyWishlists() {
           </CardContent>
         </Card>
       )}
+
+      <Dialog open={!!addingToListId} onOpenChange={(open) => !open && setAddingToListId(null)}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Add Item</DialogTitle>
+            <DialogDescription>
+              Add a new item to your wishlist.
+            </DialogDescription>
+          </DialogHeader>
+          <Form {...personalItemForm}>
+            <form onSubmit={personalItemForm.handleSubmit(handlePersonalItemSubmit)} className="space-y-4">
+              <FormField
+                control={personalItemForm.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Item Name</FormLabel>
+                    <FormControl>
+                      <Input 
+                        placeholder="What do you want?" 
+                        {...field} 
+                        data-testid="input-personal-item-name"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={personalItemForm.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Description (optional)</FormLabel>
+                    <FormControl>
+                      <Textarea 
+                        placeholder="Add details like size, color, or specific version..." 
+                        {...field} 
+                        data-testid="input-personal-item-description"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={personalItemForm.control}
+                  name="price"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Price (optional)</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="number" 
+                          step="0.01"
+                          placeholder="0.00" 
+                          {...field} 
+                          data-testid="input-personal-item-price"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={personalItemForm.control}
+                  name="quantity"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Quantity</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="number" 
+                          min="1"
+                          {...field} 
+                          data-testid="input-personal-item-quantity"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <FormField
+                control={personalItemForm.control}
+                name="link"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Link (optional)</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="url"
+                        placeholder="https://..." 
+                        {...field} 
+                        data-testid="input-personal-item-link"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={personalItemForm.control}
+                name="priority"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Priority</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger data-testid="select-personal-item-priority">
+                          <SelectValue placeholder="Select priority" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="high">High Priority</SelectItem>
+                        <SelectItem value="medium">Medium Priority</SelectItem>
+                        <SelectItem value="low">Low Priority</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <DialogFooter>
+                <Button 
+                  type="submit" 
+                  disabled={addPersonalItemMutation.isPending}
+                  data-testid="button-submit-personal-item"
+                >
+                  {addPersonalItemMutation.isPending ? "Adding..." : "Add Item"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
