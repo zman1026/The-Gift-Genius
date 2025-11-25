@@ -28,13 +28,14 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { Users, Gift, Eye, UserPlus, Copy, Check, Lightbulb, Mail, Send, UserMinus, Edit, Settings, MoreVertical } from "lucide-react";
+import { Users, Gift, Eye, UserPlus, Copy, Check, Lightbulb, Mail, Send, UserMinus, Edit, Settings, MoreVertical, Shield } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { UserSettingsDialog } from "@/components/user-settings-dialog";
+import { GuardianManagementDialog } from "@/components/guardian-management-dialog";
 
 const inviteEmailSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
@@ -78,6 +79,8 @@ export default function Members() {
   const [isEditFamilyNameDialogOpen, setIsEditFamilyNameDialogOpen] = useState(false);
   const [isAddChildDialogOpen, setIsAddChildDialogOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isGuardianDialogOpen, setIsGuardianDialogOpen] = useState(false);
+  const [childForGuardianManagement, setChildForGuardianManagement] = useState<any>(null);
   
   const selectedFamily = families?.find((f: any) => f.id === selectedFamilyId);
   const isOrganizer = selectedFamily?.createdById === (user as any)?.id;
@@ -670,6 +673,19 @@ export default function Members() {
                                 Edit Member
                               </DropdownMenuItem>
                             )}
+                            {isChildProfile && member.createdBy === (user as any)?.id && (
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setChildForGuardianManagement(member);
+                                  setIsGuardianDialogOpen(true);
+                                }}
+                                data-testid={`button-manage-guardians-${memberId}`}
+                              >
+                                <Shield className="w-4 h-4 mr-2" />
+                                Manage Guardians
+                              </DropdownMenuItem>
+                            )}
                             <DropdownMenuItem
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -905,6 +921,21 @@ export default function Members() {
       </Dialog>
       
       <UserSettingsDialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen} />
+      
+      {childForGuardianManagement && selectedFamilyId && (
+        <GuardianManagementDialog
+          open={isGuardianDialogOpen}
+          onOpenChange={(open) => {
+            setIsGuardianDialogOpen(open);
+            if (!open) setChildForGuardianManagement(null);
+          }}
+          managedProfileId={childForGuardianManagement.managedProfileId}
+          profileName={childForGuardianManagement.firstName || "Child"}
+          familyId={selectedFamilyId}
+          currentUserId={(user as any)?.id}
+          isPrimaryGuardian={childForGuardianManagement.createdBy === (user as any)?.id}
+        />
+      )}
     </div>
   );
 }

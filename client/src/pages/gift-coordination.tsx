@@ -197,7 +197,7 @@ export default function GiftCoordinationPage() {
   const handleStartEdit = () => {
     setIsEditing(true);
     const initialAllocations: Record<string, string> = {};
-    allMemberBudgets.forEach((member: any) => {
+    otherMemberBudgets.forEach((member: any) => {
       const key = member.userId || member.managedProfileId;
       initialAllocations[key] = member.allocated.toString();
     });
@@ -513,17 +513,16 @@ export default function GiftCoordinationPage() {
             </div>
           </CardHeader>
           <CardContent className="space-y-2">
-            {allMemberBudgets.length === 0 ? (
+            {otherMemberBudgets.length === 0 ? (
               <div className="text-center py-4 text-sm text-muted-foreground">
-                No members yet.
+                No other members in your group yet.
               </div>
             ) : (
-              allMemberBudgets.map((member: any) => {
+              otherMemberBudgets.map((member: any) => {
                 const key = member.userId || member.managedProfileId;
                 const itemCount = memberCounts?.[key] || 0;
-                const isCurrentUser = member.userId === currentUserId;
                 return (
-                  <div key={key} className={`p-2 rounded-md border ${isCurrentUser ? 'bg-muted/50' : ''}`} data-testid={`member-budget-${key}`}>
+                  <div key={key} className="p-2 rounded-md border" data-testid={`member-budget-${key}`}>
                     {!isEditing ? (
                       <div className="space-y-2">
                         <div className="flex items-center gap-2">
@@ -536,7 +535,6 @@ export default function GiftCoordinationPage() {
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
                               <span className="text-sm font-medium truncate">{member.displayName}</span>
-                              {isCurrentUser && <Badge variant="secondary" className="text-xs">You</Badge>}
                               <Badge variant="outline" className="text-xs">
                                 {itemCount} {itemCount === 1 ? 'item' : 'items'}
                               </Badge>
@@ -556,18 +554,16 @@ export default function GiftCoordinationPage() {
                         {member.allocated > 0 && (
                           <Progress value={Math.min(member.percentUsed, 100)} className="h-1" />
                         )}
-                        {!isCurrentUser && (
-                          <Button
-                            onClick={() => handleOpenLogPurchase(member)}
-                            variant="ghost"
-                            size="sm"
-                            className="w-full h-7 text-xs"
-                            data-testid={`button-log-purchase-${key}`}
-                          >
-                            <ShoppingBag className="w-3 h-3 mr-1" />
-                            Log Purchase
-                          </Button>
-                        )}
+                        <Button
+                          onClick={() => handleOpenLogPurchase(member)}
+                          variant="ghost"
+                          size="sm"
+                          className="w-full h-7 text-xs"
+                          data-testid={`button-log-purchase-${key}`}
+                        >
+                          <ShoppingBag className="w-3 h-3 mr-1" />
+                          Log Purchase
+                        </Button>
                       </div>
                     ) : (
                       <div className="flex items-center gap-2">
@@ -579,7 +575,6 @@ export default function GiftCoordinationPage() {
                         </Avatar>
                         <span className="flex-1 text-sm font-medium truncate">
                           {member.displayName}
-                          {isCurrentUser && <Badge variant="secondary" className="text-xs ml-2">You</Badge>}
                         </span>
                         <div className="flex items-center gap-1">
                           <span className="text-sm text-muted-foreground">$</span>
