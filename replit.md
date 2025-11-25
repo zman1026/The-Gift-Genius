@@ -4,6 +4,7 @@
 The Gift Genius is a mobile-first web application designed to facilitate collaborative wishlist management for families across various occasions. It allows users to create, share, and manage wishlists, add items, and secretly mark purchases to preserve gift surprises. The application aims to streamline gift coordination year-round, expanding beyond traditional holiday gift-giving.
 
 ## Recent Changes (November 25, 2025)
+- **Event Editing Feature**: Added dedicated edit page at `/events/:eventId/edit` allowing users to modify event name, type, and date. EventSwitcher component now shows pencil icon edit button for all events. Form includes theme preview cards and automatic theme color updates based on event type selection. Uses PUT `/api/events/:eventId` endpoint with proper family membership authorization.
 - **API Migration: SerpApi → Scrapingdog**: Migrated product search from SerpApi to Scrapingdog for ~5x cost savings. Updated text search (Google Shopping API - 10 credits/request) and image/camera search (Google Lens API - 5 credits/request). Free tier includes 1,000 credits (~100-200 searches). Required secret: `SCRAPINGDOG_API_KEY`.
 
 ## Recent Changes (November 24, 2025)
