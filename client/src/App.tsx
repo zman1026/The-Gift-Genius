@@ -12,7 +12,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { UserSettingsDialog } from "@/components/user-settings-dialog";
 import { useAuth } from "@/hooks/useAuth";
 import { FamilyProvider, useFamily } from "@/contexts/FamilyContext";
-import { CurrentMemberProvider, useCurrentMember } from "@/contexts/CurrentMemberContext";
+import { CurrentMemberProvider } from "@/contexts/CurrentMemberContext";
 import { GroupHeader } from "@/components/group-header";
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/landing";
@@ -32,26 +32,13 @@ import MyWishlists from "@/pages/my-wishlists";
 import PersonalListDetail from "@/pages/personal-list-detail";
 import PublicList from "@/pages/public-list";
 import { AppErrorBoundary } from "@/components/error-boundary";
-import { UnifiedAddItemDialog } from "@/components/unified-add-item-dialog";
+import { AddItemListPicker } from "@/components/add-item-list-picker";
 
 function AuthenticatedContent() {
   const { user } = useAuth();
   const { selectedFamilyId } = useFamily();
-  const { currentMemberId, currentMemberName } = useCurrentMember();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAddItemDialogOpen, setIsAddItemDialogOpen] = useState(false);
-  
-  const handleAddItemSuccess = () => {
-    // Invalidate wishlist queries when an item is added
-    queryClient.invalidateQueries({ queryKey: ["/api/wishlist"] });
-    // If adding to a member's wishlist, also invalidate their wishlist
-    if (currentMemberId) {
-      queryClient.invalidateQueries({ queryKey: ["/api/members", currentMemberId, "wishlist"] });
-    }
-    // Invalidate activities to show the new activity log
-    queryClient.invalidateQueries({ queryKey: ["/api/activities"] });
-    setIsAddItemDialogOpen(false);
-  };
 
   const style = {
     "--sidebar-width": "16rem",
@@ -117,16 +104,10 @@ function AuthenticatedContent() {
           disabled={!selectedFamilyId}
         />
       </div>
-      {selectedFamilyId && (
-        <UnifiedAddItemDialog 
-          open={isAddItemDialogOpen} 
-          onOpenChange={setIsAddItemDialogOpen}
-          familyId={selectedFamilyId}
-          targetUserId={currentMemberId || undefined}
-          targetUserName={currentMemberName || undefined}
-          onSuccess={handleAddItemSuccess}
-        />
-      )}
+      <AddItemListPicker 
+        open={isAddItemDialogOpen} 
+        onOpenChange={setIsAddItemDialogOpen}
+      />
       <UserSettingsDialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen} />
       <Toaster />
     </SidebarProvider>

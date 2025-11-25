@@ -9,11 +9,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Users, Plus, UserPlus } from "lucide-react";
 import { useLocation } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { BudgetDialog } from "@/components/budget-dialog";
 import { ActivityFeed } from "@/components/activity-feed";
 import { MemberSpotlight } from "@/components/member-spotlight";
 import { QuickActions } from "@/components/quick-actions";
-import { GiftCoordination } from "@/components/gift-coordination";
+import { GiftGivingProgress } from "@/components/gift-giving-progress";
+import { AddItemListPicker } from "@/components/add-item-list-picker";
 
 interface DashboardStats {
   myItemsCount: number;
@@ -33,34 +33,9 @@ export default function Home() {
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { selectedFamilyId, families } = useFamily();
   const [, setLocation] = useLocation();
-  const [isBudgetDialogOpen, setIsBudgetDialogOpen] = useState(false);
   const [isAddItemDialogOpen, setIsAddItemDialogOpen] = useState(false);
   
   const selectedFamily = families?.find((f) => f.id === selectedFamilyId);
-
-  const updateBudgetMutation = useMutation({
-    mutationFn: async (giftBudget: number | null) => {
-      if (!selectedFamilyId) throw new Error("No family selected");
-      return apiRequest("PUT", `/api/families/${selectedFamilyId}/budget`, { giftBudget });
-    },
-    onSuccess: () => {
-      toast({
-        title: "Budget updated!",
-        description: "Your gift-buying budget has been updated successfully.",
-      });
-      setIsBudgetDialogOpen(false);
-      queryClient.invalidateQueries({ queryKey: ["/api/families"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/stats", selectedFamilyId] });
-    },
-    onError: (error: unknown) => {
-      const message = error instanceof Error ? error.message : "There was a problem updating the budget.";
-      toast({
-        title: "Failed to update budget",
-        description: message,
-        variant: "destructive",
-      });
-    },
-  });
 
   const { data: familiesData, isLoading: familiesLoading } = useQuery<FamilyData[]>({
     queryKey: ["/api/families"],
@@ -152,18 +127,16 @@ export default function Home() {
     );
   }
 
-  const hasBudget = selectedFamily?.giftBudget !== null && selectedFamily?.giftBudget !== undefined;
-
   return (
     <div className="p-3 md:p-8 space-y-3 md:space-y-4">
-      {/* Member Spotlight Section */}
-      <MemberSpotlight familyId={selectedFamilyId!} />
+      {/* Gift-Giving Progress Section - Above Quick Actions */}
+      <GiftGivingProgress />
 
       {/* Quick Actions Section */}
       <QuickActions onAddItemClick={handleAddItemClick} />
 
-      {/* Gift Coordination Section */}
-      <GiftCoordination familyId={selectedFamilyId!} />
+      {/* Member Spotlight Section */}
+      <MemberSpotlight familyId={selectedFamilyId!} />
 
       {/* Recent Activity Feed */}
       <Card>
@@ -185,52 +158,10 @@ export default function Home() {
         </CardContent>
       </Card>
 
-      {/* Optional Budget Tracker - Only show if budget is set */}
-      {hasBudget && (
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base">Gift Budget</CardTitle>
-              <Button 
-                variant="ghost" 
-                size="sm"
-                onClick={() => setIsBudgetDialogOpen(true)} 
-                data-testid="edit-budget"
-              >
-                Edit
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Spent</span>
-                <span className="font-medium">${stats?.totalPurchased?.toFixed(2) || '0.00'}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Budget</span>
-                <span className="font-medium">${parseFloat(selectedFamily?.giftBudget?.toString() || '0').toFixed(2)}</span>
-              </div>
-              <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
-                <div 
-                  className="bg-primary h-full transition-all"
-                  style={{ 
-                    width: `${Math.min(100, ((stats?.totalPurchased || 0) / (parseFloat(selectedFamily?.giftBudget?.toString() || '0') || 1)) * 100)}%` 
-                  }}
-                />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Budget Dialog */}
-      <BudgetDialog
-        open={isBudgetDialogOpen}
-        onOpenChange={setIsBudgetDialogOpen}
-        currentBudget={selectedFamily?.giftBudget ? parseFloat(selectedFamily.giftBudget.toString()) : null}
-        onSave={(budget) => updateBudgetMutation.mutate(budget)}
-        isSaving={updateBudgetMutation.isPending}
+      {/* Add Item List Picker Dialog */}
+      <AddItemListPicker
+        open={isAddItemDialogOpen}
+        onOpenChange={setIsAddItemDialogOpen}
       />
     </div>
   );

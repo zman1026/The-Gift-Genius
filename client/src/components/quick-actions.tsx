@@ -27,12 +27,12 @@ export function QuickActions({ onAddItemClick }: QuickActionsProps) {
         
         <Button
           variant="outline"
-          onClick={() => setLocation('/wishlist')}
+          onClick={() => setLocation('/my-wishlists')}
           className="flex-col h-auto py-4 gap-2"
-          data-testid="quick-action-my-list"
+          data-testid="quick-action-my-wishlists"
         >
           <List className="w-5 h-5" />
-          <span className="text-xs">My Wishlist</span>
+          <span className="text-xs">My Wishlists</span>
         </Button>
         
         <Button
@@ -47,12 +47,12 @@ export function QuickActions({ onAddItemClick }: QuickActionsProps) {
         
         <Button
           variant="outline"
-          onClick={() => setLocation('/search')}
+          onClick={() => setLocation('/gift-coordination')}
           className="flex-col h-auto py-4 gap-2"
-          data-testid="quick-action-search"
+          data-testid="quick-action-coordination"
         >
           <Sparkles className="w-5 h-5" />
-          <span className="text-xs">Find Gifts</span>
+          <span className="text-xs">Gift Coordination</span>
         </Button>
       </CardContent>
     </Card>

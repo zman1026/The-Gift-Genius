@@ -672,6 +672,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Gift status endpoint - shows which members have received gifts from the current user
+  app.get('/api/families/:familyId/gift-status', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { familyId } = req.params;
+
+      // Verify user is a member of the group
+      const membership = await storage.getFamilyMember(familyId, userId);
+      if (!membership) {
+        return res.status(403).json({ message: "You are not a member of this group" });
+      }
+
+      const giftStatus = await storage.getMemberGiftStatus(familyId, userId);
+      res.json(giftStatus);
+    } catch (error) {
+      console.error("Error getting gift status:", error);
+      res.status(500).json({ message: "Failed to get gift status" });
+    }
+  });
+
   // Wishlist routes
   app.get('/api/wishlist', isAuthenticated, async (req: any, res) => {
     try {

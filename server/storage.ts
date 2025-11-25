@@ -109,6 +109,7 @@ export interface IStorage {
   
   getBudgetOverview(familyId: string): Promise<any>;
   setBudgetAllocations(familyId: string, allocations: any[]): Promise<void>;
+  getMemberGiftStatus(familyId: string, userId: string): Promise<any[]>;
   
   createPersonalList(list: InsertPersonalList): Promise<PersonalList>;
   getPersonalList(id: string): Promise<PersonalList | undefined>;
@@ -1361,6 +1362,67 @@ export class DatabaseStorage implements IStorage {
         );
       }
     });
+  }
+
+  async getMemberGiftStatus(familyId: string, userId: string): Promise<any[]> {
+    // Get all members in the family (excluding the current user)
+    const familyMembersData = await this.getFamilyMembersByFamilyId(familyId);
+    
+    const result: any[] = [];
+    
+    for (const member of familyMembersData) {
+      // Skip the current user - they don't buy gifts for themselves
+      if (member.userId === userId) continue;
+      
+      const memberId = member.userId || member.managedProfileId;
+      
+      // Fetch the user or managed profile data for the name
+      let memberName = 'Unknown';
+      if (member.managedProfileId) {
+        const [profile] = await db.select().from(managedProfiles).where(eq(managedProfiles.id, member.managedProfileId));
+        if (profile) memberName = profile.displayName;
+      } else if (member.userId) {
+        const [user] = await db.select().from(users).where(eq(users.id, member.userId));
+        if (user) memberName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'Unknown';
+      }
+      
+      // Count purchases made by the current user for this member (both wishlist and off-list)
+      const purchases = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(itemPurchases)
+        .where(and(
+          eq(itemPurchases.purchasedById, userId),
+          eq(itemPurchases.familyId, familyId),
+          or(
+            member.userId ? eq(itemPurchases.recipientUserId, member.userId) : sql`false`,
+            member.managedProfileId ? eq(itemPurchases.recipientManagedProfileId, member.managedProfileId) : sql`false`
+          )
+        ));
+      
+      // Also count purchases from wishlist items belonging to this member
+      const wishlistPurchases = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(itemPurchases)
+        .innerJoin(wishlistItems, eq(itemPurchases.itemId, wishlistItems.id))
+        .where(and(
+          eq(itemPurchases.purchasedById, userId),
+          eq(wishlistItems.familyId, familyId),
+          member.userId ? eq(wishlistItems.userId, member.userId) : sql`false`
+        ));
+      
+      const offListCount = Number(purchases[0]?.count || 0);
+      const wishlistCount = Number(wishlistPurchases[0]?.count || 0);
+      const totalGiftCount = offListCount + wishlistCount;
+      
+      result.push({
+        memberId,
+        memberName,
+        hasReceivedGift: totalGiftCount > 0,
+        giftCount: totalGiftCount,
+      });
+    }
+    
+    return result;
   }
 
   async createPersonalList(listData: InsertPersonalList): Promise<PersonalList> {
