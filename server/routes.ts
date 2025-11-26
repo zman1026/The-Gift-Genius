@@ -795,6 +795,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Wishlist routes
+  
+  // Get user's Christmas wishlist items across ALL their families
+  app.get('/api/my-christmas-wishlist', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const items = await storage.getUserWishlistItems(userId);
+      res.json(items);
+    } catch (error) {
+      console.error("Error fetching user's Christmas wishlist:", error);
+      res.status(500).json({ message: "Failed to fetch wishlist" });
+    }
+  });
+
   app.get('/api/wishlist', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;

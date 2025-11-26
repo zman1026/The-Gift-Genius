@@ -98,11 +98,9 @@ export default function MyWishlists() {
   });
 
   const { data: wishlistItems, isLoading: wishlistLoading } = useQuery<WishlistItem[]>({
-    queryKey: ["/api/wishlist", selectedFamilyId],
+    queryKey: ["/api/my-christmas-wishlist"],
     queryFn: async () => {
-      if (!selectedFamilyId) return [];
-      const params = new URLSearchParams({ familyId: selectedFamilyId });
-      const response = await fetch(`/api/wishlist?${params.toString()}`, {
+      const response = await fetch(`/api/my-christmas-wishlist`, {
         credentials: "include",
       });
       if (!response.ok) {
@@ -110,7 +108,7 @@ export default function MyWishlists() {
       }
       return response.json();
     },
-    enabled: isAuthenticated && !!selectedFamilyId,
+    enabled: isAuthenticated,
   });
 
   const { data: budgetData } = useQuery<{
@@ -229,7 +227,8 @@ export default function MyWishlists() {
   };
 
   const handleChristmasAddSuccess = () => {
-    queryClient.invalidateQueries({ queryKey: ["/api/wishlist", selectedFamilyId] });
+    queryClient.invalidateQueries({ queryKey: ["/api/my-christmas-wishlist"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/wishlist"] });
     setIsChristmasAddDialogOpen(false);
   };
 
@@ -388,108 +387,110 @@ export default function MyWishlists() {
         </Dialog>
       </div>
 
-      {selectedFamilyId && selectedFamily && (
-        <Card 
-          className="relative overflow-hidden hover-elevate mb-6"
-          data-testid="card-christmas-wishlist"
-        >
-          <div 
-            className="absolute top-0 left-0 right-0 h-1.5"
-            style={{ backgroundColor: christmasTheme.primary }}
-          />
-          <CardHeader className="pb-2">
-            <div className="flex items-start justify-between gap-2">
-              <div className="flex items-center gap-3 min-w-0">
-                <div 
-                  className="p-2.5 rounded-lg shrink-0"
-                  style={{ backgroundColor: christmasTheme.background }}
-                >
-                  <TreePine 
-                    className="w-6 h-6" 
-                    style={{ color: christmasTheme.accent }}
-                    aria-hidden="true"
-                  />
-                </div>
-                <div className="min-w-0">
-                  <CardTitle className="text-xl">Christmas Wishlist</CardTitle>
-                  <CardDescription className="flex items-center gap-2 mt-1">
+      <Card 
+        className="relative overflow-hidden hover-elevate mb-6"
+        data-testid="card-christmas-wishlist"
+      >
+        <div 
+          className="absolute top-0 left-0 right-0 h-1.5"
+          style={{ backgroundColor: christmasTheme.primary }}
+        />
+        <CardHeader className="pb-2">
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex items-center gap-3 min-w-0">
+              <div 
+                className="p-2.5 rounded-lg shrink-0"
+                style={{ backgroundColor: christmasTheme.background }}
+              >
+                <TreePine 
+                  className="w-6 h-6" 
+                  style={{ color: christmasTheme.accent }}
+                  aria-hidden="true"
+                />
+              </div>
+              <div className="min-w-0">
+                <CardTitle className="text-xl">Christmas Wishlist</CardTitle>
+                <CardDescription className="flex flex-wrap items-center gap-2 mt-1">
+                  {selectedFamily && (
                     <Badge variant="secondary" className="text-xs flex items-center gap-1">
                       <Users className="w-3 h-3" aria-hidden="true" />
-                      Shared with {selectedFamily.name}
+                      {selectedFamily.name}
                     </Badge>
-                    <span className="text-xs text-muted-foreground">
-                      {wishlistItems?.length || 0} item{(wishlistItems?.length || 0) !== 1 ? 's' : ''}
-                    </span>
-                  </CardDescription>
+                  )}
+                  <span className="text-xs text-muted-foreground">
+                    {wishlistItems?.length || 0} item{(wishlistItems?.length || 0) !== 1 ? 's' : ''} across all groups
+                  </span>
+                </CardDescription>
+              </div>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Your Christmas wishlist items are shared across all your groups for gift coordination.
+          </p>
+          
+          {selectedFamilyId && budgetData && budgetData.totalAllocated > 0 && (
+            <div 
+              className="rounded-lg p-3 space-y-2"
+              style={{ backgroundColor: christmasTheme.background }}
+              data-testid="budget-summary"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <DollarSign 
+                    className="w-4 h-4" 
+                    style={{ color: christmasTheme.accent }}
+                    aria-hidden="true" 
+                  />
+                  <span className="text-sm font-medium">Gift Budget</span>
+                </div>
+                <Link href="/gift-coordination">
+                  <Button variant="ghost" size="sm" className="h-7 text-xs" data-testid="button-manage-budget">
+                    Manage
+                  </Button>
+                </Link>
+              </div>
+              <div className="space-y-1">
+                <Progress
+                  value={Math.min((budgetData.totalSpent / budgetData.totalAllocated) * 100, 100)}
+                  className="h-2"
+                  data-testid="progress-budget"
+                />
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span data-testid="text-budget-spent">
+                    ${budgetData.totalSpent.toFixed(2)} spent
+                  </span>
+                  <span data-testid="text-budget-remaining">
+                    ${budgetData.totalRemaining.toFixed(2)} left of ${budgetData.totalAllocated.toFixed(2)}
+                  </span>
                 </div>
               </div>
             </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Items on this list are visible to your group members for gift coordination.
-            </p>
-            
-            {budgetData && budgetData.totalAllocated > 0 && (
+          )}
+          
+          {selectedFamilyId && (!budgetData || budgetData.totalAllocated === 0) && (
+            <Link href="/gift-coordination" className="block">
               <div 
-                className="rounded-lg p-3 space-y-2"
-                style={{ backgroundColor: christmasTheme.background }}
-                data-testid="budget-summary"
+                className="rounded-lg p-3 border border-dashed flex items-center justify-between hover-elevate"
+                data-testid="budget-setup-prompt"
               >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <DollarSign 
-                      className="w-4 h-4" 
-                      style={{ color: christmasTheme.accent }}
-                      aria-hidden="true" 
-                    />
-                    <span className="text-sm font-medium">Gift Budget</span>
-                  </div>
-                  <Link href="/gift-coordination">
-                    <Button variant="ghost" size="sm" className="h-7 text-xs" data-testid="button-manage-budget">
-                      Manage
-                    </Button>
-                  </Link>
+                <div className="flex items-center gap-2">
+                  <DollarSign className="w-4 h-4 text-muted-foreground" aria-hidden="true" />
+                  <span className="text-sm text-muted-foreground">Coordinate gifts and set a budget</span>
                 </div>
-                <div className="space-y-1">
-                  <Progress
-                    value={Math.min((budgetData.totalSpent / budgetData.totalAllocated) * 100, 100)}
-                    className="h-2"
-                    data-testid="progress-budget"
-                  />
-                  <div className="flex justify-between text-xs text-muted-foreground">
-                    <span data-testid="text-budget-spent">
-                      ${budgetData.totalSpent.toFixed(2)} spent
-                    </span>
-                    <span data-testid="text-budget-remaining">
-                      ${budgetData.totalRemaining.toFixed(2)} left of ${budgetData.totalAllocated.toFixed(2)}
-                    </span>
-                  </div>
-                </div>
+                <Badge variant="secondary" className="text-xs">Recommended</Badge>
               </div>
-            )}
-            
-            {(!budgetData || budgetData.totalAllocated === 0) && (
-              <Link href="/gift-coordination" className="block">
-                <div 
-                  className="rounded-lg p-3 border border-dashed flex items-center justify-between hover-elevate"
-                  data-testid="budget-setup-prompt"
-                >
-                  <div className="flex items-center gap-2">
-                    <DollarSign className="w-4 h-4 text-muted-foreground" aria-hidden="true" />
-                    <span className="text-sm text-muted-foreground">Coordinate gifts and set a budget</span>
-                  </div>
-                  <Badge variant="secondary" className="text-xs">Recommended</Badge>
-                </div>
-              </Link>
-            )}
-            
-            <div className="flex items-center gap-2 flex-wrap">
-              <Link href="/wishlist">
-                <Button variant="outline" size="sm" data-testid="button-view-christmas-list">
-                  View List
-                </Button>
-              </Link>
+            </Link>
+          )}
+          
+          <div className="flex items-center gap-2 flex-wrap">
+            <Link href="/wishlist">
+              <Button variant="outline" size="sm" data-testid="button-view-christmas-list">
+                View List
+              </Button>
+            </Link>
+            {selectedFamilyId && (
               <Button 
                 size="sm" 
                 onClick={() => setIsChristmasAddDialogOpen(true)}
@@ -498,21 +499,21 @@ export default function MyWishlists() {
                 <Plus className="w-4 h-4 mr-1" aria-hidden="true" />
                 Add Item
               </Button>
-              {families.length > 1 && (
-                <Button 
-                  variant="ghost" 
-                  size="sm"
-                  onClick={() => setIsSharingDialogOpen(true)}
-                  data-testid="button-share-christmas-list"
-                >
-                  <Share2 className="w-4 h-4 mr-1" aria-hidden="true" />
-                  Share
-                </Button>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+            )}
+            {selectedFamilyId && families.length > 1 && (
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onClick={() => setIsSharingDialogOpen(true)}
+                data-testid="button-share-christmas-list"
+              >
+                <Share2 className="w-4 h-4 mr-1" aria-hidden="true" />
+                Share
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       {selectedFamilyId && (
         <CrossFamilySharingDialog
@@ -531,18 +532,6 @@ export default function MyWishlists() {
           targetUserName={currentMemberName || undefined}
           onSuccess={handleChristmasAddSuccess}
         />
-      )}
-
-      {!selectedFamilyId && (
-        <Card className="mb-6 border-dashed">
-          <CardContent className="py-8 text-center">
-            <TreePine className="w-10 h-10 mx-auto mb-3 text-muted-foreground" aria-hidden="true" />
-            <h3 className="font-semibold mb-1">No Group Selected</h3>
-            <p className="text-sm text-muted-foreground">
-              Select a group from the sidebar to see your Christmas Wishlist
-            </p>
-          </CardContent>
-        </Card>
       )}
 
       {sortedPersonalLists && sortedPersonalLists.length > 0 && (

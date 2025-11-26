@@ -3,6 +3,18 @@
 ## Overview
 The Gift Genius is a mobile-first web application designed to facilitate collaborative wishlist management for groups. It allows users to create, share, and manage wishlists at the group level, add items, and secretly mark purchases to preserve gift surprises. Users can also create personal shareable wishlists for any occasion.
 
+## Recent Changes (November 26, 2025)
+- **Cross-Group Christmas Wishlist**: Christmas wishlist items now appear across all groups:
+  - New `/api/my-christmas-wishlist` endpoint fetches user's items from ALL their groups
+  - "My Wishlists" page shows Christmas list card with total item count across all groups
+  - Items can be added when a group is selected (added to that group)
+  - Budget info shown only when a group is selected (budget is group-specific)
+  - Fixes issue where switching groups showed empty wishlist
+- **Shared Personal Lists on Dashboard**: Personal lists shared by other group members now appear on home page in "Personal Lists Shared with Your Group" section
+  - Backend filters out viewer's own lists for privacy
+  - Dark mode compatible theming for occasion colors
+  - Links to public list view for each shared list
+
 ## Recent Changes (November 25, 2025)
 - **Budget per Person Self-Exclusion**: Users are completely excluded from the Budget per Person list since they can't set a budget for themselves:
   - Budget totals still include ALL members (for overall tracking)
