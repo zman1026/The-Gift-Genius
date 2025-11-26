@@ -24,8 +24,9 @@ export function FamilySwitcher() {
     } else if (value === 'join-group') {
       setLocation('/families/join');
     } else if (value !== selectedFamilyId) {
-      // Only update if actually changing to a different group
+      // Update the selected group and redirect to dashboard for a fresh start
       setSelectedFamilyId(value);
+      setLocation('/');
     }
   };
 
