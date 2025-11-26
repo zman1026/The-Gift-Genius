@@ -2440,6 +2440,262 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ============================================
+  // Cross-Family Wishlist Sharing Routes
+  // ============================================
+
+  // Get user's Christmas list sharing settings
+  app.get('/api/wishlist-shares/user', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const shares = await storage.getUserWishlistShares(userId);
+      res.json(shares);
+    } catch (error) {
+      console.error("Error fetching user wishlist shares:", error);
+      res.status(500).json({ message: "Failed to fetch sharing settings" });
+    }
+  });
+
+  // Share user's Christmas list from source family to target family
+  app.post('/api/wishlist-shares/user', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { familyId, sourceFamilyId } = req.body;
+
+      if (!familyId || !sourceFamilyId) {
+        return res.status(400).json({ message: "familyId and sourceFamilyId are required" });
+      }
+
+      // Verify user is member of both families
+      const [targetMember, sourceMember] = await Promise.all([
+        storage.getFamilyMember(familyId, userId),
+        storage.getFamilyMember(sourceFamilyId, userId),
+      ]);
+
+      if (!targetMember || !sourceMember) {
+        return res.status(403).json({ message: "You must be a member of both groups to share your list" });
+      }
+
+      const share = await storage.setUserWishlistShare(userId, familyId, sourceFamilyId);
+      res.status(201).json(share);
+    } catch (error) {
+      console.error("Error creating user wishlist share:", error);
+      res.status(500).json({ message: "Failed to share list" });
+    }
+  });
+
+  // Remove user's Christmas list share
+  app.delete('/api/wishlist-shares/user', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { familyId, sourceFamilyId } = req.body;
+
+      if (!familyId || !sourceFamilyId) {
+        return res.status(400).json({ message: "familyId and sourceFamilyId are required" });
+      }
+
+      await storage.removeUserWishlistShare(userId, familyId, sourceFamilyId);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error removing user wishlist share:", error);
+      res.status(500).json({ message: "Failed to remove share" });
+    }
+  });
+
+  // Get managed profile's wishlist sharing settings
+  app.get('/api/wishlist-shares/managed/:profileId', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { profileId } = req.params;
+
+      // Verify user is a guardian of this profile
+      const isGuardian = await storage.isGuardianOfProfile(profileId, userId);
+      if (!isGuardian) {
+        return res.status(403).json({ message: "You are not a guardian of this profile" });
+      }
+
+      const shares = await storage.getManagedWishlistShares(profileId);
+      res.json(shares);
+    } catch (error) {
+      console.error("Error fetching managed wishlist shares:", error);
+      res.status(500).json({ message: "Failed to fetch sharing settings" });
+    }
+  });
+
+  // Share managed profile's Christmas list from source family to target family
+  app.post('/api/wishlist-shares/managed/:profileId', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { profileId } = req.params;
+      const { familyId, sourceFamilyId } = req.body;
+
+      if (!familyId || !sourceFamilyId) {
+        return res.status(400).json({ message: "familyId and sourceFamilyId are required" });
+      }
+
+      // Verify user is a guardian of this profile
+      const isGuardian = await storage.isGuardianOfProfile(profileId, userId);
+      if (!isGuardian) {
+        return res.status(403).json({ message: "You are not a guardian of this profile" });
+      }
+
+      // Verify the managed profile is a member of both families
+      const [targetMember, sourceMember] = await Promise.all([
+        storage.getFamilyMemberByManagedProfile(familyId, profileId),
+        storage.getFamilyMemberByManagedProfile(sourceFamilyId, profileId),
+      ]);
+
+      if (!targetMember || !sourceMember) {
+        return res.status(403).json({ message: "The child must be a member of both groups to share their list" });
+      }
+
+      const share = await storage.setManagedWishlistShare(profileId, familyId, sourceFamilyId);
+      res.status(201).json(share);
+    } catch (error) {
+      console.error("Error creating managed wishlist share:", error);
+      res.status(500).json({ message: "Failed to share list" });
+    }
+  });
+
+  // Remove managed profile's Christmas list share
+  app.delete('/api/wishlist-shares/managed/:profileId', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { profileId } = req.params;
+      const { familyId, sourceFamilyId } = req.body;
+
+      if (!familyId || !sourceFamilyId) {
+        return res.status(400).json({ message: "familyId and sourceFamilyId are required" });
+      }
+
+      // Verify user is a guardian of this profile
+      const isGuardian = await storage.isGuardianOfProfile(profileId, userId);
+      if (!isGuardian) {
+        return res.status(403).json({ message: "You are not a guardian of this profile" });
+      }
+
+      await storage.removeManagedWishlistShare(profileId, familyId, sourceFamilyId);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error removing managed wishlist share:", error);
+      res.status(500).json({ message: "Failed to remove share" });
+    }
+  });
+
+  // Get personal list family shares
+  app.get('/api/personal-lists/:listId/family-shares', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { listId } = req.params;
+
+      // Verify user owns this list
+      const list = await storage.getPersonalList(listId);
+      if (!list) {
+        return res.status(404).json({ message: "List not found" });
+      }
+      if (list.userId !== userId) {
+        return res.status(403).json({ message: "You do not own this list" });
+      }
+
+      const shares = await storage.getPersonalListFamilyShares(listId);
+      res.json(shares);
+    } catch (error) {
+      console.error("Error fetching personal list shares:", error);
+      res.status(500).json({ message: "Failed to fetch sharing settings" });
+    }
+  });
+
+  // Share personal list with a family
+  app.post('/api/personal-lists/:listId/family-shares', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { listId } = req.params;
+      const { familyId } = req.body;
+
+      if (!familyId) {
+        return res.status(400).json({ message: "familyId is required" });
+      }
+
+      // Verify user is member of the target family
+      const member = await storage.getFamilyMember(familyId, userId);
+      if (!member) {
+        return res.status(403).json({ message: "You must be a member of the group to share your list with it" });
+      }
+
+      const share = await storage.sharePersonalListWithFamily(listId, familyId, userId);
+      res.status(201).json(share);
+    } catch (error) {
+      if (error instanceof NotFoundError) {
+        return res.status(404).json({ message: error.message });
+      }
+      if (error instanceof AuthorizationError) {
+        return res.status(403).json({ message: error.message });
+      }
+      console.error("Error sharing personal list with family:", error);
+      res.status(500).json({ message: "Failed to share list" });
+    }
+  });
+
+  // Unshare personal list from a family
+  app.delete('/api/personal-lists/:listId/family-shares/:familyId', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { listId, familyId } = req.params;
+
+      await storage.unsharePersonalListFromFamily(listId, familyId, userId);
+      res.status(204).send();
+    } catch (error) {
+      if (error instanceof NotFoundError) {
+        return res.status(404).json({ message: error.message });
+      }
+      if (error instanceof AuthorizationError) {
+        return res.status(403).json({ message: error.message });
+      }
+      console.error("Error unsharing personal list from family:", error);
+      res.status(500).json({ message: "Failed to unshare list" });
+    }
+  });
+
+  // Get shared personal lists visible to a family
+  app.get('/api/families/:familyId/shared-personal-lists', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { familyId } = req.params;
+
+      // Verify user is member of the family
+      const member = await storage.getFamilyMember(familyId, userId);
+      if (!member) {
+        return res.status(403).json({ message: "You must be a member of this group" });
+      }
+
+      const lists = await storage.getSharedPersonalListsForFamily(familyId);
+      res.json(lists);
+    } catch (error) {
+      console.error("Error fetching shared personal lists:", error);
+      res.status(500).json({ message: "Failed to fetch shared lists" });
+    }
+  });
+
+  // Get all wishlist items for a family including shared items
+  app.get('/api/families/:familyId/all-wishlists', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { familyId } = req.params;
+
+      // Verify user is member of the family
+      const member = await storage.getFamilyMember(familyId, userId);
+      if (!member) {
+        return res.status(403).json({ message: "You must be a member of this group" });
+      }
+
+      const items = await storage.getFamilyWishlistItemsIncludingShared(familyId, userId);
+      res.json(items);
+    } catch (error) {
+      console.error("Error fetching family wishlists:", error);
+      res.status(500).json({ message: "Failed to fetch wishlists" });
+    }
+  });
+
+  // ============================================
   // Public Personal List Routes (no auth)
   // ============================================
 

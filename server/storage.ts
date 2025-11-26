@@ -82,6 +82,7 @@ export interface IStorage {
   addFamilyMember(member: InsertFamilyMember): Promise<FamilyMember>;
   getFamilyMembers(userId: string): Promise<any[]>;
   getFamilyMember(familyId: string, userId: string): Promise<FamilyMember | undefined>;
+  getFamilyMemberByManagedProfile(familyId: string, managedProfileId: string): Promise<FamilyMember | undefined>;
   updateFamilyMemberDisplayName(familyId: string, userId: string, displayName: string | null, requesterId: string): Promise<FamilyMember>;
   removeFamilyMember(familyId: string, userIdToRemove: string, requesterId: string): Promise<void>;
   leaveFamily(familyId: string, userId: string): Promise<void>;
@@ -350,6 +351,14 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(familyMembers)
       .where(and(eq(familyMembers.familyId, familyId), eq(familyMembers.userId, userId)));
+    return member;
+  }
+
+  async getFamilyMemberByManagedProfile(familyId: string, managedProfileId: string): Promise<FamilyMember | undefined> {
+    const [member] = await db
+      .select()
+      .from(familyMembers)
+      .where(and(eq(familyMembers.familyId, familyId), eq(familyMembers.managedProfileId, managedProfileId)));
     return member;
   }
 
