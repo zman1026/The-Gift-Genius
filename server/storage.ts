@@ -11,6 +11,9 @@ import {
   personalLists,
   personalListItems,
   personalListPurchases,
+  userWishlistShares,
+  managedWishlistShares,
+  personalListFamilyShares,
   type User,
   type UpsertUser,
   type Family,
@@ -34,6 +37,12 @@ import {
   type InsertPersonalListItem,
   type PersonalListPurchase,
   type InsertPersonalListPurchase,
+  type UserWishlistShare,
+  type InsertUserWishlistShare,
+  type ManagedWishlistShare,
+  type InsertManagedWishlistShare,
+  type PersonalListFamilyShare,
+  type InsertPersonalListFamilyShare,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, or, sql, desc, asc, inArray } from "drizzle-orm";
@@ -132,6 +141,23 @@ export interface IStorage {
   getPersonalListItemPurchase(itemId: string): Promise<PersonalListPurchase | undefined>;
   getPersonalListWithItems(listId: string, viewerId?: string): Promise<any>;
   getPublicPersonalList(slug: string): Promise<any>;
+  
+  // Cross-family wishlist sharing
+  getUserWishlistShares(userId: string): Promise<UserWishlistShare[]>;
+  setUserWishlistShare(userId: string, familyId: string, sourceFamilyId: string): Promise<UserWishlistShare>;
+  removeUserWishlistShare(userId: string, familyId: string, sourceFamilyId: string): Promise<void>;
+  
+  getManagedWishlistShares(managedProfileId: string): Promise<ManagedWishlistShare[]>;
+  setManagedWishlistShare(managedProfileId: string, familyId: string, sourceFamilyId: string): Promise<ManagedWishlistShare>;
+  removeManagedWishlistShare(managedProfileId: string, familyId: string, sourceFamilyId: string): Promise<void>;
+  
+  getPersonalListFamilyShares(listId: string): Promise<PersonalListFamilyShare[]>;
+  sharePersonalListWithFamily(listId: string, familyId: string, requesterId: string): Promise<PersonalListFamilyShare>;
+  unsharePersonalListFromFamily(listId: string, familyId: string, requesterId: string): Promise<void>;
+  getSharedPersonalListsForFamily(familyId: string): Promise<any[]>;
+  
+  // Enhanced wishlist queries for cross-family visibility
+  getFamilyWishlistItemsIncludingShared(familyId: string, viewerId: string): Promise<any[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1857,6 +1883,284 @@ export class DatabaseStorage implements IStorage {
       } : null,
       items: itemsWithStatus,
     };
+  }
+
+  // ============================================
+  // Cross-Family Wishlist Sharing Methods
+  // ============================================
+
+  async getUserWishlistShares(userId: string): Promise<UserWishlistShare[]> {
+    const shares = await db
+      .select()
+      .from(userWishlistShares)
+      .where(eq(userWishlistShares.userId, userId));
+    return shares;
+  }
+
+  async setUserWishlistShare(userId: string, familyId: string, sourceFamilyId: string): Promise<UserWishlistShare> {
+    const [share] = await db
+      .insert(userWishlistShares)
+      .values({ userId, familyId, sourceFamilyId })
+      .onConflictDoNothing()
+      .returning();
+    
+    if (!share) {
+      const [existing] = await db
+        .select()
+        .from(userWishlistShares)
+        .where(and(
+          eq(userWishlistShares.userId, userId),
+          eq(userWishlistShares.familyId, familyId),
+          eq(userWishlistShares.sourceFamilyId, sourceFamilyId)
+        ));
+      return existing;
+    }
+    return share;
+  }
+
+  async removeUserWishlistShare(userId: string, familyId: string, sourceFamilyId: string): Promise<void> {
+    await db
+      .delete(userWishlistShares)
+      .where(and(
+        eq(userWishlistShares.userId, userId),
+        eq(userWishlistShares.familyId, familyId),
+        eq(userWishlistShares.sourceFamilyId, sourceFamilyId)
+      ));
+  }
+
+  async getManagedWishlistShares(managedProfileId: string): Promise<ManagedWishlistShare[]> {
+    const shares = await db
+      .select()
+      .from(managedWishlistShares)
+      .where(eq(managedWishlistShares.managedProfileId, managedProfileId));
+    return shares;
+  }
+
+  async setManagedWishlistShare(managedProfileId: string, familyId: string, sourceFamilyId: string): Promise<ManagedWishlistShare> {
+    const [share] = await db
+      .insert(managedWishlistShares)
+      .values({ managedProfileId, familyId, sourceFamilyId })
+      .onConflictDoNothing()
+      .returning();
+    
+    if (!share) {
+      const [existing] = await db
+        .select()
+        .from(managedWishlistShares)
+        .where(and(
+          eq(managedWishlistShares.managedProfileId, managedProfileId),
+          eq(managedWishlistShares.familyId, familyId),
+          eq(managedWishlistShares.sourceFamilyId, sourceFamilyId)
+        ));
+      return existing;
+    }
+    return share;
+  }
+
+  async removeManagedWishlistShare(managedProfileId: string, familyId: string, sourceFamilyId: string): Promise<void> {
+    await db
+      .delete(managedWishlistShares)
+      .where(and(
+        eq(managedWishlistShares.managedProfileId, managedProfileId),
+        eq(managedWishlistShares.familyId, familyId),
+        eq(managedWishlistShares.sourceFamilyId, sourceFamilyId)
+      ));
+  }
+
+  async getPersonalListFamilyShares(listId: string): Promise<PersonalListFamilyShare[]> {
+    const shares = await db
+      .select()
+      .from(personalListFamilyShares)
+      .where(eq(personalListFamilyShares.listId, listId));
+    return shares;
+  }
+
+  async sharePersonalListWithFamily(listId: string, familyId: string, requesterId: string): Promise<PersonalListFamilyShare> {
+    const list = await this.getPersonalList(listId);
+    if (!list) {
+      throw new NotFoundError("Personal list not found");
+    }
+    if (list.userId !== requesterId) {
+      throw new AuthorizationError("Only the list owner can share this list");
+    }
+    
+    const [share] = await db
+      .insert(personalListFamilyShares)
+      .values({ listId, familyId })
+      .onConflictDoNothing()
+      .returning();
+    
+    if (!share) {
+      const [existing] = await db
+        .select()
+        .from(personalListFamilyShares)
+        .where(and(
+          eq(personalListFamilyShares.listId, listId),
+          eq(personalListFamilyShares.familyId, familyId)
+        ));
+      return existing;
+    }
+    return share;
+  }
+
+  async unsharePersonalListFromFamily(listId: string, familyId: string, requesterId: string): Promise<void> {
+    const list = await this.getPersonalList(listId);
+    if (!list) {
+      throw new NotFoundError("Personal list not found");
+    }
+    if (list.userId !== requesterId) {
+      throw new AuthorizationError("Only the list owner can unshare this list");
+    }
+    
+    await db
+      .delete(personalListFamilyShares)
+      .where(and(
+        eq(personalListFamilyShares.listId, listId),
+        eq(personalListFamilyShares.familyId, familyId)
+      ));
+  }
+
+  async getSharedPersonalListsForFamily(familyId: string): Promise<any[]> {
+    const shares = await db
+      .select({
+        share: personalListFamilyShares,
+        list: personalLists,
+      })
+      .from(personalListFamilyShares)
+      .innerJoin(personalLists, eq(personalListFamilyShares.listId, personalLists.id))
+      .where(eq(personalListFamilyShares.familyId, familyId));
+    
+    const listsWithOwners = await Promise.all(
+      shares.map(async ({ share, list }) => {
+        const owner = await this.getUser(list.userId);
+        const items = await this.getPersonalListItems(list.id);
+        const itemCount = items.length;
+        
+        return {
+          ...list,
+          sharedAt: share.createdAt,
+          owner: owner ? {
+            id: owner.id,
+            firstName: owner.firstName,
+            lastName: owner.lastName,
+            profileImageUrl: owner.profileImageUrl,
+          } : null,
+          itemCount,
+        };
+      })
+    );
+    
+    return listsWithOwners;
+  }
+
+  async getFamilyWishlistItemsIncludingShared(familyId: string, viewerId: string): Promise<any[]> {
+    const familyMembers = await this.getFamilyMembersByFamily(familyId, viewerId);
+    
+    const userShares = await db
+      .select()
+      .from(userWishlistShares)
+      .where(eq(userWishlistShares.familyId, familyId));
+    
+    const managedShares = await db
+      .select()
+      .from(managedWishlistShares)
+      .where(eq(managedWishlistShares.familyId, familyId));
+    
+    const nativeItems = await db
+      .select()
+      .from(wishlistItems)
+      .where(eq(wishlistItems.familyId, familyId));
+    
+    const sharedUserItems = await Promise.all(
+      userShares.map(async (share) => {
+        const items = await db
+          .select()
+          .from(wishlistItems)
+          .where(and(
+            eq(wishlistItems.userId, share.userId),
+            eq(wishlistItems.familyId, share.sourceFamilyId)
+          ));
+        return items.map(item => ({
+          ...item,
+          isShared: true,
+          sourceFamily: share.sourceFamilyId,
+        }));
+      })
+    );
+    
+    const sharedManagedItems = await Promise.all(
+      managedShares.map(async (share) => {
+        const items = await db
+          .select()
+          .from(wishlistItems)
+          .where(and(
+            eq(wishlistItems.managedProfileId, share.managedProfileId),
+            eq(wishlistItems.familyId, share.sourceFamilyId)
+          ));
+        return items.map(item => ({
+          ...item,
+          isShared: true,
+          sourceFamily: share.sourceFamilyId,
+        }));
+      })
+    );
+    
+    const allItems = [
+      ...nativeItems.map(item => ({ ...item, isShared: false })),
+      ...sharedUserItems.flat(),
+      ...sharedManagedItems.flat(),
+    ];
+    
+    const uniqueItems = allItems.reduce((acc, item) => {
+      if (!acc.some(i => i.id === item.id)) {
+        acc.push(item);
+      }
+      return acc;
+    }, [] as typeof allItems);
+    
+    const itemsWithPurchaseStatus = await Promise.all(
+      uniqueItems.map(async (item) => {
+        const purchase = await this.getItemPurchase(item.id);
+        const isOwner = item.userId === viewerId;
+        
+        let ownerInfo = null;
+        if (item.userId) {
+          const user = await this.getUser(item.userId);
+          if (user) {
+            ownerInfo = {
+              id: user.id,
+              firstName: user.firstName,
+              lastName: user.lastName,
+              profileImageUrl: user.profileImageUrl,
+              isManagedProfile: false,
+            };
+          }
+        } else if (item.managedProfileId) {
+          const profile = await this.getManagedProfile(item.managedProfileId);
+          if (profile) {
+            ownerInfo = {
+              id: profile.id,
+              firstName: profile.firstName,
+              lastName: profile.lastName,
+              profileImageUrl: profile.profileImageUrl,
+              isManagedProfile: true,
+            };
+          }
+        }
+        
+        return {
+          ...item,
+          isPurchased: !!purchase,
+          isPurchasedByViewer: purchase?.purchasedById === viewerId,
+          purchasedBy: isOwner ? null : (purchase ? {
+            id: purchase.purchasedById,
+          } : null),
+          owner: ownerInfo,
+        };
+      })
+    );
+    
+    return itemsWithPurchaseStatus;
   }
 }
 
