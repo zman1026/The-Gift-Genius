@@ -2667,7 +2667,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "You must be a member of this group" });
       }
 
-      const lists = await storage.getSharedPersonalListsForFamily(familyId);
+      const lists = await storage.getSharedPersonalListsForFamily(familyId, userId);
       res.json(lists);
     } catch (error) {
       console.error("Error fetching shared personal lists:", error);

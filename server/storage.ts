@@ -45,7 +45,7 @@ import {
   type InsertPersonalListFamilyShare,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, or, sql, desc, asc, inArray } from "drizzle-orm";
+import { eq, and, or, sql, desc, asc, inArray, ne } from "drizzle-orm";
 
 export class AuthorizationError extends Error {
   constructor(message: string) {
@@ -155,7 +155,7 @@ export interface IStorage {
   getPersonalListFamilyShares(listId: string): Promise<PersonalListFamilyShare[]>;
   sharePersonalListWithFamily(listId: string, familyId: string, requesterId: string): Promise<PersonalListFamilyShare>;
   unsharePersonalListFromFamily(listId: string, familyId: string, requesterId: string): Promise<void>;
-  getSharedPersonalListsForFamily(familyId: string): Promise<any[]>;
+  getSharedPersonalListsForFamily(familyId: string, viewerId: string): Promise<any[]>;
   
   // Enhanced wishlist queries for cross-family visibility
   getFamilyWishlistItemsIncludingShared(familyId: string, viewerId: string): Promise<any[]>;
@@ -2029,7 +2029,7 @@ export class DatabaseStorage implements IStorage {
       ));
   }
 
-  async getSharedPersonalListsForFamily(familyId: string): Promise<any[]> {
+  async getSharedPersonalListsForFamily(familyId: string, viewerId: string): Promise<any[]> {
     const shares = await db
       .select({
         share: personalListFamilyShares,
@@ -2037,7 +2037,10 @@ export class DatabaseStorage implements IStorage {
       })
       .from(personalListFamilyShares)
       .innerJoin(personalLists, eq(personalListFamilyShares.listId, personalLists.id))
-      .where(eq(personalListFamilyShares.familyId, familyId));
+      .where(and(
+        eq(personalListFamilyShares.familyId, familyId),
+        ne(personalLists.userId, viewerId)
+      ));
     
     const listsWithOwners = await Promise.all(
       shares.map(async ({ share, list }) => {
@@ -2054,6 +2057,9 @@ export class DatabaseStorage implements IStorage {
             lastName: owner.lastName,
             profileImageUrl: owner.profileImageUrl,
           } : null,
+          ownerFirstName: owner?.firstName || null,
+          ownerLastName: owner?.lastName || null,
+          ownerProfileImageUrl: owner?.profileImageUrl || null,
           itemCount,
         };
       })

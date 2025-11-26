@@ -1,12 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { useFamily } from "@/contexts/FamilyContext";
-import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Gift, Calendar, ChevronRight, Users, ExternalLink } from "lucide-react";
+import { Gift, Calendar, ChevronRight } from "lucide-react";
 import { Link } from "wouter";
 import { format } from "date-fns";
 import type { PersonalList } from "@shared/schema";
@@ -24,20 +22,19 @@ function getInitials(firstName: string | null, lastName: string | null): string 
   return (first + last).toUpperCase() || "?";
 }
 
-const occasionThemes: Record<string, { primary: string; background: string }> = {
-  birthday: { primary: "#EC4899", background: "#FDF2F8" },
-  graduation: { primary: "#3B82F6", background: "#EFF6FF" },
-  wedding: { primary: "#F43F5E", background: "#FFF1F2" },
-  baby_shower: { primary: "#A855F7", background: "#FAF5FF" },
-  anniversary: { primary: "#EF4444", background: "#FEF2F2" },
-  housewarming: { primary: "#84CC16", background: "#F7FEE7" },
-  holiday: { primary: "#DC2626", background: "#FEF2F2" },
-  other: { primary: "#6366F1", background: "#EEF2FF" },
+const occasionStyles: Record<string, string> = {
+  birthday: "bg-pink-100 dark:bg-pink-900/30 text-pink-600 dark:text-pink-400",
+  graduation: "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400",
+  wedding: "bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400",
+  baby_shower: "bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400",
+  anniversary: "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400",
+  housewarming: "bg-lime-100 dark:bg-lime-900/30 text-lime-600 dark:text-lime-400",
+  holiday: "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400",
+  other: "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400",
 };
 
 export function SharedPersonalLists() {
   const { selectedFamilyId } = useFamily();
-  const { user } = useAuth();
 
   const { data: sharedLists, isLoading } = useQuery<SharedPersonalListWithOwner[]>({
     queryKey: ["/api/families", selectedFamilyId, "shared-personal-lists"],
@@ -77,22 +74,20 @@ export function SharedPersonalLists() {
     );
   }
 
-  const otherUsersLists = sharedLists?.filter(list => list.userId !== (user as any)?.id) || [];
-
-  if (otherUsersLists.length === 0) {
+  if (!sharedLists || sharedLists.length === 0) {
     return null;
   }
 
   return (
     <Card>
       <CardHeader className="pb-2">
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <Gift className="w-5 h-5 text-primary" aria-hidden="true" />
             <CardTitle className="text-base">Personal Lists Shared with Your Group</CardTitle>
           </div>
           <Badge variant="secondary" className="text-xs">
-            {otherUsersLists.length} {otherUsersLists.length === 1 ? "list" : "lists"}
+            {sharedLists.length} {sharedLists.length === 1 ? "list" : "lists"}
           </Badge>
         </div>
         <CardDescription className="text-xs">
@@ -101,8 +96,8 @@ export function SharedPersonalLists() {
       </CardHeader>
       <CardContent>
         <div className="space-y-2">
-          {otherUsersLists.map((list) => {
-            const themeColors = occasionThemes[list.occasionType] || occasionThemes.other;
+          {sharedLists.map((list) => {
+            const themeClasses = occasionStyles[list.occasionType] || occasionStyles.other;
             const ownerName = list.ownerFirstName || list.ownerLastName
               ? `${list.ownerFirstName || ""} ${list.ownerLastName || ""}`.trim()
               : "Group Member";
@@ -117,18 +112,11 @@ export function SharedPersonalLists() {
                   className="flex items-center gap-3 p-3 rounded-lg border hover-elevate"
                   data-testid={`shared-list-${list.id}`}
                 >
-                  <div 
-                    className="p-2 rounded-lg shrink-0"
-                    style={{ backgroundColor: themeColors.background }}
-                  >
-                    <Gift 
-                      className="w-4 h-4" 
-                      style={{ color: themeColors.primary }}
-                      aria-hidden="true" 
-                    />
+                  <div className={`p-2 rounded-lg shrink-0 ${themeClasses}`}>
+                    <Gift className="w-4 h-4" aria-hidden="true" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <span className="text-sm font-medium truncate">{list.name}</span>
                       {list.date && (
                         <span className="text-xs text-muted-foreground flex items-center gap-1 shrink-0">
@@ -137,7 +125,7 @@ export function SharedPersonalLists() {
                         </span>
                       )}
                     </div>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground mt-0.5">
                       <Avatar className="h-4 w-4">
                         <AvatarImage src={list.ownerProfileImageUrl || undefined} />
                         <AvatarFallback className="text-[8px]">
