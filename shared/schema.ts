@@ -530,3 +530,112 @@ export const insertPersonalListPurchaseSchema = createInsertSchema(personalListP
 
 export type InsertPersonalListPurchase = z.infer<typeof insertPersonalListPurchaseSchema>;
 export type PersonalListPurchase = typeof personalListPurchases.$inferSelect;
+
+// ============================================
+// Cross-Family Wishlist Sharing Tables
+// ============================================
+
+// User Christmas wishlist sharing settings per family
+// When enabled, user's Christmas list from their "home" family is visible to this family
+export const userWishlistShares = pgTable("user_wishlist_shares", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  familyId: varchar("family_id").notNull().references(() => families.id, { onDelete: 'cascade' }), // Family that can VIEW the list
+  sourceFamilyId: varchar("source_family_id").notNull().references(() => families.id, { onDelete: 'cascade' }), // Family where items actually live
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_user_wishlist_shares_user").on(table.userId),
+  index("idx_user_wishlist_shares_family").on(table.familyId),
+  unique("unique_user_wishlist_share").on(table.userId, table.familyId, table.sourceFamilyId),
+]);
+
+export const userWishlistSharesRelations = relations(userWishlistShares, ({ one }) => ({
+  user: one(users, {
+    fields: [userWishlistShares.userId],
+    references: [users.id],
+  }),
+  family: one(families, {
+    fields: [userWishlistShares.familyId],
+    references: [families.id],
+  }),
+  sourceFamily: one(families, {
+    fields: [userWishlistShares.sourceFamilyId],
+    references: [families.id],
+  }),
+}));
+
+export const insertUserWishlistShareSchema = createInsertSchema(userWishlistShares).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertUserWishlistShare = z.infer<typeof insertUserWishlistShareSchema>;
+export type UserWishlistShare = typeof userWishlistShares.$inferSelect;
+
+// Managed profile (child) wishlist sharing settings per family
+export const managedWishlistShares = pgTable("managed_wishlist_shares", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  managedProfileId: varchar("managed_profile_id").notNull().references(() => managedProfiles.id, { onDelete: 'cascade' }),
+  familyId: varchar("family_id").notNull().references(() => families.id, { onDelete: 'cascade' }), // Family that can VIEW the list
+  sourceFamilyId: varchar("source_family_id").notNull().references(() => families.id, { onDelete: 'cascade' }), // Family where items actually live
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_managed_wishlist_shares_profile").on(table.managedProfileId),
+  index("idx_managed_wishlist_shares_family").on(table.familyId),
+  unique("unique_managed_wishlist_share").on(table.managedProfileId, table.familyId, table.sourceFamilyId),
+]);
+
+export const managedWishlistSharesRelations = relations(managedWishlistShares, ({ one }) => ({
+  managedProfile: one(managedProfiles, {
+    fields: [managedWishlistShares.managedProfileId],
+    references: [managedProfiles.id],
+  }),
+  family: one(families, {
+    fields: [managedWishlistShares.familyId],
+    references: [families.id],
+  }),
+  sourceFamily: one(families, {
+    fields: [managedWishlistShares.sourceFamilyId],
+    references: [families.id],
+  }),
+}));
+
+export const insertManagedWishlistShareSchema = createInsertSchema(managedWishlistShares).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertManagedWishlistShare = z.infer<typeof insertManagedWishlistShareSchema>;
+export type ManagedWishlistShare = typeof managedWishlistShares.$inferSelect;
+
+// Personal list sharing with families
+// Allows personal lists (birthday, etc.) to be visible within a family group
+export const personalListFamilyShares = pgTable("personal_list_family_shares", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  listId: varchar("list_id").notNull().references(() => personalLists.id, { onDelete: 'cascade' }),
+  familyId: varchar("family_id").notNull().references(() => families.id, { onDelete: 'cascade' }),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_personal_list_family_shares_list").on(table.listId),
+  index("idx_personal_list_family_shares_family").on(table.familyId),
+  unique("unique_personal_list_family_share").on(table.listId, table.familyId),
+]);
+
+export const personalListFamilySharesRelations = relations(personalListFamilyShares, ({ one }) => ({
+  list: one(personalLists, {
+    fields: [personalListFamilyShares.listId],
+    references: [personalLists.id],
+  }),
+  family: one(families, {
+    fields: [personalListFamilyShares.familyId],
+    references: [families.id],
+  }),
+}));
+
+export const insertPersonalListFamilyShareSchema = createInsertSchema(personalListFamilyShares).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertPersonalListFamilyShare = z.infer<typeof insertPersonalListFamilyShareSchema>;
+export type PersonalListFamilyShare = typeof personalListFamilyShares.$inferSelect;
