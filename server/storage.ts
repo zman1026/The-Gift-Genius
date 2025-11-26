@@ -275,6 +275,7 @@ export class DatabaseStorage implements IStorage {
       throw new Error("You are not a member of this group");
     }
 
+    // Include guardian permissions for the requesting user on each managed profile
     const result = await db.execute(sql`
       SELECT 
         COALESCE(u.id, mp.id) as "userId",
@@ -286,10 +287,14 @@ export class DatabaseStorage implements IStorage {
         fm.display_name as "displayName",
         mp.created_by_id as "createdBy",
         CASE WHEN mp.id IS NOT NULL THEN true ELSE false END as "isManagedProfile",
-        COUNT(DISTINCT wi.id)::int as "itemCount"
+        COUNT(DISTINCT wi.id)::int as "itemCount",
+        COALESCE(mpg.can_edit, false) as "guardianCanEdit",
+        COALESCE(mpg.can_manage_budget, false) as "guardianCanManageBudget",
+        CASE WHEN mpg.guardian_user_id IS NOT NULL THEN true ELSE false END as "isGuardian"
       FROM family_members fm
       LEFT JOIN users u ON fm.user_id = u.id
       LEFT JOIN managed_profiles mp ON fm.managed_profile_id = mp.id
+      LEFT JOIN managed_profile_guardians mpg ON mp.id = mpg.managed_profile_id AND mpg.guardian_user_id = ${requestingUserId}
       LEFT JOIN wishlist_items wi ON 
         (wi.user_id = u.id OR wi.managed_profile_id = mp.id) 
         AND wi.family_id = ${familyId}
@@ -305,7 +310,10 @@ export class DatabaseStorage implements IStorage {
         mp.last_name,
         mp.profile_image_url,
         mp.created_by_id,
-        fm.display_name
+        fm.display_name,
+        mpg.can_edit,
+        mpg.can_manage_budget,
+        mpg.guardian_user_id
     `);
     
     return result.rows as any[];
@@ -678,6 +686,30 @@ export class DatabaseStorage implements IStorage {
     // Check if user is a guardian
     const guardian = await this.getManagedProfileGuardian(profileId, userId);
     return !!guardian;
+  }
+
+  async getGuardianPermissions(profileId: string, userId: string): Promise<{ canEdit: boolean; canManageBudget: boolean } | null> {
+    // Check if user is the creator (has all permissions)
+    const [profile] = await db
+      .select()
+      .from(managedProfiles)
+      .where(eq(managedProfiles.id, profileId));
+    
+    if (!profile) return null;
+    
+    // Creator has all permissions
+    if (profile.createdById === userId) {
+      return { canEdit: true, canManageBudget: true };
+    }
+    
+    // Check guardian permissions
+    const guardian = await this.getManagedProfileGuardian(profileId, userId);
+    if (!guardian) return null;
+    
+    return {
+      canEdit: guardian.canEdit ?? false,
+      canManageBudget: guardian.canManageBudget ?? false
+    };
   }
 
   async getManagedProfile(id: string): Promise<ManagedProfile | undefined> {

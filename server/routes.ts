@@ -1007,10 +1007,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Organizer-only: Add wishlist item to any member's wishlist (including child profiles)
+  // Add wishlist item to any member's wishlist (organizers or guardians with edit permission)
   app.post('/api/families/:familyId/members/:targetUserId/wishlist', isAuthenticated, async (req: any, res) => {
     try {
-      const organizerId = req.user.claims.sub;
+      const requesterId = req.user.claims.sub;
       const { familyId, targetUserId } = req.params;
       const { name, description, price, url, imageUrl, productId, source, priority, quantity, category } = req.body;
 
@@ -1018,16 +1018,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Item name is required" });
       }
 
-      // Verify requester is the organizer of the group
-      const family = await storage.getFamily(familyId);
-      if (!family || family.createdById !== organizerId) {
-        return res.status(403).json({ message: "Only the group organizer can add items to other members' wishlists" });
-      }
-
       // Verify target is a member of the group (could be user or managed profile)
       const targetInfo = await storage.getFamilyMemberByAnyId(familyId, targetUserId);
       if (!targetInfo) {
         return res.status(404).json({ message: "Target member not found in this group" });
+      }
+
+      // Check authorization: must be organizer OR guardian with edit permission for managed profiles
+      const family = await storage.getFamily(familyId);
+      const isOrganizer = family && family.createdById === requesterId;
+      
+      let canEdit = isOrganizer;
+      
+      // If target is a managed profile, check if requester is a guardian with edit permission
+      if (!canEdit && targetInfo.matchedField === 'managedProfileId') {
+        const guardianPermissions = await storage.getGuardianPermissions(targetUserId, requesterId);
+        canEdit = guardianPermissions?.canEdit === true;
+      }
+      
+      if (!canEdit) {
+        return res.status(403).json({ message: "You don't have permission to add items to this member's wishlist" });
       }
 
       // Create item with correct field based on which field matched
@@ -1066,7 +1076,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Log activity with recipient information
       await storage.createActivityLog({
         familyId,
-        actorId: organizerId,
+        actorId: requesterId,
         action: "item_added",
         itemId: item.id,
         metadata: {

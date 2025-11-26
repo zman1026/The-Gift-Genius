@@ -618,7 +618,9 @@ export default function Members() {
             const memberId = member.userId || member.managedProfileId;
             const isCurrentUser = !!user && member.userId === (user as any).id;
             const isChildProfile = member.isManagedProfile;
-            const canEdit = isOrganizer || (isChildProfile && member.createdBy === (user as any)?.id);
+            const isPrimaryGuardian = isChildProfile && member.createdBy === (user as any)?.id;
+            const isSecondaryGuardianWithEdit = isChildProfile && member.guardianCanEdit;
+            const canEdit = isOrganizer || isPrimaryGuardian || isSecondaryGuardianWithEdit;
             
             return (
               <div key={memberId}>
@@ -673,7 +675,7 @@ export default function Members() {
                                 Edit Member
                               </DropdownMenuItem>
                             )}
-                            {isChildProfile && member.createdBy === (user as any)?.id && (
+                            {isPrimaryGuardian && (
                               <DropdownMenuItem
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -686,18 +688,20 @@ export default function Members() {
                                 Manage Guardians
                               </DropdownMenuItem>
                             )}
-                            <DropdownMenuItem
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setMemberToRemove(member);
-                                setShowRemoveConfirm(true);
-                              }}
-                              className="text-destructive"
-                              data-testid={`button-remove-member-${memberId}`}
-                            >
-                              <UserMinus className="w-4 h-4 mr-2" />
-                              {isChildProfile ? "Remove Child" : "Remove Member"}
-                            </DropdownMenuItem>
+                            {(isPrimaryGuardian || (!isChildProfile && isOrganizer)) && (
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setMemberToRemove(member);
+                                  setShowRemoveConfirm(true);
+                                }}
+                                className="text-destructive"
+                                data-testid={`button-remove-member-${memberId}`}
+                              >
+                                <UserMinus className="w-4 h-4 mr-2" />
+                                {isChildProfile ? "Remove Child" : "Remove Member"}
+                              </DropdownMenuItem>
+                            )}
                           </>
                         )}
                       </DropdownMenuContent>
