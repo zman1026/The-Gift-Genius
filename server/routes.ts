@@ -332,10 +332,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const user = await storage.getUser(userId);
       const inviterName = user ? `${user.firstName} ${user.lastName}` : 'A family member';
 
-      // Generate invite link
-      const baseUrl = process.env.REPL_SLUG 
-        ? `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`
-        : req.protocol + '://' + req.get('host');
+      // Generate invite link - use the actual request host to ensure correct URL
+      const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
+      const host = req.get('host');
+      const baseUrl = `${protocol}://${host}`;
       const inviteLink = `${baseUrl}/families/join?code=${family.inviteCode}`;
 
       // Send the email
