@@ -28,17 +28,31 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
   
   // Track previous family ID to detect changes
   const previousFamilyIdRef = useRef<string | null>(selectedFamilyId);
+  
+  // Track if this is the initial mount to avoid unnecessary resets
+  const isInitialMountRef = useRef(true);
 
-  const { data: families = [], isLoading } = useQuery<Family[]>({
+  const { data: families = [], isLoading, isFetching } = useQuery<Family[]>({
     queryKey: ['/api/families'],
   });
 
-  // Wrapper function that invalidates queries when family changes
+  // Wrapper function that updates localStorage synchronously and invalidates queries
   const setSelectedFamilyId = useCallback((newFamilyId: string | null) => {
     const previousFamilyId = previousFamilyIdRef.current;
     
     // Only take action if the family is actually changing
     if (newFamilyId !== previousFamilyId) {
+      // Update localStorage SYNCHRONOUSLY before anything else
+      // This ensures navigation doesn't lose the selection
+      if (newFamilyId) {
+        localStorage.setItem('selectedFamilyId', newFamilyId);
+      } else {
+        localStorage.removeItem('selectedFamilyId');
+      }
+      
+      // Update the ref to track the new family
+      previousFamilyIdRef.current = newFamilyId;
+      
       // Invalidate all family-dependent queries to ensure fresh data
       // This clears cached data from the old family
       queryClient.invalidateQueries({ queryKey: ['/api/stats'] });
@@ -49,15 +63,24 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       queryClient.invalidateQueries({ queryKey: ['/api/coordination-insights'] });
       queryClient.invalidateQueries({ queryKey: ['/api/families', previousFamilyId] });
       queryClient.invalidateQueries({ queryKey: ['/api/families', newFamilyId] });
-      
-      // Update the ref to track the new family
-      previousFamilyIdRef.current = newFamilyId;
     }
     
     setSelectedFamilyIdState(newFamilyId);
   }, []);
 
+  // Only validate family selection after initial load and when not fetching
+  // This prevents resetting to first family during query refetches
   useEffect(() => {
+    // Skip validation while data is loading or fetching
+    if (isLoading || isFetching) {
+      return;
+    }
+    
+    // Mark initial mount as complete after first successful load
+    if (isInitialMountRef.current && families.length > 0) {
+      isInitialMountRef.current = false;
+    }
+    
     if (families.length > 0) {
       // Check if currently selected family is still valid
       const isValidSelection = selectedFamilyId && families.some((f: any) => f.id === selectedFamilyId);
@@ -66,18 +89,11 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         // Reset to first family if current selection is invalid or null
         setSelectedFamilyId(families[0].id);
       }
-    } else if (families.length === 0 && selectedFamilyId) {
-      // Clear selection if user has no families
+    } else if (families.length === 0 && selectedFamilyId && !isInitialMountRef.current) {
+      // Only clear selection if user truly has no families (not during initial load)
       setSelectedFamilyId(null);
-      localStorage.removeItem('selectedFamilyId');
     }
-  }, [families, selectedFamilyId, setSelectedFamilyId]);
-
-  useEffect(() => {
-    if (selectedFamilyId) {
-      localStorage.setItem('selectedFamilyId', selectedFamilyId);
-    }
-  }, [selectedFamilyId]);
+  }, [families, selectedFamilyId, setSelectedFamilyId, isLoading, isFetching]);
 
   return (
     <FamilyContext.Provider value={{ selectedFamilyId, setSelectedFamilyId, families, isLoading }}>
