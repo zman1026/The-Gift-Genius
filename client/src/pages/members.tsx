@@ -28,7 +28,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { Users, Gift, Eye, UserPlus, Copy, Check, Lightbulb, Mail, Send, UserMinus, Edit, Settings, MoreVertical, Shield } from "lucide-react";
+import { Users, Gift, Eye, UserPlus, Copy, Check, Lightbulb, Mail, Send, UserMinus, Edit, Settings, MoreVertical, Shield, Share2 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -36,6 +36,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { UserSettingsDialog } from "@/components/user-settings-dialog";
 import { GuardianManagementDialog } from "@/components/guardian-management-dialog";
+import { CrossFamilySharingDialog } from "@/components/cross-family-sharing-dialog";
 
 const inviteEmailSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
@@ -81,6 +82,8 @@ export default function Members() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isGuardianDialogOpen, setIsGuardianDialogOpen] = useState(false);
   const [childForGuardianManagement, setChildForGuardianManagement] = useState<any>(null);
+  const [isChildSharingDialogOpen, setIsChildSharingDialogOpen] = useState(false);
+  const [childForSharing, setChildForSharing] = useState<any>(null);
   
   const selectedFamily = families?.find((f: any) => f.id === selectedFamilyId);
   const isOrganizer = selectedFamily?.createdById === (user as any)?.id;
@@ -688,6 +691,19 @@ export default function Members() {
                                 Manage Guardians
                               </DropdownMenuItem>
                             )}
+                            {isChildProfile && (isPrimaryGuardian || isSecondaryGuardianWithEdit) && families.length > 1 && (
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setChildForSharing(member);
+                                  setIsChildSharingDialogOpen(true);
+                                }}
+                                data-testid={`button-share-child-list-${memberId}`}
+                              >
+                                <Share2 className="w-4 h-4 mr-2" />
+                                Share List
+                              </DropdownMenuItem>
+                            )}
                             {(isPrimaryGuardian || (!isChildProfile && isOrganizer)) && (
                               <DropdownMenuItem
                                 onClick={(e) => {
@@ -938,6 +954,19 @@ export default function Members() {
           familyId={selectedFamilyId}
           currentUserId={(user as any)?.id}
           isPrimaryGuardian={childForGuardianManagement.createdBy === (user as any)?.id}
+        />
+      )}
+
+      {childForSharing && selectedFamilyId && (
+        <CrossFamilySharingDialog
+          open={isChildSharingDialogOpen}
+          onOpenChange={(open) => {
+            setIsChildSharingDialogOpen(open);
+            if (!open) setChildForSharing(null);
+          }}
+          mode="managed"
+          managedProfileId={childForSharing.managedProfileId}
+          profileName={childForSharing.firstName || "Child"}
         />
       )}
     </div>

@@ -15,13 +15,15 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Gift, Cake, GraduationCap, Heart, Baby, Home, PartyPopper, Calendar, Trash2, Edit, TreePine, Users, DollarSign } from "lucide-react";
+import { Plus, Gift, Cake, GraduationCap, Heart, Baby, Home, PartyPopper, Calendar, Trash2, Edit, TreePine, Users, DollarSign, Share2 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Link } from "wouter";
 import { format } from "date-fns";
 import { UnifiedAddItemDialog } from "@/components/unified-add-item-dialog";
+import { CrossFamilySharingDialog } from "@/components/cross-family-sharing-dialog";
+import { PersonalListSharingDialog } from "@/components/personal-list-sharing-dialog";
 import type { PersonalList, WishlistItem, Family } from "@shared/schema";
 
 const occasionTypes = [
@@ -77,6 +79,8 @@ export default function MyWishlists() {
   const [deletingListId, setDeletingListId] = useState<string | null>(null);
   const [isChristmasAddDialogOpen, setIsChristmasAddDialogOpen] = useState(false);
   const [addingToListId, setAddingToListId] = useState<string | null>(null);
+  const [isSharingDialogOpen, setIsSharingDialogOpen] = useState(false);
+  const [sharingList, setSharingList] = useState<PersonalList | null>(null);
 
   const form = useForm<CreateListFormData>({
     resolver: zodResolver(createListSchema),
@@ -480,7 +484,7 @@ export default function MyWishlists() {
               </Link>
             )}
             
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <Link href="/wishlist">
                 <Button variant="outline" size="sm" data-testid="button-view-christmas-list">
                   View List
@@ -494,9 +498,28 @@ export default function MyWishlists() {
                 <Plus className="w-4 h-4 mr-1" aria-hidden="true" />
                 Add Item
               </Button>
+              {families.length > 1 && (
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={() => setIsSharingDialogOpen(true)}
+                  data-testid="button-share-christmas-list"
+                >
+                  <Share2 className="w-4 h-4 mr-1" aria-hidden="true" />
+                  Share
+                </Button>
+              )}
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {selectedFamilyId && (
+        <CrossFamilySharingDialog
+          open={isSharingDialogOpen}
+          onOpenChange={setIsSharingDialogOpen}
+          mode="user"
+        />
       )}
 
       {selectedFamilyId && (
@@ -593,6 +616,14 @@ export default function MyWishlists() {
                         </Button>
                       </div>
                       <div className="flex gap-1">
+                        <Button 
+                          variant="ghost" 
+                          size="icon"
+                          onClick={() => setSharingList(list)}
+                          data-testid={`button-share-list-${list.id}`}
+                        >
+                          <Share2 className="w-4 h-4" aria-hidden="true" />
+                        </Button>
                         <Link href={`/personal-lists/${list.id}`}>
                           <Button variant="ghost" size="icon" data-testid={`button-edit-list-${list.id}`}>
                             <Edit className="w-4 h-4" aria-hidden="true" />
@@ -793,6 +824,14 @@ export default function MyWishlists() {
           </Form>
         </DialogContent>
       </Dialog>
+
+      {sharingList && (
+        <PersonalListSharingDialog
+          open={!!sharingList}
+          onOpenChange={(open) => !open && setSharingList(null)}
+          list={sharingList}
+        />
+      )}
     </div>
   );
 }

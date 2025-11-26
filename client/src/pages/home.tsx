@@ -14,6 +14,7 @@ import { MemberSpotlight } from "@/components/member-spotlight";
 import { QuickActions } from "@/components/quick-actions";
 import { GiftGivingProgress } from "@/components/gift-giving-progress";
 import { AddItemListPicker } from "@/components/add-item-list-picker";
+import { SharedPersonalLists } from "@/components/shared-personal-lists";
 
 interface DashboardStats {
   myItemsCount: number;
@@ -137,6 +138,9 @@ export default function Home() {
 
       {/* Member Spotlight Section */}
       <MemberSpotlight familyId={selectedFamilyId!} />
+
+      {/* Shared Personal Lists Section */}
+      <SharedPersonalLists />
 
       {/* Recent Activity Feed */}
       <Card>
