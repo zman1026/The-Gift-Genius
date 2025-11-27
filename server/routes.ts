@@ -1549,7 +1549,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const data = await response.json();
       const results = data.shopping_results || [];
       
-      console.log(`[Product Search] Query: "${query}" - Found ${results.length} results (cached)`);
+      console.log(`[Product Search] Query: "${query}" - Found ${results.length} results`);
+      
+      // Log the first result to understand the API response structure
+      if (results.length > 0) {
+        const sampleResult = results[0];
+        console.log('[Product Search] Sample result fields:', {
+          hasLink: !!sampleResult.link,
+          hasMerchantLink: !!sampleResult.merchant_link,
+          hasProductLink: !!sampleResult.product_link,
+          link: sampleResult.link,
+          merchant_link: sampleResult.merchant_link,
+          product_link: sampleResult.product_link,
+          source: sampleResult.source,
+          allKeys: Object.keys(sampleResult),
+        });
+      }
       
       // Helper to parse review counts
       const parseReviewCount = (reviews: any) => {
@@ -1583,12 +1598,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         try {
           const url = new URL(urlString);
           
-          // If it's a Google redirect, extract the actual merchant URL
+          // If it's a Google redirect or Google Shopping URL, extract the actual merchant URL
           if (url.hostname.includes('google.com')) {
             // Try common Google redirect parameters and decode them
-            const encodedMerchantUrl = url.searchParams.get('url') || 
-                                      url.searchParams.get('u') || 
-                                      url.searchParams.get('q');
+            // Order matters: 'q' is most common for google.com/url redirects
+            const encodedMerchantUrl = url.searchParams.get('q') ||
+                                      url.searchParams.get('url') || 
+                                      url.searchParams.get('u');
             
             if (encodedMerchantUrl) {
               // Decode the URL parameter
@@ -1597,6 +1613,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
               // Recursively extract in case of nested redirects
               return extractMerchantUrl(decodedUrl, depth + 1);
             }
+            
+            // Check if this is a Google Shopping product page (no redirect params)
+            // These URLs look like: https://www.google.com/shopping/product/1234567890
+            // Unfortunately, we can't extract a merchant URL from these directly
+            // Return the original URL as fallback
           }
           
           // Return original URL if not a redirect
@@ -1677,18 +1698,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const reviews = parseReviewCount(result.reviews || result.reviews_count || result.rating_count);
           
           // Try to find the direct store link
-          // Priority: direct merchant link > product_link > fallback to Google redirect
-          let link = '';
-          if (result.merchant_link || result.product_link) {
-            // Use direct link if available
-            link = result.merchant_link || result.product_link;
-          } else if (result.link) {
-            // Fallback to Google redirect
-            link = result.link;
+          // Priority: product_link > scrapingdog_immersive_product_link > merchant_link > link (fallback)
+          // NOTE: result.link is usually a Google Shopping product page URL (not the actual retailer)
+          let directLink = 
+            result.product_link || 
+            result.scrapingdog_immersive_product_link || 
+            result.merchant_link || 
+            result.link || '';
+          
+          // Log for debugging (only first result per query to avoid spam)
+          if (result.position === 1) {
+            console.log('[Product Search] Link resolution for first result:', {
+              product_link: result.product_link,
+              scrapingdog_link: result.scrapingdog_immersive_product_link,
+              merchant_link: result.merchant_link,
+              link: result.link,
+              chosen: directLink,
+            });
           }
           
           // Extract actual merchant URL from potential Google redirects
-          const merchantUrl = extractMerchantUrl(link);
+          const merchantUrl = extractMerchantUrl(directLink);
           const source = result.source || result.merchant || '';
           
           // Check if this is an excluded retailer (check both source and actual merchant URL)

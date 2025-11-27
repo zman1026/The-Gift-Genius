@@ -261,7 +261,8 @@ export default function Search() {
                         <Plus className="w-4 h-4 mr-1" />
                         Add to List
                       </Button>
-                      {product.link && (
+                      {/* Only show external link if it's a direct retailer URL, not a Google Shopping page */}
+                      {product.link && !product.link.includes('google.com/shopping') && (
                         <Button
                           variant="outline"
                           size="sm"
