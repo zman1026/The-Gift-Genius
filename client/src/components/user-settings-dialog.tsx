@@ -193,7 +193,7 @@ export function UserSettingsDialog({ open, onOpenChange }: UserSettingsDialogPro
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]" data-testid="dialog-user-settings">
+      <DialogContent className="sm:max-w-[425px] max-h-[90vh] overflow-y-auto" data-testid="dialog-user-settings">
         <DialogHeader>
           <DialogTitle>Profile Settings</DialogTitle>
           <DialogDescription>
