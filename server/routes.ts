@@ -1530,19 +1530,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Cached product search function (memoized for 10 minutes)
-  // Uses Scrapingdog Google Shopping API (10 credits per request)
+  // Uses SerpApi Google Shopping API - provides direct retailer links
   const cachedProductSearch = memoize(
     async (query: string, apiKey: string) => {
-      const searchUrl = new URL('https://api.scrapingdog.com/google_shopping');
+      const searchUrl = new URL('https://serpapi.com/search');
       searchUrl.searchParams.set('api_key', apiKey);
-      searchUrl.searchParams.set('query', query);
-      searchUrl.searchParams.set('country', 'us');
-      searchUrl.searchParams.set('results', '10');
+      searchUrl.searchParams.set('engine', 'google_shopping');
+      searchUrl.searchParams.set('q', query);
+      searchUrl.searchParams.set('gl', 'us');
+      searchUrl.searchParams.set('hl', 'en');
 
       const response = await fetch(searchUrl.toString(), { signal: AbortSignal.timeout(15000) });
       if (!response.ok) {
         const errorText = await response.text();
-        console.error("Scrapingdog error:", response.status, errorText);
+        console.error("SerpApi error:", response.status, errorText);
         throw new Error('Search service error');
       }
 
@@ -1556,10 +1557,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const sampleResult = results[0];
         console.log('[Product Search] Sample result fields:', {
           hasLink: !!sampleResult.link,
-          hasMerchantLink: !!sampleResult.merchant_link,
           hasProductLink: !!sampleResult.product_link,
           link: sampleResult.link,
-          merchant_link: sampleResult.merchant_link,
           product_link: sampleResult.product_link,
           source: sampleResult.source,
           allKeys: Object.keys(sampleResult),
@@ -1572,6 +1571,101 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const str = String(reviews).toLowerCase();
         if (str.includes('k')) return parseFloat(str) * 1000;
         return parseInt(str.replace(/[^\d]/g, '')) || 0;
+      };
+      
+      // Helper to build a retailer search URL based on the source name
+      // Since Google Shopping API doesn't return direct product links,
+      // we construct a search URL on the retailer's website
+      const buildRetailerSearchUrl = (source: string, productTitle: string): string | null => {
+        if (!source || !productTitle) return null;
+        
+        const normalizedSource = source.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const encodedTitle = encodeURIComponent(productTitle);
+        
+        // Map retailers to their search URL patterns
+        const retailerSearchPatterns: { [key: string]: string } = {
+          // Major retailers
+          'nike': `https://www.nike.com/w?q=${encodedTitle}`,
+          'adidas': `https://www.adidas.com/us/search?q=${encodedTitle}`,
+          'amazon': `https://www.amazon.com/s?k=${encodedTitle}`,
+          'amazoncom': `https://www.amazon.com/s?k=${encodedTitle}`,
+          'walmart': `https://www.walmart.com/search?q=${encodedTitle}`,
+          'walmartcom': `https://www.walmart.com/search?q=${encodedTitle}`,
+          'target': `https://www.target.com/s?searchTerm=${encodedTitle}`,
+          'targetcom': `https://www.target.com/s?searchTerm=${encodedTitle}`,
+          'bestbuy': `https://www.bestbuy.com/site/searchpage.jsp?st=${encodedTitle}`,
+          'kohls': `https://www.kohls.com/search.jsp?search=${encodedTitle}`,
+          'macys': `https://www.macys.com/shop/featured/${encodedTitle}`,
+          'nordstrom': `https://www.nordstrom.com/sr?keyword=${encodedTitle}`,
+          'zappos': `https://www.zappos.com/search?term=${encodedTitle}`,
+          'finishline': `https://www.finishline.com/store/browse/search.jsp?searchText=${encodedTitle}`,
+          'footlocker': `https://www.footlocker.com/search?query=${encodedTitle}`,
+          'dickssportinggoods': `https://www.dickssportinggoods.com/search/SearchDisplay?searchTerm=${encodedTitle}`,
+          'dicks': `https://www.dickssportinggoods.com/search/SearchDisplay?searchTerm=${encodedTitle}`,
+          'rei': `https://www.rei.com/search?q=${encodedTitle}`,
+          'underarmour': `https://www.underarmour.com/en-us/search?q=${encodedTitle}`,
+          'newbalance': `https://www.newbalance.com/search/?q=${encodedTitle}`,
+          'puma': `https://us.puma.com/us/en/search?q=${encodedTitle}`,
+          'asics': `https://www.asics.com/us/en-us/search?q=${encodedTitle}`,
+          'reebok': `https://www.reebok.com/us/search?q=${encodedTitle}`,
+          'homedepot': `https://www.homedepot.com/s/${encodedTitle}`,
+          'lowes': `https://www.lowes.com/search?searchTerm=${encodedTitle}`,
+          'costco': `https://www.costco.com/CatalogSearch?keyword=${encodedTitle}`,
+          'newegg': `https://www.newegg.com/p/pl?d=${encodedTitle}`,
+          'apple': `https://www.apple.com/us/search/${encodedTitle}`,
+          'applecom': `https://www.apple.com/us/search/${encodedTitle}`,
+          'samsung': `https://www.samsung.com/us/search/searchMain?listType=all&searchTerm=${encodedTitle}`,
+          'dell': `https://www.dell.com/en-us/search/${encodedTitle}`,
+          'hp': `https://www.hp.com/us-en/search.html?search=${encodedTitle}`,
+          'lenovo': `https://www.lenovo.com/us/en/search?fq=&text=${encodedTitle}`,
+          'wayfair': `https://www.wayfair.com/keyword.html?keyword=${encodedTitle}`,
+          'overstock': `https://www.overstock.com/search?keywords=${encodedTitle}`,
+          'ebay': `https://www.ebay.com/sch/i.html?_nkw=${encodedTitle}`,
+          'etsy': `https://www.etsy.com/search?q=${encodedTitle}`,
+          'jcpenney': `https://www.jcpenney.com/s/${encodedTitle}`,
+          'sephora': `https://www.sephora.com/search?keyword=${encodedTitle}`,
+          'ulta': `https://www.ulta.com/search?query=${encodedTitle}`,
+          'cvs': `https://www.cvs.com/search?searchTerm=${encodedTitle}`,
+          'walgreens': `https://www.walgreens.com/search/results.jsp?Ntt=${encodedTitle}`,
+          'chewy': `https://www.chewy.com/s?query=${encodedTitle}`,
+          'petco': `https://www.petco.com/shop/en/petcostore/search/${encodedTitle}`,
+          'petsmart': `https://www.petsmart.com/search/?q=${encodedTitle}`,
+          'gamestop': `https://www.gamestop.com/search/?q=${encodedTitle}`,
+          'staples': `https://www.staples.com/search?query=${encodedTitle}`,
+          'officedepot': `https://www.officedepot.com/catalog/search.do?Ntt=${encodedTitle}`,
+          'barnesandnoble': `https://www.barnesandnoble.com/s/${encodedTitle}`,
+          'anthropologie': `https://www.anthropologie.com/search?q=${encodedTitle}`,
+          'urbanoutfitters': `https://www.urbanoutfitters.com/search?q=${encodedTitle}`,
+          'gap': `https://www.gap.com/browse/search.do?searchText=${encodedTitle}`,
+          'oldnavy': `https://oldnavy.gap.com/browse/search.do?searchText=${encodedTitle}`,
+          'bananarepublic': `https://bananarepublic.gap.com/browse/search.do?searchText=${encodedTitle}`,
+          'hm': `https://www2.hm.com/en_us/search-results.html?q=${encodedTitle}`,
+          'zara': `https://www.zara.com/us/en/search?searchTerm=${encodedTitle}`,
+          'uniqlo': `https://www.uniqlo.com/us/en/search?q=${encodedTitle}`,
+          'forever21': `https://www.forever21.com/us/search?q=${encodedTitle}`,
+          'asos': `https://www.asos.com/us/search/?q=${encodedTitle}`,
+          'google': `https://store.google.com/us/search?q=${encodedTitle}`,
+          'googlestore': `https://store.google.com/us/search?q=${encodedTitle}`,
+          'microsoft': `https://www.microsoft.com/en-us/search/shop/devices?q=${encodedTitle}`,
+          'sony': `https://electronics.sony.com/search/${encodedTitle}`,
+          'lg': `https://www.lg.com/us/search/result?search=${encodedTitle}`,
+          'johnstonmurphy': `https://www.johnstonmurphy.com/search?q=${encodedTitle}`,
+        };
+        
+        // Check for exact match first
+        if (retailerSearchPatterns[normalizedSource]) {
+          return retailerSearchPatterns[normalizedSource];
+        }
+        
+        // Check for partial matches (e.g., "Nike.com" matches "nike")
+        for (const [retailer, url] of Object.entries(retailerSearchPatterns)) {
+          if (normalizedSource.includes(retailer) || retailer.includes(normalizedSource)) {
+            return url;
+          }
+        }
+        
+        // For unknown sources, try Google Shopping search for that retailer
+        return `https://www.google.com/search?tbm=shop&q=${encodedTitle}+${encodeURIComponent(source)}`;
       };
       
       // Define reputable US retailers and brands (normalized domain keywords)
@@ -1697,29 +1791,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const rating = parseFloat(String(result.rating || result.product_rating || '0').replace(/[^\d.]/g, '')) || 0;
           const reviews = parseReviewCount(result.reviews || result.reviews_count || result.rating_count);
           
-          // Try to find the direct store link
-          // Priority: product_link > scrapingdog_immersive_product_link > merchant_link > link (fallback)
-          // NOTE: result.link is usually a Google Shopping product page URL (not the actual retailer)
-          let directLink = 
-            result.product_link || 
-            result.scrapingdog_immersive_product_link || 
-            result.merchant_link || 
-            result.link || '';
+          // Build a retailer search URL based on the source and product title
+          // Since neither SerpApi nor Scrapingdog return direct retailer links in shopping results,
+          // we create a search URL that takes users to the retailer's search page for this product
+          const source = result.source || result.merchant || '';
+          const retailerSearchUrl = buildRetailerSearchUrl(source, result.title);
+          
+          // Use the retailer search URL as the link, or fall back to Google Shopping
+          let directLink = retailerSearchUrl || result.product_link || '';
           
           // Log for debugging (only first result per query to avoid spam)
           if (result.position === 1) {
             console.log('[Product Search] Link resolution for first result:', {
+              source: source,
+              title: result.title,
+              retailerSearchUrl: retailerSearchUrl,
               product_link: result.product_link,
-              scrapingdog_link: result.scrapingdog_immersive_product_link,
-              merchant_link: result.merchant_link,
-              link: result.link,
               chosen: directLink,
             });
           }
           
-          // Extract actual merchant URL from potential Google redirects
+          // Extract actual merchant URL from potential Google redirects (if still needed)
           const merchantUrl = extractMerchantUrl(directLink);
-          const source = result.source || result.merchant || '';
           
           // Check if this is an excluded retailer (check both source and actual merchant URL)
           const isExcluded = excludedRetailers.some(excluded => 
@@ -1797,7 +1890,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   );
 
-  // Product search route (Scrapingdog Google Shopping integration)
+  // Product search route (SerpApi Google Shopping integration)
   app.get('/api/search', isAuthenticated, async (req: any, res) => {
     try {
       const { q } = req.query;
@@ -1806,7 +1899,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Search query is required" });
       }
 
-      const apiKey = process.env.SCRAPINGDOG_API_KEY;
+      const apiKey = process.env.SERPAPI_KEY;
       if (!apiKey) {
         return res.status(500).json({ message: "Search service not configured" });
       }

@@ -3,6 +3,14 @@
 ## Overview
 The Gift Genius is a mobile-first web application designed to facilitate collaborative wishlist management for groups. It allows users to create, share, and manage wishlists at the group level, add items, and secretly mark purchases to preserve gift surprises. Users can also create personal shareable wishlists for any occasion.
 
+## Recent Changes (November 27, 2025)
+- **Product Search with Direct Retailer Links**: Switched from Scrapingdog to SerpApi for product search with smart retailer URL generation:
+  - When clicking "View Product" on search results, users are taken to the actual retailer's website (not broken Google Shopping pages)
+  - Supports 60+ major retailers: Nike, Walmart, Amazon, Target, Best Buy, Apple, etc.
+  - Each retailer has a custom search URL pattern (e.g., nike.com/w?q=..., walmart.com/search?q=...)
+  - Unknown retailers fall back to Google Shopping search with the retailer name
+  - Required secrets: `SERPAPI_KEY` (for Google Shopping search), `SCRAPINGDOG_API_KEY` (for Google Lens visual search)
+
 ## Recent Changes (November 26, 2025)
 - **Cross-Group Christmas Wishlist**: Christmas wishlist items now appear across all groups:
   - New `/api/my-christmas-wishlist` endpoint fetches user's items from ALL their groups
@@ -59,7 +67,6 @@ The Gift Genius is a mobile-first web application designed to facilitate collabo
   - API: Full CRUD at `/api/personal-lists/*`, public list endpoint at `/api/public/lists/:slug`
   - Privacy: List owners cannot see who purchased items
 - **UI Terminology Update: "Family" → "Group"**: All user-facing text uses "Group" while internal code (familyId, API routes) remains unchanged for stability.
-- **API Migration: SerpApi → Scrapingdog**: Product search uses Scrapingdog for cost savings. Required secret: `SCRAPINGDOG_API_KEY`.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
@@ -99,7 +106,7 @@ The backend utilizes **Express.js** and **TypeScript**, with **Drizzle ORM** for
 -   **Authentication Service:** Replit Auth
 -   **Database:** Neon Serverless PostgreSQL
 -   **Email Service:** Resend
--   **Product Search:** Scrapingdog (Google Shopping API & Google Lens API)
+-   **Product Search:** SerpApi (Google Shopping API for text search), Scrapingdog (Google Lens API for visual search)
 -   **Object Storage:** Replit Object Storage
 -   **UI Components:** Radix UI, shadcn/ui, Tailwind CSS
 -   **File Uploader:** Uppy v5

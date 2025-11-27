@@ -74,24 +74,18 @@ export function ProductDetailsDialog({
 
   useEffect(() => {
     if (product && open) {
-      // Check if the product link is a valid retailer URL (not a Google Shopping page)
-      const isValidRetailerLink = product.link && !product.link.includes('google.com/shopping');
-      const productUrl = isValidRetailerLink ? product.link : "";
-      
       console.log('[ProductDialog] Resetting form with product:', {
         name: product.title,
         price: product.extracted_price,
         description: product.snippet,
-        url: productUrl,
+        url: product.link,
         imageUrl: product.thumbnail,
-        originalLink: product.link,
-        isValidRetailerLink,
       });
       form.reset({
         name: product.title || "",
         price: product.extracted_price !== undefined && product.extracted_price !== null ? product.extracted_price : null,
         description: product.snippet || "",
-        url: productUrl,
+        url: product.link || "",
         imageUrl: product.thumbnail || "",
         priority: "medium",
         quantity: 1,
