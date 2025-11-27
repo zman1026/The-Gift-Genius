@@ -1714,7 +1714,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           return {
             ...result,
-            link: link,
+            link: merchantUrl, // Use the extracted merchant URL, not the Google redirect
             snippet: result.snippet || result.description || '',
             extracted_price: result.extracted_price || (typeof result.price === 'number' ? result.price : null),
             _popularity: popularity,
