@@ -3,6 +3,12 @@
 ## Overview
 The Gift Genius is a mobile-first web application designed to facilitate collaborative wishlist management for groups. It allows users to create, share, and manage wishlists at the group level, add items, and secretly mark purchases to preserve gift surprises. Users can also create personal shareable wishlists for any occasion.
 
+## Recent Changes (November 28, 2025)
+- **Guardian Edit Permissions for Child Lists**: Fixed bug where guardians with edit rights couldn't add items to child profiles:
+  - API endpoint `/api/members/:userId` now returns guardian permissions (`guardianCanEdit`, `isGuardian`, `createdBy`)
+  - "Add Item" button now shows for: group organizers, primary guardians (creators), and secondary guardians with edit permission
+  - Enables shared management of child wishlists across multiple guardians
+
 ## Recent Changes (November 27, 2025)
 - **Product Search with Direct Retailer Links**: Switched from Scrapingdog to SerpApi for product search with smart retailer URL generation:
   - When clicking "View Product" on search results, users are taken to the actual retailer's website (not broken Google Shopping pages)

@@ -112,6 +112,13 @@ export default function MemberWishlist() {
     retry: false,
   });
 
+  // Check if user can add items: organizer OR guardian with edit permission for managed profiles
+  // memberData includes: isManagedProfile, guardianCanEdit, isGuardian, createdBy
+  const isManagedProfile = memberData?.isManagedProfile === true;
+  const isPrimaryGuardian = isManagedProfile && memberData?.createdBy === currentUserId;
+  const isGuardianWithEditPermission = isManagedProfile && memberData?.guardianCanEdit === true;
+  const canAddItems = isOrganizer || isPrimaryGuardian || isGuardianWithEditPermission;
+
   // Set/clear current member context when viewing this page
   useEffect(() => {
     if (userId && memberData) {
@@ -324,7 +331,7 @@ export default function MemberWishlist() {
             {items?.length || 0} items on their list
           </p>
         </div>
-        {isOrganizer && (
+        {canAddItems && (
           <Button 
             onClick={() => setIsAddItemDialogOpen(true)}
             data-testid="button-add-item-for-member"

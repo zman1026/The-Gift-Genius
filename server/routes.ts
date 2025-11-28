@@ -619,11 +619,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Try to fetch as a regular user first
       let user = await storage.getUser(userId);
       let displayName = null;
+      let isManagedProfile = false;
+      let guardianCanEdit = false;
+      let isGuardian = false;
+      let createdBy: string | null = null;
       
       // If not found as a user, try as a managed profile
       if (!user) {
         const managedProfile = await storage.getManagedProfile(userId);
         if (managedProfile) {
+          isManagedProfile = true;
+          createdBy = managedProfile.createdById;
+          
+          // Check if viewer is a guardian with edit permission
+          const guardianPermissions = await storage.getGuardianPermissions(userId, viewerId);
+          if (guardianPermissions) {
+            isGuardian = true;
+            guardianCanEdit = guardianPermissions.canEdit;
+          }
+          
           // Convert managed profile to user-like format
           user = {
             id: managedProfile.id,
@@ -649,7 +663,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      res.json({ ...user, displayName });
+      res.json({ 
+        ...user, 
+        displayName, 
+        isManagedProfile, 
+        guardianCanEdit, 
+        isGuardian,
+        createdBy 
+      });
     } catch (error) {
       console.error("Error fetching member:", error);
       res.status(500).json({ message: "Failed to fetch member" });
