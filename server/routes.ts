@@ -2136,17 +2136,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Validate URL format - must be an Amazon wishlist URL
+      // Support both standard wishlist URLs (/ls/ID) and invite links (/dl/invite/TOKEN)
       const amazonWishlistRegex = /^https?:\/\/(www\.)?amazon\.(com|co\.uk|ca|de|fr|es|it|com\.au|co\.jp|in|com\.mx|com\.br|nl|se|pl|com\.be|ae|sa|sg|com\.tr|eg)\/.*\/(wishlist|hz\/wishlist|registry)\/(ls|gl)\/([A-Z0-9]+)/i;
-      const match = url.match(amazonWishlistRegex);
+      const amazonInviteRegex = /^https?:\/\/(www\.)?amazon\.(com|co\.uk|ca|de|fr|es|it|com\.au|co\.jp|in|com\.mx|com\.br|nl|se|pl|com\.be|ae|sa|sg|com\.tr|eg)\/hz\/wishlist\/dl\/invite\//i;
       
-      if (!match) {
+      const match = url.match(amazonWishlistRegex);
+      const isInviteLink = amazonInviteRegex.test(url);
+      
+      if (!match && !isInviteLink) {
         return res.status(400).json({ 
           message: "Invalid Amazon wishlist URL. Please paste a valid Amazon wishlist link (e.g., https://www.amazon.com/hz/wishlist/ls/ABC123...)" 
         });
       }
       
-      const listId = match[4]; // Extract the wishlist ID
-      console.log(`[Amazon Import] Scraping wishlist: ${listId}`);
+      const listId = match ? match[4] : 'invite-link';
+      console.log(`[Amazon Import] Scraping wishlist: ${listId} (invite: ${isInviteLink})`);
       
       // Use Scrapingdog to fetch the wishlist page
       const scrapingdogApiKey = process.env.SCRAPINGDOG_API_KEY;

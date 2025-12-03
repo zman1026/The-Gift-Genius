@@ -233,9 +233,12 @@ export function ImportAmazonWishlistDialog({
               <h4 className="font-medium text-sm">How to find your Amazon wishlist URL:</h4>
               <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
                 <li>Go to Amazon and open your wishlist</li>
-                <li>Click "Share" or copy the URL from your browser</li>
+                <li>Click "Share" or "Invite" and copy the link</li>
                 <li>Make sure the list is set to "Public" or "Shared"</li>
               </ol>
+              <p className="text-xs text-muted-foreground/80 mt-2">
+                Both direct wishlist links and invite links are supported.
+              </p>
             </div>
           </div>
         ) : (
