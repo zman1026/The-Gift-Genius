@@ -24,6 +24,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { UnifiedAddItemDialog } from "@/components/unified-add-item-dialog";
+import { ImportAmazonWishlistDialog } from "@/components/import-amazon-wishlist-dialog";
 
 const editMemberSchema = z.object({
   displayName: z.string().nullable().optional(),
@@ -47,6 +48,7 @@ export default function MemberWishlist() {
   // Detail view state
   const [viewingItem, setViewingItem] = useState<any>(null);
   const [isAddItemDialogOpen, setIsAddItemDialogOpen] = useState(false);
+  const [isImportAmazonDialogOpen, setIsImportAmazonDialogOpen] = useState(false);
   
   const selectedFamily = families?.find((f: any) => f.id === selectedFamilyId);
   const isOrganizer = selectedFamily?.createdById === currentUserId;
@@ -332,13 +334,23 @@ export default function MemberWishlist() {
           </p>
         </div>
         {canAddItems && (
-          <Button 
-            onClick={() => setIsAddItemDialogOpen(true)}
-            data-testid="button-add-item-for-member"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Add an item to {primaryDisplayName}'s list
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button 
+              onClick={() => setIsAddItemDialogOpen(true)}
+              data-testid="button-add-item-for-member"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Add Item
+            </Button>
+            <Button 
+              variant="outline"
+              onClick={() => setIsImportAmazonDialogOpen(true)}
+              data-testid="button-import-amazon"
+            >
+              <ShoppingBag className="w-4 h-4 mr-2" />
+              Import Amazon List
+            </Button>
+          </div>
         )}
       </div>
 
@@ -658,17 +670,26 @@ export default function MemberWishlist() {
       </Dialog>
       
       {selectedFamilyId && userId && (
-        <UnifiedAddItemDialog 
-          open={isAddItemDialogOpen} 
-          onOpenChange={setIsAddItemDialogOpen}
-          familyId={selectedFamilyId}
-          targetUserId={userId}
-          targetUserName={primaryDisplayName}
-          onSuccess={() => {
-            queryClient.invalidateQueries({ queryKey: ["/api/members", userId, "wishlist", selectedFamilyId] });
-            setIsAddItemDialogOpen(false);
-          }}
-        />
+        <>
+          <UnifiedAddItemDialog 
+            open={isAddItemDialogOpen} 
+            onOpenChange={setIsAddItemDialogOpen}
+            familyId={selectedFamilyId}
+            targetUserId={userId}
+            targetUserName={primaryDisplayName}
+            onSuccess={() => {
+              queryClient.invalidateQueries({ queryKey: ["/api/members", userId, "wishlist", selectedFamilyId] });
+              setIsAddItemDialogOpen(false);
+            }}
+          />
+          <ImportAmazonWishlistDialog
+            open={isImportAmazonDialogOpen}
+            onOpenChange={setIsImportAmazonDialogOpen}
+            familyId={selectedFamilyId}
+            targetUserId={userId}
+            targetName={primaryDisplayName}
+          />
+        </>
       )}
     </div>
   );

@@ -23,6 +23,7 @@ import { z } from "zod";
 import { Link } from "wouter";
 import { ObjectUploader } from "@/components/ObjectUploader";
 import { UnifiedAddItemDialog } from "@/components/unified-add-item-dialog";
+import { ImportAmazonWishlistDialog } from "@/components/import-amazon-wishlist-dialog";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import type { UploadResult } from "@uppy/core";
 
@@ -52,6 +53,7 @@ export default function Wishlist() {
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { selectedFamilyId } = useFamily();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isImportAmazonDialogOpen, setIsImportAmazonDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
   const [uploadedImageUrl, setUploadedImageUrl] = useState<string>("");
   
@@ -602,6 +604,14 @@ export default function Wishlist() {
             <Plus className="w-4 h-4 mr-2" aria-hidden="true" />
             Add Item
           </Button>
+          <Button 
+            variant="outline" 
+            onClick={() => setIsImportAmazonDialogOpen(true)} 
+            data-testid="button-import-amazon"
+          >
+            <Gift className="w-4 h-4 mr-2" aria-hidden="true" />
+            Import Amazon List
+          </Button>
           <Link href="/gift-coordination">
             <Button 
               variant="outline"
@@ -645,6 +655,15 @@ export default function Wishlist() {
           });
         }}
       />
+      
+      {/* Import Amazon Wishlist Dialog */}
+      {selectedFamilyId && (
+        <ImportAmazonWishlistDialog
+          open={isImportAmazonDialogOpen}
+          onOpenChange={setIsImportAmazonDialogOpen}
+          familyId={selectedFamilyId}
+        />
+      )}
 
       {/* Edit Item Dialog */}
       <Dialog open={!!editingItem} onOpenChange={(open) => { if (!open) handleCloseDialog(); }}>

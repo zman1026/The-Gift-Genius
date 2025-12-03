@@ -9,7 +9,9 @@ import * as cheerio from "cheerio";
 import { ObjectStorageService, ObjectNotFoundError, objectStorageClient } from "./objectStorage";
 import { ObjectPermission } from "./objectAcl";
 import memoize from "memoizee";
-import { bulkDeleteItemsSchema, bulkUpdatePrioritySchema, setBudgetAllocationsSchema, logOffWishlistPurchaseSchema, insertPersonalListSchema, insertPersonalListItemSchema, occasionTypeEnum } from "@shared/schema";
+import { bulkDeleteItemsSchema, bulkUpdatePrioritySchema, setBudgetAllocationsSchema, logOffWishlistPurchaseSchema, insertPersonalListSchema, insertPersonalListItemSchema, occasionTypeEnum, wishlistItems, type WishlistItem } from "@shared/schema";
+import { db } from "./db";
+import { eq, and } from "drizzle-orm";
 
 /**
  * Helper function to compute recipient display name for activity logs
@@ -2119,6 +2121,342 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+
+  // ============================================================================
+  // AMAZON WISHLIST IMPORT
+  // ============================================================================
+  
+  // Preview Amazon wishlist - scrapes the wishlist and returns items for preview
+  app.post('/api/import/amazon-wishlist/preview', isAuthenticated, async (req: any, res) => {
+    try {
+      const { url } = req.body;
+      
+      if (!url || typeof url !== 'string') {
+        return res.status(400).json({ message: "Amazon wishlist URL is required" });
+      }
+      
+      // Validate URL format - must be an Amazon wishlist URL
+      const amazonWishlistRegex = /^https?:\/\/(www\.)?amazon\.(com|co\.uk|ca|de|fr|es|it|com\.au|co\.jp|in|com\.mx|com\.br|nl|se|pl|com\.be|ae|sa|sg|com\.tr|eg)\/.*\/(wishlist|hz\/wishlist|registry)\/(ls|gl)\/([A-Z0-9]+)/i;
+      const match = url.match(amazonWishlistRegex);
+      
+      if (!match) {
+        return res.status(400).json({ 
+          message: "Invalid Amazon wishlist URL. Please paste a valid Amazon wishlist link (e.g., https://www.amazon.com/hz/wishlist/ls/ABC123...)" 
+        });
+      }
+      
+      const listId = match[4]; // Extract the wishlist ID
+      console.log(`[Amazon Import] Scraping wishlist: ${listId}`);
+      
+      // Use Scrapingdog to fetch the wishlist page
+      const scrapingdogApiKey = process.env.SCRAPINGDOG_API_KEY;
+      if (!scrapingdogApiKey) {
+        return res.status(500).json({ message: "Scraping service not configured" });
+      }
+      
+      const scrapingUrl = `https://api.scrapingdog.com/scrape?api_key=${scrapingdogApiKey}&url=${encodeURIComponent(url)}&dynamic=true`;
+      
+      const response = await fetch(scrapingUrl);
+      
+      if (!response.ok) {
+        console.error(`[Amazon Import] Scrapingdog error: ${response.status}`);
+        return res.status(502).json({ message: "Failed to fetch Amazon wishlist. The list may be private or temporarily unavailable." });
+      }
+      
+      const html = await response.text();
+      
+      // Check if the wishlist is private or doesn't exist
+      if (html.includes('This list is private') || html.includes('Page Not Found') || html.includes('Sorry, we couldn\'t find that page')) {
+        return res.status(403).json({ message: "This wishlist is private or doesn't exist. Make sure the wishlist is set to 'Public' or 'Shared' on Amazon." });
+      }
+      
+      // Parse HTML with Cheerio
+      const $ = cheerio.load(html);
+      
+      // Debug: log HTML size and check for key markers
+      console.log(`[Amazon Import] HTML size: ${html.length} bytes`);
+      console.log(`[Amazon Import] Contains data-itemId: ${html.includes('data-itemId')}`);
+      console.log(`[Amazon Import] Contains itemId=: ${html.includes('itemId=')}`);
+      
+      // Extract wishlist title
+      const wishlistTitle = $('#profile-list-name').text().trim() || 
+                           $('span[id*="list-title"]').text().trim() || 
+                           'Amazon Wishlist';
+      
+      console.log(`[Amazon Import] Wishlist title: "${wishlistTitle}"`);
+      
+      // Find all wishlist items - Amazon uses data-itemId attribute
+      const items: any[] = [];
+      
+      // Try multiple selector approaches since Cheerio may handle attribute names differently
+      // Check both lowercase and mixed case versions
+      const itemElements = $('[data-itemid], [data-itemId], [itemId], [itemid]');
+      console.log(`[Amazon Import] Found ${itemElements.length} elements with itemId attributes`);
+      
+      // Look for items with itemId attribute (common pattern)
+      itemElements.each((index, element) => {
+        const $item = $(element);
+        // Try all possible attribute name variations
+        const itemId = $item.attr('data-itemid') || $item.attr('data-itemId') || 
+                      $item.attr('itemId') || $item.attr('itemid');
+        
+        if (!itemId) return;
+        
+        // Find item name - look for element with id="itemName_{itemId}"
+        const $nameElement = $(`#itemName_${itemId}`);
+        const title = $nameElement.attr('title') || $nameElement.text().trim();
+        
+        if (!title) return; // Skip if no title found
+        
+        // Extract product URL from the name link
+        let productUrl = $nameElement.attr('href') || '';
+        if (productUrl && !productUrl.startsWith('http')) {
+          // Convert relative URL to absolute
+          const urlObj = new URL(url);
+          productUrl = `${urlObj.origin}${productUrl}`;
+        }
+        
+        // Extract ASIN from URL if possible
+        const asinMatch = productUrl.match(/\/dp\/([A-Z0-9]{10})/);
+        const asin = asinMatch ? asinMatch[1] : null;
+        
+        // Find price - look for element with id="itemPrice_{itemId}"
+        const $priceElement = $(`#itemPrice_${itemId}`);
+        let price = $priceElement.find('.a-offscreen').first().text().trim() ||
+                   $priceElement.text().trim().replace(/[^$0-9.,]/g, '').trim();
+        
+        // Clean up price
+        if (price && !price.startsWith('$')) {
+          const priceMatch = price.match(/\$[\d,.]+/);
+          price = priceMatch ? priceMatch[0] : price;
+        }
+        
+        // Find image
+        let imageUrl = '';
+        const $imageElement = $(`#itemImage_${itemId} img, [data-itemId="${itemId}"] img`).first();
+        imageUrl = $imageElement.attr('src') || $imageElement.attr('data-src') || '';
+        
+        // If still no image, try finding any img near this item
+        if (!imageUrl) {
+          const $img = $item.find('img').first();
+          imageUrl = $img.attr('src') || $img.attr('data-src') || '';
+        }
+        
+        // Skip placeholder images
+        if (imageUrl.includes('transparent-pixel') || imageUrl.includes('grey-pixel')) {
+          imageUrl = '';
+        }
+        
+        items.push({
+          amazonItemId: itemId,
+          asin: asin,
+          title: title,
+          price: price || null,
+          imageUrl: imageUrl || null,
+          productUrl: productUrl || null,
+        });
+      });
+      
+      console.log(`[Amazon Import] Found ${items.length} items in wishlist`);
+      
+      if (items.length === 0) {
+        return res.status(404).json({ 
+          message: "No items found in this wishlist. The list may be empty or the page format has changed." 
+        });
+      }
+      
+      res.json({
+        wishlistTitle,
+        listId,
+        itemCount: items.length,
+        items,
+      });
+      
+    } catch (error) {
+      console.error('[Amazon Import] Error:', error);
+      res.status(500).json({ message: "Failed to import Amazon wishlist" });
+    }
+  });
+  
+  // Schema for validating Amazon import items
+  const amazonImportItemSchema = z.object({
+    amazonItemId: z.string().optional(),
+    asin: z.string().regex(/^[A-Z0-9]{10}$/).optional().nullable(),
+    title: z.string().min(1).max(1000).transform(val => 
+      val.replace(/<[^>]*>/g, '').trim() // Strip HTML tags for XSS prevention
+    ),
+    price: z.string().optional().nullable().transform(val => 
+      val ? val.replace(/[^$0-9.,]/g, '') : null
+    ),
+    imageUrl: z.string().url().optional().nullable().or(z.literal('')).transform(val =>
+      val && val.startsWith('http') ? val : null
+    ),
+    productUrl: z.string().url().optional().nullable().or(z.literal('')).transform(val =>
+      val && val.includes('amazon.com') ? val : null
+    ),
+  });
+
+  const amazonImportRequestSchema = z.object({
+    familyId: z.string().min(1),
+    items: z.array(amazonImportItemSchema).min(1).max(50),
+    targetUserId: z.string().optional(),
+    targetManagedProfileId: z.string().optional(),
+  });
+
+  // Import Amazon wishlist items to a wishlist
+  app.post('/api/import/amazon-wishlist/import', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      // Validate request with Zod schema
+      const parseResult = amazonImportRequestSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(400).json({ 
+          message: "Invalid import request",
+          errors: parseResult.error.errors.map(e => e.message)
+        });
+      }
+      
+      const { items, familyId, targetUserId, targetManagedProfileId } = parseResult.data;
+      
+      // Verify user is member of the family
+      const member = await storage.getFamilyMember(familyId, userId);
+      if (!member) {
+        return res.status(403).json({ message: "You are not a member of this group" });
+      }
+      
+      // Determine target (self, another user, or managed profile)
+      let actualTargetUserId = targetUserId || userId;
+      let actualManagedProfileId = targetManagedProfileId || null;
+      
+      // If importing for someone else, verify authorization
+      if (actualTargetUserId !== userId || actualManagedProfileId) {
+        // Check if user is organizer
+        const family = await storage.getFamily(familyId);
+        const isOrganizer = family?.createdById === userId;
+        
+        // Check if importing for a managed profile the user is guardian of
+        if (actualManagedProfileId) {
+          const guardians = await storage.getManagedProfileGuardians(actualManagedProfileId);
+          const isGuardian = guardians.some(g => g.guardianUserId === userId);
+          const profile = await storage.getManagedProfile(actualManagedProfileId);
+          const isPrimaryGuardian = profile?.createdById === userId;
+          
+          if (!isOrganizer && !isGuardian && !isPrimaryGuardian) {
+            return res.status(403).json({ message: "You don't have permission to add items for this member" });
+          }
+        } else if (actualTargetUserId !== userId && !isOrganizer) {
+          return res.status(403).json({ message: "Only organizers can add items for other members" });
+        }
+      }
+      
+      // Get existing items to check for duplicates
+      let existingItems: WishlistItem[] = [];
+      if (actualManagedProfileId) {
+        // For managed profiles, query directly since there's no dedicated method
+        existingItems = await db
+          .select()
+          .from(wishlistItems)
+          .where(and(
+            eq(wishlistItems.familyId, familyId),
+            eq(wishlistItems.managedProfileId, actualManagedProfileId)
+          ));
+      } else {
+        // For regular users, use the dedicated method
+        existingItems = await storage.getUserWishlistItemsByFamily(actualTargetUserId, familyId);
+      }
+      
+      // Build sets for deduplication (by URL or name)
+      const existingUrls = new Set(
+        existingItems.filter(i => i.url).map(i => i.url!.toLowerCase())
+      );
+      const existingNames = new Set(
+        existingItems.map(i => i.name.toLowerCase().trim())
+      );
+      
+      // Import each item
+      const importedItems: any[] = [];
+      const skippedItems: string[] = [];
+      const errors: string[] = [];
+      
+      for (const item of items) {
+        try {
+          // Check for duplicates by URL
+          if (item.productUrl && existingUrls.has(item.productUrl.toLowerCase())) {
+            skippedItems.push(`"${item.title.substring(0, 40)}..." (already in wishlist)`);
+            continue;
+          }
+          
+          // Check for duplicates by name
+          if (existingNames.has(item.title.toLowerCase().trim())) {
+            skippedItems.push(`"${item.title.substring(0, 40)}..." (already in wishlist)`);
+            continue;
+          }
+          
+          // Create wishlist item with validated/sanitized data from Zod
+          const newItem = await storage.createWishlistItem({
+            familyId,
+            userId: actualManagedProfileId ? null : actualTargetUserId,
+            managedProfileId: actualManagedProfileId || null,
+            name: item.title.substring(0, 500), // Limit title length
+            description: null,
+            url: item.productUrl || null,
+            imageUrl: item.imageUrl || null,
+            price: item.price ? item.price.replace(/[^0-9.]/g, '') : null,
+            priority: 'medium',
+            quantity: 1,
+            category: null,
+            itemType: 'christmas',
+            source: 'amazon_import',
+          });
+          
+          importedItems.push(newItem);
+          
+          // Add to existing sets to prevent in-batch duplicates
+          if (item.productUrl) {
+            existingUrls.add(item.productUrl.toLowerCase());
+          }
+          existingNames.add(item.title.toLowerCase().trim());
+          
+        } catch (itemError) {
+          console.error(`[Amazon Import] Error importing item "${item.title}":`, itemError);
+          errors.push(`Failed to import: ${item.title?.substring(0, 50)}...`);
+        }
+      }
+      
+      // Log activity
+      if (importedItems.length > 0) {
+        const targetName = actualManagedProfileId 
+          ? await getRecipientDisplayName(familyId, null, actualManagedProfileId)
+          : await getRecipientDisplayName(familyId, actualTargetUserId, null);
+        
+        await storage.createActivityLog({
+          familyId,
+          actorId: userId,
+          action: 'added_item',
+          targetUserId: actualManagedProfileId ? null : actualTargetUserId,
+          metadata: { 
+            source: 'amazon_import', 
+            count: importedItems.length,
+            details: `Imported ${importedItems.length} items from Amazon wishlist${targetName ? ` for ${targetName}` : ''}`
+          },
+        });
+      }
+      
+      res.json({
+        success: true,
+        importedCount: importedItems.length,
+        skippedCount: skippedItems.length,
+        totalRequested: items.length,
+        skippedItems: skippedItems.length > 0 ? skippedItems : undefined,
+        errors: errors.length > 0 ? errors : undefined,
+      });
+      
+    } catch (error) {
+      console.error('[Amazon Import] Import error:', error);
+      res.status(500).json({ message: "Failed to import items" });
+    }
+  });
 
   // Stats route
   app.get('/api/stats', isAuthenticated, async (req: any, res) => {
