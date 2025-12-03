@@ -11,7 +11,9 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ProductDetailsDialog } from "@/components/product-details-dialog";
 import { AddItemListPicker } from "@/components/add-item-list-picker";
+import { ImportAmazonWishlistDialog } from "@/components/import-amazon-wishlist-dialog";
 import { Search as SearchIcon, Plus, ExternalLink, Gift } from "lucide-react";
+import { SiAmazon } from "react-icons/si";
 
 export default function Search() {
   const { toast } = useToast();
@@ -22,6 +24,7 @@ export default function Search() {
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
   const [listPickerOpen, setListPickerOpen] = useState(false);
+  const [amazonImportOpen, setAmazonImportOpen] = useState(false);
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
   
   // Use a ref to always get the current selectedFamilyId (prevents stale closure bugs)
@@ -184,15 +187,27 @@ export default function Search() {
             </Button>
           </div>
         </form>
-        <Button 
-          variant="outline" 
-          size="lg" 
-          onClick={() => setListPickerOpen(true)}
-          data-testid="button-add-manually"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Add Manually
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            size="lg" 
+            onClick={() => setAmazonImportOpen(true)}
+            disabled={!selectedFamilyId}
+            data-testid="button-import-amazon"
+          >
+            <SiAmazon className="w-4 h-4 mr-2 text-[#FF9900]" />
+            Import Amazon List
+          </Button>
+          <Button 
+            variant="outline" 
+            size="lg" 
+            onClick={() => setListPickerOpen(true)}
+            data-testid="button-add-manually"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Add Manually
+          </Button>
+        </div>
       </div>
 
       {/* Results */}
@@ -307,6 +322,14 @@ export default function Search() {
         onOpenChange={setListPickerOpen}
         defaultTab="custom"
       />
+
+      {selectedFamilyId && (
+        <ImportAmazonWishlistDialog
+          open={amazonImportOpen}
+          onOpenChange={setAmazonImportOpen}
+          familyId={selectedFamilyId}
+        />
+      )}
     </div>
   );
 }
