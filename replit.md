@@ -3,6 +3,17 @@
 ## Overview
 The Gift Genius is a mobile-first web application designed to facilitate collaborative wishlist management for groups. It allows users to create, share, and manage wishlists at the group level, add items, and secretly mark purchases to preserve gift surprises. Users can also create personal shareable wishlists for any occasion.
 
+## Recent Changes (December 3, 2025)
+- **Import Amazon Wishlist Feature**: Users can now bulk import items from public Amazon wishlists:
+  - "Import Amazon List" button on Christmas Wishlist page opens import dialog
+  - Paste any public Amazon wishlist URL to preview items with images and prices
+  - Select individual items or use "Select All" for bulk import
+  - Deduplication: Items already in wishlist are automatically skipped (by URL or name match)
+  - Security: Zod validation for all inputs, HTML tag stripping to prevent XSS
+  - API endpoints: POST `/api/import/amazon-wishlist/preview` and `/api/import/amazon-wishlist/import`
+  - Uses Scrapingdog API with dynamic rendering to scrape Amazon pages
+  - Supports both regular user wishlists and managed child profiles
+
 ## Recent Changes (November 28, 2025)
 - **Guardian Edit Permissions for Child Lists**: Fixed bug where guardians with edit rights couldn't add items to child profiles:
   - API endpoint `/api/members/:userId` now returns guardian permissions (`guardianCanEdit`, `isGuardian`, `createdBy`)
