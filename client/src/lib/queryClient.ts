@@ -1,5 +1,28 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
+// Track if we've already triggered a session expiration redirect
+let sessionExpiredRedirectTriggered = false;
+
+// Handle session expiration - redirect to home with a message
+function handleSessionExpired() {
+  // Prevent multiple redirects
+  if (sessionExpiredRedirectTriggered) return;
+  sessionExpiredRedirectTriggered = true;
+  
+  // Store a flag for the toast message
+  sessionStorage.setItem('session_expired', 'true');
+  
+  // Redirect to home page
+  if (window.location.pathname !== '/') {
+    window.location.href = '/';
+  }
+  
+  // Reset the flag after a short delay (in case they log back in)
+  setTimeout(() => {
+    sessionExpiredRedirectTriggered = false;
+  }, 2000);
+}
+
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     const text = (await res.text()) || res.statusText;
@@ -19,11 +42,16 @@ export async function apiRequest(
     credentials: "include",
   });
 
+  // Handle session expiration for mutations
+  if (res.status === 401) {
+    handleSessionExpired();
+  }
+
   await throwIfResNotOk(res);
   return res;
 }
 
-type UnauthorizedBehavior = "returnNull" | "throw";
+type UnauthorizedBehavior = "returnNull" | "throw" | "redirect";
 export const getQueryFn: <T>(options: {
   on401: UnauthorizedBehavior;
 }) => QueryFunction<T> =
@@ -33,8 +61,16 @@ export const getQueryFn: <T>(options: {
       credentials: "include",
     });
 
-    if (unauthorizedBehavior === "returnNull" && res.status === 401) {
-      return null;
+    if (res.status === 401) {
+      if (unauthorizedBehavior === "returnNull") {
+        return null;
+      }
+      if (unauthorizedBehavior === "redirect") {
+        handleSessionExpired();
+        return null;
+      }
+      // For "throw" behavior, still redirect but also throw
+      handleSessionExpired();
     }
 
     await throwIfResNotOk(res);
