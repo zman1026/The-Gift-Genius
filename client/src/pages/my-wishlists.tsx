@@ -18,7 +18,7 @@ import { Plus, Gift, Cake, GraduationCap, Heart, Baby, Home, PartyPopper, Calend
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { format } from "date-fns";
 import { UnifiedAddItemDialog } from "@/components/unified-add-item-dialog";
 import { CrossFamilySharingDialog } from "@/components/cross-family-sharing-dialog";
@@ -369,79 +369,84 @@ export default function MyWishlists() {
         </Dialog>
       </div>
 
-      <Card 
-        className="relative overflow-hidden hover-elevate mb-6"
-        data-testid="card-christmas-wishlist"
-      >
-        <div 
-          className="absolute top-0 left-0 right-0 h-1.5"
-          style={{ backgroundColor: christmasTheme.primary }}
-        />
-        <CardHeader className="pb-2">
-          <div className="flex items-start justify-between gap-2">
-            <div className="flex items-center gap-3 min-w-0">
-              <div 
-                className="p-2.5 rounded-lg shrink-0"
-                style={{ backgroundColor: christmasTheme.background }}
-              >
-                <TreePine 
-                  className="w-6 h-6" 
-                  style={{ color: christmasTheme.accent }}
-                  aria-hidden="true"
-                />
-              </div>
-              <div className="min-w-0">
-                <CardTitle className="text-xl">Christmas Wishlist</CardTitle>
-                <CardDescription className="flex flex-wrap items-center gap-2 mt-1">
-                  {selectedFamily && (
-                    <Badge variant="secondary" className="text-xs flex items-center gap-1">
-                      <Users className="w-3 h-3" aria-hidden="true" />
-                      {selectedFamily.name}
-                    </Badge>
-                  )}
-                  <span className="text-xs text-muted-foreground">
-                    {wishlistItems?.length || 0} item{(wishlistItems?.length || 0) !== 1 ? 's' : ''} across all groups
-                  </span>
-                </CardDescription>
+      <Link href="/wishlist">
+        <Card 
+          className="relative overflow-hidden hover-elevate mb-6 cursor-pointer"
+          data-testid="card-christmas-wishlist"
+        >
+          <div 
+            className="absolute top-0 left-0 right-0 h-1.5"
+            style={{ backgroundColor: christmasTheme.primary }}
+          />
+          <CardHeader className="pb-2">
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex items-center gap-3 min-w-0">
+                <div 
+                  className="p-2.5 rounded-lg shrink-0"
+                  style={{ backgroundColor: christmasTheme.background }}
+                >
+                  <TreePine 
+                    className="w-6 h-6" 
+                    style={{ color: christmasTheme.accent }}
+                    aria-hidden="true"
+                  />
+                </div>
+                <div className="min-w-0">
+                  <CardTitle className="text-xl">Christmas Wishlist</CardTitle>
+                  <CardDescription className="flex flex-wrap items-center gap-2 mt-1">
+                    {selectedFamily && (
+                      <Badge variant="secondary" className="text-xs flex items-center gap-1">
+                        <Users className="w-3 h-3" aria-hidden="true" />
+                        {selectedFamily.name}
+                      </Badge>
+                    )}
+                    <span className="text-xs text-muted-foreground">
+                      {wishlistItems?.length || 0} item{(wishlistItems?.length || 0) !== 1 ? 's' : ''} across all groups
+                    </span>
+                  </CardDescription>
+                </div>
               </div>
             </div>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            Your Christmas wishlist items are shared across all your groups for gift coordination.
-          </p>
-          
-          <div className="flex items-center gap-2 flex-wrap">
-            <Link href="/wishlist">
-              <Button variant="outline" size="sm" data-testid="button-view-christmas-list">
-                View List
-              </Button>
-            </Link>
-            {selectedFamilyId && (
-              <Button 
-                size="sm" 
-                onClick={() => setIsChristmasAddDialogOpen(true)}
-                data-testid="button-add-christmas-item"
-              >
-                <Plus className="w-4 h-4 mr-1" aria-hidden="true" />
-                Add Item
-              </Button>
-            )}
-            {selectedFamilyId && families.length > 1 && (
-              <Button 
-                variant="ghost" 
-                size="sm"
-                onClick={() => setIsSharingDialogOpen(true)}
-                data-testid="button-share-christmas-list"
-              >
-                <Share2 className="w-4 h-4 mr-1" aria-hidden="true" />
-                Share
-              </Button>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Your Christmas wishlist items are shared across all your groups for gift coordination.
+            </p>
+            
+            <div className="flex items-center gap-2 flex-wrap">
+              {selectedFamilyId && (
+                <Button 
+                  size="sm" 
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setIsChristmasAddDialogOpen(true);
+                  }}
+                  data-testid="button-add-christmas-item"
+                >
+                  <Plus className="w-4 h-4 mr-1" aria-hidden="true" />
+                  Add Item
+                </Button>
+              )}
+              {selectedFamilyId && families.length > 1 && (
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setIsSharingDialogOpen(true);
+                  }}
+                  data-testid="button-share-christmas-list"
+                >
+                  <Share2 className="w-4 h-4 mr-1" aria-hidden="true" />
+                  Share
+                </Button>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </Link>
 
       {selectedFamilyId && (
         <CrossFamilySharingDialog
