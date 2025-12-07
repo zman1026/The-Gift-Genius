@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Loader2, Package, ExternalLink, AlertCircle, CheckCircle2 } from "lucide-react";
@@ -260,7 +259,10 @@ export function ImportAmazonWishlistDialog({
               </Button>
             </div>
             
-            <ScrollArea className="flex-1 border rounded-lg max-h-[50vh] overflow-y-auto">
+            <div 
+              className="border rounded-lg overflow-y-auto overscroll-contain -webkit-overflow-scrolling-touch"
+              style={{ maxHeight: '50vh', WebkitOverflowScrolling: 'touch' }}
+            >
               <div className="p-2 space-y-2">
                 {previewData.items.map((item) => (
                   <div
@@ -311,7 +313,7 @@ export function ImportAmazonWishlistDialog({
                   </div>
                 ))}
               </div>
-            </ScrollArea>
+            </div>
             
             <div className="text-sm text-muted-foreground">
               {selectedItems.size} of {previewData.items.length} items selected
