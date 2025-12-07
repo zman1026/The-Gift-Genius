@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ActivityIcon, Gift, UserPlus, Trash2, ShoppingBag, X } from "lucide-react";
+import { ActivityIcon, Gift, UserPlus, Trash2, ShoppingBag, X, Download } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { z } from "zod";
 
@@ -73,6 +73,8 @@ export function ActivityFeed({ familyId, limit = 10, compact = false }: Activity
         return <X className="w-4 h-4" />;
       case "member_joined":
         return <UserPlus className="w-4 h-4" />;
+      case "items_imported":
+        return <Download className="w-4 h-4" />;
       default:
         return <ActivityIcon className="w-4 h-4" />;
     }
@@ -123,6 +125,21 @@ export function ActivityFeed({ familyId, limit = 10, compact = false }: Activity
           text: `${actorName} joined the group`,
           color: "text-primary",
         };
+      case "items_imported": {
+        const count = activity.metadata?.count || 0;
+        const itemText = count === 1 ? "item" : "items";
+        const recipientName = activity.metadata?.recipientDisplayName;
+        if (recipientName) {
+          return {
+            text: `${actorName} imported ${count} ${itemText} to ${recipientName}'s wishlist`,
+            color: "text-primary",
+          };
+        }
+        return {
+          text: `${actorName} imported ${count} ${itemText} to their wishlist`,
+          color: "text-primary",
+        };
+      }
       default:
         return {
           text: `${actorName} performed an action`,

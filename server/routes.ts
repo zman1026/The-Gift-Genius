@@ -2437,12 +2437,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await storage.createActivityLog({
           familyId,
           actorId: userId,
-          action: 'added_item',
+          action: 'items_imported',
           targetUserId: actualManagedProfileId ? null : actualTargetUserId,
           metadata: { 
-            source: 'amazon_import', 
+            source: 'amazon', 
             count: importedItems.length,
-            details: `Imported ${importedItems.length} items from Amazon wishlist${targetName ? ` for ${targetName}` : ''}`
+            recipientDisplayName: targetName || null,
           },
         });
       }
