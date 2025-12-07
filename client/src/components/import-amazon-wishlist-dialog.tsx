@@ -260,7 +260,7 @@ export function ImportAmazonWishlistDialog({
               </Button>
             </div>
             
-            <ScrollArea className="flex-1 border rounded-lg">
+            <ScrollArea className="flex-1 border rounded-lg max-h-[50vh] overflow-y-auto">
               <div className="p-2 space-y-2">
                 {previewData.items.map((item) => (
                   <div
