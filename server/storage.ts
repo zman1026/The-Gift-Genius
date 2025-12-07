@@ -1557,10 +1557,18 @@ export class DatabaseStorage implements IStorage {
         status = 'warning';
       }
 
+      // Build display name with null safety
+      let computedDisplayName = member.displayName;
+      if (!computedDisplayName) {
+        const firstName = member.firstName || '';
+        const lastName = member.lastName || '';
+        computedDisplayName = `${firstName} ${lastName}`.trim() || 'Unknown';
+      }
+
       return {
         userId: member.userId,
         managedProfileId: member.managedProfileId,
-        displayName: member.displayName || `${member.firstName} ${member.lastName || ''}`.trim(),
+        displayName: computedDisplayName,
         firstName: member.firstName,
         lastName: member.lastName,
         profileImageUrl: member.profileImageUrl,

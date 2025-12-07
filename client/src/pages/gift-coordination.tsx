@@ -20,9 +20,7 @@ import {
   AlertCircle,
   CheckCircle2,
   Gift,
-  Users,
-  TrendingUp,
-  Clock
+  Users
 } from "lucide-react";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -90,6 +88,19 @@ export default function GiftCoordinationPage() {
         credentials: "include",
       });
       if (!response.ok) throw new Error("Failed to fetch member counts");
+      return response.json();
+    },
+    enabled: !!selectedFamilyId,
+  });
+
+  const { data: purchasesData } = useQuery<{ purchases: any[]; totalCount: number }>({
+    queryKey: ["/api/purchases", selectedFamilyId],
+    queryFn: async () => {
+      const params = new URLSearchParams({ familyId: selectedFamilyId! });
+      const response = await fetch(`/api/purchases?${params.toString()}`, {
+        credentials: "include",
+      });
+      if (!response.ok) throw new Error("Failed to fetch purchases");
       return response.json();
     },
     enabled: !!selectedFamilyId,
@@ -313,6 +324,14 @@ export default function GiftCoordinationPage() {
   const totalSpent = allMemberBudgets.reduce((sum: number, m: any) => sum + (m.spent || 0), 0);
   const totalRemaining = totalAllocated - totalSpent;
   
+  // Calculate total items on wishlists
+  const totalItemsOnList = memberCounts 
+    ? Object.values(memberCounts).reduce((sum, count) => sum + count, 0) 
+    : 0;
+  
+  // Total purchases made
+  const totalPurchases = purchasesData?.totalCount || purchasesData?.purchases?.length || 0;
+  
   const hasBudgetSetup = totalAllocated > 0;
   const hasUrgentInsights = insights && insights.some(i => i.type === "high-priority" || i.type === "no-gifts");
 
@@ -363,22 +382,22 @@ export default function GiftCoordinationPage() {
         <Card className="col-span-1">
           <CardContent className="p-3 sm:p-4">
             <div className="flex items-center gap-2 mb-1">
-              <DollarSign className="w-4 h-4 text-muted-foreground" />
-              <span className="text-xs text-muted-foreground">Budget</span>
+              <Gift className="w-4 h-4 text-muted-foreground" />
+              <span className="text-xs text-muted-foreground">On Wishlists</span>
             </div>
-            <p className="text-lg sm:text-xl font-bold text-foreground" data-testid="stat-total-budget">
-              ${totalAllocated.toFixed(0)}
+            <p className="text-lg sm:text-xl font-bold text-foreground" data-testid="stat-items-on-list">
+              {totalItemsOnList}
             </p>
           </CardContent>
         </Card>
         <Card className="col-span-1">
           <CardContent className="p-3 sm:p-4">
             <div className="flex items-center gap-2 mb-1">
-              <TrendingUp className="w-4 h-4 text-muted-foreground" />
-              <span className="text-xs text-muted-foreground">Spent</span>
+              <ShoppingBag className="w-4 h-4 text-muted-foreground" />
+              <span className="text-xs text-muted-foreground">Purchased</span>
             </div>
-            <p className="text-lg sm:text-xl font-bold text-foreground" data-testid="stat-total-spent">
-              ${totalSpent.toFixed(0)}
+            <p className="text-lg sm:text-xl font-bold text-foreground" data-testid="stat-purchased">
+              {totalPurchases}
             </p>
           </CardContent>
         </Card>
@@ -396,37 +415,15 @@ export default function GiftCoordinationPage() {
         <Card className="col-span-1">
           <CardContent className="p-3 sm:p-4">
             <div className="flex items-center gap-2 mb-1">
-              <Clock className="w-4 h-4 text-muted-foreground" />
-              <span className="text-xs text-muted-foreground">Remaining</span>
+              <DollarSign className="w-4 h-4 text-muted-foreground" />
+              <span className="text-xs text-muted-foreground">Spent</span>
             </div>
-            <p className="text-lg sm:text-xl font-bold text-foreground" data-testid="stat-remaining">
-              ${totalRemaining.toFixed(0)}
+            <p className="text-lg sm:text-xl font-bold text-foreground" data-testid="stat-total-spent">
+              ${totalSpent.toFixed(0)}
             </p>
           </CardContent>
         </Card>
       </div>
-
-      {hasBudgetSetup && (
-        <Card>
-          <CardContent className="p-3 sm:p-4">
-            <div className="flex justify-between items-center mb-2 text-xs text-muted-foreground">
-              <span>Overall Progress</span>
-              <span>
-                {totalAllocated > 0
-                  ? `${((totalSpent / totalAllocated) * 100).toFixed(0)}%`
-                  : '0%'}
-              </span>
-            </div>
-            <Progress
-              value={totalAllocated > 0 
-                ? Math.min((totalSpent / totalAllocated) * 100, 100)
-                : 0
-              }
-              className="h-2"
-            />
-          </CardContent>
-        </Card>
-      )}
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card data-testid="card-coordination-insights">
