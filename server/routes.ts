@@ -2462,6 +2462,116 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Import Amazon wishlist items to a personal list
+  const amazonPersonalListImportSchema = z.object({
+    listId: z.string().min(1),
+    items: z.array(amazonImportItemSchema).min(1).max(50),
+  });
+
+  app.post('/api/import/amazon-wishlist/import-personal-list', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      // Validate request with Zod schema
+      const parseResult = amazonPersonalListImportSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(400).json({ 
+          message: "Invalid import request",
+          errors: parseResult.error.errors.map(e => e.message)
+        });
+      }
+      
+      const { items, listId } = parseResult.data;
+      
+      // Verify user owns the personal list
+      const personalList = await storage.getPersonalList(listId);
+      if (!personalList) {
+        return res.status(404).json({ message: "Personal list not found" });
+      }
+      if (personalList.userId !== userId) {
+        return res.status(403).json({ message: "You don't have permission to add items to this list" });
+      }
+      
+      // Get existing items to check for duplicates
+      const existingItems = await storage.getPersonalListItems(listId);
+      
+      // Build sets for deduplication (by URL or name)
+      const existingUrls = new Set(
+        existingItems.filter(i => i.link).map(i => i.link!.toLowerCase())
+      );
+      const existingNames = new Set(
+        existingItems.map(i => i.name.toLowerCase().trim())
+      );
+      
+      // Import each item
+      const importedItems: any[] = [];
+      const skippedItems: string[] = [];
+      const errors: string[] = [];
+      
+      for (const item of items) {
+        try {
+          // Check for duplicates by URL
+          if (item.productUrl && existingUrls.has(item.productUrl.toLowerCase())) {
+            skippedItems.push(`"${item.title.substring(0, 40)}..." (already in list)`);
+            continue;
+          }
+          
+          // Check for duplicates by name
+          if (existingNames.has(item.title.toLowerCase().trim())) {
+            skippedItems.push(`"${item.title.substring(0, 40)}..." (already in list)`);
+            continue;
+          }
+          
+          // Parse price to decimal
+          let priceValue: string | undefined = undefined;
+          if (item.price) {
+            const cleanPrice = item.price.replace(/[^0-9.]/g, '');
+            if (cleanPrice && !isNaN(parseFloat(cleanPrice))) {
+              priceValue = cleanPrice;
+            }
+          }
+          
+          // Create personal list item with validated/sanitized data from Zod
+          const newItem = await storage.createPersonalListItem({
+            listId,
+            name: item.title.substring(0, 255), // Limit title length
+            description: null,
+            link: item.productUrl || null,
+            imageUrl: item.imageUrl || null,
+            price: priceValue || null,
+            priority: 'medium',
+            quantity: 1,
+          });
+          
+          importedItems.push(newItem);
+          
+          // Add to existing sets to prevent in-batch duplicates
+          if (item.productUrl) {
+            existingUrls.add(item.productUrl.toLowerCase());
+          }
+          existingNames.add(item.title.toLowerCase().trim());
+          
+        } catch (itemError) {
+          console.error(`[Amazon Import] Error importing personal list item "${item.title}":`, itemError);
+          errors.push(`Failed to import: ${item.title?.substring(0, 50)}...`);
+        }
+      }
+      
+      res.json({
+        success: true,
+        importedCount: importedItems.length,
+        skippedCount: skippedItems.length,
+        totalRequested: items.length,
+        skippedItems: skippedItems.length > 0 ? skippedItems : undefined,
+        errors: errors.length > 0 ? errors : undefined,
+      });
+      
+    } catch (error) {
+      console.error('[Amazon Import] Personal list import error:', error);
+      res.status(500).json({ message: "Failed to import items" });
+    }
+  });
+
   // Stats route
   app.get('/api/stats', isAuthenticated, async (req: any, res) => {
     try {
