@@ -522,7 +522,11 @@ export default function GiftCoordinationPage() {
                   <div key={key} className="p-2 rounded-md border" data-testid={`member-budget-${key}`}>
                     {!isEditing ? (
                       <div className="space-y-2">
-                        <div className="flex items-center gap-2">
+                        <div 
+                          className="flex items-center gap-2 cursor-pointer hover-elevate rounded-md p-1 -m-1"
+                          onClick={() => setLocation(`/members/${key}`)}
+                          data-testid={`link-member-wishlist-${key}`}
+                        >
                           <Avatar className="h-8 w-8">
                             <AvatarImage src={member.profileImageUrl} alt={member.displayName} />
                             <AvatarFallback className="text-xs">
@@ -540,6 +544,7 @@ export default function GiftCoordinationPage() {
                               ${member.spent?.toFixed(0)} of ${member.allocated?.toFixed(0)}
                             </div>
                           </div>
+                          <ChevronRight className="w-4 h-4 text-muted-foreground" />
                           <div className={`text-sm font-bold ${
                             member.status === 'good' ? 'text-green-600 dark:text-green-400' :
                             member.status === 'warning' ? 'text-yellow-600 dark:text-yellow-400' :
@@ -552,7 +557,10 @@ export default function GiftCoordinationPage() {
                           <Progress value={Math.min(member.percentUsed, 100)} className="h-1" />
                         )}
                         <Button
-                          onClick={() => handleOpenLogPurchase(member)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenLogPurchase(member);
+                          }}
                           variant="ghost"
                           size="sm"
                           className="w-full h-7 text-xs"
