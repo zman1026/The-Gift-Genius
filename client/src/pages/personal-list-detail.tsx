@@ -31,8 +31,10 @@ import {
   Copy,
   Check,
   ShoppingBag,
-  Package
+  Package,
+  Download
 } from "lucide-react";
+import { ImportAmazonPersonalListDialog } from "@/components/import-amazon-personal-list-dialog";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -88,6 +90,7 @@ export default function PersonalListDetail() {
   const [editingItem, setEditingItem] = useState<any>(null);
   const [deletingItemId, setDeletingItemId] = useState<string | null>(null);
   const [copiedSlug, setCopiedSlug] = useState(false);
+  const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
 
   const form = useForm<AddItemFormData>({
     resolver: zodResolver(addItemSchema),
@@ -353,22 +356,31 @@ export default function PersonalListDetail() {
         </Card>
       </div>
 
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-4 gap-2 flex-wrap">
         <h2 className="text-lg font-semibold" data-testid="text-items-heading">
           Items ({items.length})
         </h2>
-        <Dialog open={isAddDialogOpen || !!editingItem} onOpenChange={(open) => {
-          if (!open) {
-            setIsAddDialogOpen(false);
-            setEditingItem(null);
-          }
-        }}>
-          <DialogTrigger asChild>
-            <Button onClick={() => setIsAddDialogOpen(true)} data-testid="button-add-item">
-              <Plus className="w-4 h-4 mr-2" aria-hidden="true" />
-              Add Item
-            </Button>
-          </DialogTrigger>
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="outline"
+            onClick={() => setIsImportDialogOpen(true)} 
+            data-testid="button-import-amazon"
+          >
+            <Download className="w-4 h-4 mr-2" aria-hidden="true" />
+            Import Amazon List
+          </Button>
+          <Dialog open={isAddDialogOpen || !!editingItem} onOpenChange={(open) => {
+            if (!open) {
+              setIsAddDialogOpen(false);
+              setEditingItem(null);
+            }
+          }}>
+            <DialogTrigger asChild>
+              <Button onClick={() => setIsAddDialogOpen(true)} data-testid="button-add-item">
+                <Plus className="w-4 h-4 mr-2" aria-hidden="true" />
+                Add Item
+              </Button>
+            </DialogTrigger>
           <DialogContent className="sm:max-w-[500px]">
             <DialogHeader>
               <DialogTitle>{editingItem ? "Edit Item" : "Add Item"}</DialogTitle>
@@ -527,7 +539,15 @@ export default function PersonalListDetail() {
             </Form>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
+
+      <ImportAmazonPersonalListDialog
+        open={isImportDialogOpen}
+        onOpenChange={setIsImportDialogOpen}
+        listId={listId!}
+        listName={listData.name}
+      />
 
       {items.length === 0 ? (
         <Card className="text-center py-12">

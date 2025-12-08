@@ -2495,9 +2495,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get existing items to check for duplicates
       const existingItems = await storage.getPersonalListItems(listId);
       
+      // Helper to normalize URLs for comparison (remove query params except key identifiers)
+      const normalizeUrl = (url: string): string => {
+        try {
+          const parsed = new URL(url.toLowerCase());
+          // Keep only the path and essential Amazon identifiers
+          return `${parsed.hostname}${parsed.pathname}`;
+        } catch {
+          return url.toLowerCase().trim();
+        }
+      };
+      
       // Build sets for deduplication (by URL or name)
       const existingUrls = new Set(
-        existingItems.filter(i => i.link).map(i => i.link!.toLowerCase())
+        existingItems.filter(i => i.link).map(i => normalizeUrl(i.link!))
       );
       const existingNames = new Set(
         existingItems.map(i => i.name.toLowerCase().trim())
@@ -2510,8 +2521,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       for (const item of items) {
         try {
-          // Check for duplicates by URL
-          if (item.productUrl && existingUrls.has(item.productUrl.toLowerCase())) {
+          // Check for duplicates by URL (normalized)
+          if (item.productUrl && existingUrls.has(normalizeUrl(item.productUrl))) {
             skippedItems.push(`"${item.title.substring(0, 40)}..." (already in list)`);
             continue;
           }
@@ -2547,7 +2558,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           // Add to existing sets to prevent in-batch duplicates
           if (item.productUrl) {
-            existingUrls.add(item.productUrl.toLowerCase());
+            existingUrls.add(normalizeUrl(item.productUrl));
           }
           existingNames.add(item.title.toLowerCase().trim());
           

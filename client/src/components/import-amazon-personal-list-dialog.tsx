@@ -57,6 +57,8 @@ export function ImportAmazonPersonalListDialog({
       setSelectedItems(new Set(data.items.map(item => item.amazonItemId)));
     },
     onError: (error: any) => {
+      setPreviewData(null);
+      setSelectedItems(new Set());
       toast({
         title: "Failed to load wishlist",
         description: error.message || "Could not fetch the Amazon wishlist. Make sure the URL is correct and the list is public.",
@@ -86,6 +88,7 @@ export function ImportAmazonPersonalListDialog({
       
       queryClient.invalidateQueries({ queryKey: ["/api/personal-lists", listId] });
       queryClient.invalidateQueries({ queryKey: ["/api/personal-lists"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/personal-lists", listId, "items"] });
       
       if (data.skippedCount && data.skippedCount > 0) {
         toast({
@@ -102,6 +105,7 @@ export function ImportAmazonPersonalListDialog({
       }
     },
     onError: (error: any) => {
+      setSelectedItems(new Set());
       toast({
         title: "Import failed",
         description: error.message || "Failed to import items. Please try again.",
@@ -168,7 +172,7 @@ export function ImportAmazonPersonalListDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
+    <Dialog open={open} onOpenChange={(isOpen) => !isOpen && handleClose()}>
       <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
