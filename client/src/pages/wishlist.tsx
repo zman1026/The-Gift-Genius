@@ -1059,11 +1059,13 @@ export default function Wishlist() {
                         <Button
                           variant="outline"
                           className="w-full justify-start"
-                          onClick={() => window.open(viewingItem.url, '_blank')}
+                          asChild
                           data-testid="button-view-product-link"
                         >
-                          <ExternalLink className="w-4 h-4 mr-2" />
-                          View Product
+                          <a href={viewingItem.url} target="_blank" rel="noopener noreferrer">
+                            <ExternalLink className="w-4 h-4 mr-2" />
+                            View Product
+                          </a>
                         </Button>
                       </div>
                     )}

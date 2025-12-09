@@ -141,11 +141,13 @@ export function ShoppingOptionsDialog({
                 variant="outline"
                 size="default"
                 className="w-full justify-between"
-                onClick={() => window.open(item.url, '_blank')}
+                asChild
                 data-testid="button-original-link"
               >
-                <span className="truncate">Visit original product page</span>
-                <ExternalLink className="w-4 h-4 ml-2 flex-shrink-0" />
+                <a href={item.url} target="_blank" rel="noopener noreferrer">
+                  <span className="truncate">Visit original product page</span>
+                  <ExternalLink className="w-4 h-4 ml-2 flex-shrink-0" />
+                </a>
               </Button>
             </>
           )}

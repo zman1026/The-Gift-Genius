@@ -552,11 +552,13 @@ export default function MemberWishlist() {
                 <Button
                   variant="outline"
                   className="w-full"
-                  onClick={() => window.open(viewingItem.url, '_blank')}
+                  asChild
                   data-testid="button-view-product-detail"
                 >
-                  <ExternalLink className="w-4 h-4 mr-2" />
-                  View Product
+                  <a href={viewingItem.url} target="_blank" rel="noopener noreferrer">
+                    <ExternalLink className="w-4 h-4 mr-2" />
+                    View Product
+                  </a>
                 </Button>
               )}
 

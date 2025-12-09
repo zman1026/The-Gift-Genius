@@ -280,10 +280,12 @@ export default function Search() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => window.open(product.link, '_blank')}
+                          asChild
                           data-testid={`button-view-product-${index}`}
                         >
-                          <ExternalLink className="w-4 h-4" />
+                          <a href={product.link} target="_blank" rel="noopener noreferrer">
+                            <ExternalLink className="w-4 h-4" />
+                          </a>
                         </Button>
                       )}
                     </div>
