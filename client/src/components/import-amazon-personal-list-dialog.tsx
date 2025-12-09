@@ -266,6 +266,7 @@ export function ImportAmazonPersonalListDialog({
                     <Checkbox
                       checked={selectedItems.has(item.amazonItemId)}
                       onCheckedChange={() => toggleItem(item.amazonItemId)}
+                      onClick={(e) => e.stopPropagation()}
                       className="mt-1"
                       data-testid={`checkbox-item-${item.amazonItemId}`}
                     />

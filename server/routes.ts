@@ -2242,8 +2242,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           imageUrl = '';
         }
         
+        // Use ASIN as primary ID (more reliable), fall back to itemId, then generate unique ID
+        const uniqueId = asin || itemId || `item-${items.length}`;
+        
         items.push({
-          amazonItemId: itemId,
+          amazonItemId: uniqueId,
           asin: asin,
           title: title,
           price: price || null,
@@ -2305,8 +2308,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
             imageUrl = '';
           }
           
+          // Use ASIN as primary ID (more reliable), fall back to itemId, then generate unique ID
+          const uniqueId = asin || itemId || `item-${items.length}`;
+          
           items.push({
-            amazonItemId: itemId,
+            amazonItemId: uniqueId,
             asin: asin,
             title: title,
             price: price || null,
