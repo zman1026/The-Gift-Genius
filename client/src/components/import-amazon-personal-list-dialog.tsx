@@ -256,9 +256,9 @@ export function ImportAmazonPersonalListDialog({
               style={{ maxHeight: '50vh', WebkitOverflowScrolling: 'touch' }}
             >
               <div className="p-2 space-y-2">
-                {previewData.items.map((item) => (
+                {previewData.items.map((item, index) => (
                   <div
-                    key={item.amazonItemId}
+                    key={`${item.amazonItemId}-${index}`}
                     className="flex items-start gap-3 p-2 rounded-lg hover-elevate cursor-pointer"
                     onClick={() => toggleItem(item.amazonItemId)}
                     data-testid={`item-amazon-${item.amazonItemId}`}
