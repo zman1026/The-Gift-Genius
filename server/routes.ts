@@ -1700,12 +1700,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         'dell', 'hp', 'lenovo', 'microsoft', 'sony', 'lg', 'panasonic',
         'nike', 'adidas', 'underarmour', 'rei', 'dickssportinggoods',
         'gamestop', 'barnesandnoble', 'chewy', 'petco', 'petsmart',
-        'google', 'ebay', 'etsy', 'wayfair', 'overstock'
+        'google', 'etsy', 'wayfair', 'overstock'
       ];
       
       // Sites to exclude from results (normalized domain keywords)
+      // Excludes marketplaces with many third-party/reseller listings
       const excludedRetailers = [
-        'temu', 'wish', 'aliexpress', 'dhgate', 'banggood', 'gearbest'
+        'temu', 'wish', 'aliexpress', 'dhgate', 'banggood', 'gearbest',
+        'ebay', 'mercari', 'poshmark', 'offerup', 'craigslist', 'facebook',
+        'alibaba', 'made-in-china', 'lightinthebox', 'shein', 'romwe'
       ];
       
       // Helper to extract actual merchant URL from Google redirect (recursive to handle nested redirects)
