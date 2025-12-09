@@ -2189,20 +2189,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log(`[Amazon Import] Wishlist title: "${wishlistTitle}"`);
       
-      // Find all wishlist items - Amazon uses data-itemId attribute
+      // Find all wishlist items - Amazon uses various data attributes
       const items: any[] = [];
       
-      // Try multiple selector approaches since Cheerio may handle attribute names differently
-      // Check both lowercase and mixed case versions
-      const itemElements = $('[data-itemid], [data-itemId], [itemId], [itemid]');
-      console.log(`[Amazon Import] Found ${itemElements.length} elements with itemId attributes`);
+      // Method 1: Try data-itemid/data-itemId attributes (older format)
+      const itemElements = $('[data-itemid], [data-itemId]');
+      console.log(`[Amazon Import] Found ${itemElements.length} elements with data-itemid attributes`);
       
-      // Look for items with itemId attribute (common pattern)
       itemElements.each((index, element) => {
         const $item = $(element);
-        // Try all possible attribute name variations
-        const itemId = $item.attr('data-itemid') || $item.attr('data-itemId') || 
-                      $item.attr('itemId') || $item.attr('itemid');
+        const itemId = $item.attr('data-itemid') || $item.attr('data-itemId');
         
         if (!itemId) return;
         
@@ -2210,43 +2206,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const $nameElement = $(`#itemName_${itemId}`);
         const title = $nameElement.attr('title') || $nameElement.text().trim();
         
-        if (!title) return; // Skip if no title found
+        if (!title) return;
         
-        // Extract product URL from the name link
         let productUrl = $nameElement.attr('href') || '';
         if (productUrl && !productUrl.startsWith('http')) {
-          // Convert relative URL to absolute
           const urlObj = new URL(url);
           productUrl = `${urlObj.origin}${productUrl}`;
         }
         
-        // Extract ASIN from URL if possible
-        const asinMatch = productUrl.match(/\/dp\/([A-Z0-9]{10})/);
-        const asin = asinMatch ? asinMatch[1] : null;
+        const asinMatch = productUrl.match(/\/dp\/([A-Z0-9]{10})/i);
+        const asin = asinMatch ? asinMatch[1].toUpperCase() : null;
         
-        // Find price - look for element with id="itemPrice_{itemId}"
         const $priceElement = $(`#itemPrice_${itemId}`);
         let price = $priceElement.find('.a-offscreen').first().text().trim() ||
                    $priceElement.text().trim().replace(/[^$0-9.,]/g, '').trim();
         
-        // Clean up price
         if (price && !price.startsWith('$')) {
           const priceMatch = price.match(/\$[\d,.]+/);
           price = priceMatch ? priceMatch[0] : price;
         }
         
-        // Find image
         let imageUrl = '';
-        const $imageElement = $(`#itemImage_${itemId} img, [data-itemId="${itemId}"] img`).first();
+        const $imageElement = $(`#itemImage_${itemId} img`).first();
         imageUrl = $imageElement.attr('src') || $imageElement.attr('data-src') || '';
         
-        // If still no image, try finding any img near this item
         if (!imageUrl) {
           const $img = $item.find('img').first();
           imageUrl = $img.attr('src') || $img.attr('data-src') || '';
         }
         
-        // Skip placeholder images
         if (imageUrl.includes('transparent-pixel') || imageUrl.includes('grey-pixel')) {
           imageUrl = '';
         }
@@ -2260,6 +2248,120 @@ export async function registerRoutes(app: Express): Promise<Server> {
           productUrl: productUrl || null,
         });
       });
+      
+      // Method 2: Try newer Amazon structure using g-item-sortable or list-item classes
+      if (items.length === 0) {
+        console.log(`[Amazon Import] Trying alternate selectors...`);
+        
+        // Try g-item-sortable class (common in newer wishlists)
+        const listItems = $('[id^="item_"], .g-item-sortable, [data-id]');
+        console.log(`[Amazon Import] Found ${listItems.length} elements with alternate selectors`);
+        
+        listItems.each((index, element) => {
+          const $item = $(element);
+          const itemId = $item.attr('data-id') || $item.attr('id')?.replace('item_', '') || `item-${index}`;
+          
+          // Try various title selectors
+          let title = '';
+          const $titleLink = $item.find('a[id^="itemName"], a.a-link-normal[title], h2 a, h3 a').first();
+          title = $titleLink.attr('title') || $titleLink.text().trim();
+          
+          if (!title) {
+            title = $item.find('[id^="itemName"], .a-size-base-plus, .a-text-normal').first().text().trim();
+          }
+          
+          if (!title || title.length < 3) return;
+          
+          // Get product URL
+          let productUrl = $titleLink.attr('href') || $item.find('a[href*="/dp/"]').first().attr('href') || '';
+          if (productUrl && !productUrl.startsWith('http')) {
+            const urlObj = new URL(url);
+            productUrl = `${urlObj.origin}${productUrl}`;
+          }
+          
+          const asinMatch = productUrl.match(/\/dp\/([A-Z0-9]{10})/i);
+          const asin = asinMatch ? asinMatch[1].toUpperCase() : null;
+          
+          // Get price
+          let price = '';
+          const $priceEl = $item.find('.a-price .a-offscreen, [id^="itemPrice"], .a-price-whole').first();
+          price = $priceEl.text().trim();
+          if (!price) {
+            const priceText = $item.text();
+            const priceMatch = priceText.match(/\$[\d,]+\.?\d*/);
+            price = priceMatch ? priceMatch[0] : '';
+          }
+          
+          // Get image
+          let imageUrl = $item.find('img[src*="images-amazon"], img[src*="m.media-amazon"]').first().attr('src') || '';
+          if (!imageUrl) {
+            imageUrl = $item.find('img').first().attr('src') || '';
+          }
+          
+          if (imageUrl.includes('transparent-pixel') || imageUrl.includes('grey-pixel') || imageUrl.includes('no-image')) {
+            imageUrl = '';
+          }
+          
+          items.push({
+            amazonItemId: itemId,
+            asin: asin,
+            title: title,
+            price: price || null,
+            imageUrl: imageUrl || null,
+            productUrl: productUrl || null,
+          });
+        });
+      }
+      
+      // Method 3: Fallback - find any product links with /dp/ pattern
+      if (items.length === 0) {
+        console.log(`[Amazon Import] Trying product link fallback...`);
+        
+        const productLinks = $('a[href*="/dp/"]');
+        console.log(`[Amazon Import] Found ${productLinks.length} product links`);
+        
+        const seenAsins = new Set<string>();
+        
+        productLinks.each((index, element) => {
+          const $link = $(element);
+          const href = $link.attr('href') || '';
+          const asinMatch = href.match(/\/dp\/([A-Z0-9]{10})/i);
+          
+          if (!asinMatch) return;
+          
+          const asin = asinMatch[1].toUpperCase();
+          if (seenAsins.has(asin)) return;
+          seenAsins.add(asin);
+          
+          const title = $link.attr('title') || $link.text().trim();
+          if (!title || title.length < 5) return;
+          
+          let productUrl = href;
+          if (!productUrl.startsWith('http')) {
+            const urlObj = new URL(url);
+            productUrl = `${urlObj.origin}${productUrl}`;
+          }
+          
+          // Find nearby image
+          const $parent = $link.closest('li, div[class*="item"], tr');
+          let imageUrl = $parent.find('img[src*="images-amazon"], img[src*="m.media-amazon"]').first().attr('src') || '';
+          
+          // Find nearby price
+          let price = '';
+          const priceText = $parent.text();
+          const priceMatch = priceText.match(/\$[\d,]+\.?\d*/);
+          price = priceMatch ? priceMatch[0] : '';
+          
+          items.push({
+            amazonItemId: asin,
+            asin: asin,
+            title: title,
+            price: price || null,
+            imageUrl: imageUrl || null,
+            productUrl: productUrl,
+          });
+        });
+      }
       
       console.log(`[Amazon Import] Found ${items.length} items in wishlist`);
       
