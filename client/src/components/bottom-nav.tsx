@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Users, Gift, ShoppingBag, PlusCircle } from "lucide-react";
+import { Users, Gift, ListTree, PlusCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface BottomNavProps {
@@ -14,20 +14,20 @@ export function BottomNav({ onAddItemClick, disabled = false }: BottomNavProps) 
     {
       path: "/my-wishlists",
       icon: Gift,
-      label: "Wishlists",
+      label: "My Lists",
       testId: "nav-wishlists",
     },
     {
       path: "/members",
-      icon: Users,
-      label: "Group",
-      testId: "nav-members",
+      icon: ListTree,
+      label: "Group Lists",
+      testId: "nav-group-lists",
     },
     {
-      path: "/purchased",
-      icon: ShoppingBag,
-      label: "Purchased",
-      testId: "nav-purchased",
+      path: "/gift-coordination",
+      icon: Users,
+      label: "Coordinate",
+      testId: "nav-coordinate",
     },
   ];
 
