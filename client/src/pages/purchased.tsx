@@ -54,7 +54,7 @@ export default function Purchased() {
   const { user } = useAuth();
   const [recordDialogOpen, setRecordDialogOpen] = useState(false);
 
-  const { data: purchases, isLoading } = useQuery<PurchasedItem[]>({
+  const { data: purchasesData, isLoading } = useQuery<{ purchases: PurchasedItem[]; totalCount: number }>({
     queryKey: ["/api/purchases", selectedFamilyId, (user as any)?.id],
     queryFn: async () => {
       const url = new URL('/api/purchases', window.location.origin);
@@ -69,6 +69,8 @@ export default function Purchased() {
     },
     enabled: !!selectedFamilyId && !!user,
   });
+
+  const purchases = purchasesData?.purchases;
 
   const { data: purchaseTotals } = useQuery({
     queryKey: ["/api/families", selectedFamilyId, "purchase-totals"],

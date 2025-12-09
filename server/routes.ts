@@ -1429,7 +1429,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const purchases = await storage.getPurchasedItemsByUser(userId, familyId);
       
       console.log('[DEBUG] Purchases found:', purchases.length);
-      res.json(purchases);
+      // Return in expected format with totalCount for gift coordination page
+      res.json({ purchases, totalCount: purchases.length });
     } catch (error) {
       console.error("Error fetching purchased items:", error);
       res.status(500).json({ message: "Failed to fetch purchased items" });

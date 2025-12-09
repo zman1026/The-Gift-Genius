@@ -1400,6 +1400,8 @@ export class DatabaseStorage implements IStorage {
       });
     }
 
+    // Find members that the CURRENT USER hasn't purchased ANY gifts for yet
+    // This checks for purchases made by the current user, not by anyone
     const membersWithNoGiftsResult = await db.execute(sql`
       SELECT 
         fm.user_id,
@@ -1407,10 +1409,9 @@ export class DatabaseStorage implements IStorage {
         fm.display_name,
         u.first_name as user_first_name,
         u.last_name as user_last_name,
-        mp.first_name as profile_first_name,
-        mp.last_name as profile_last_name,
+        mp.display_name as profile_display_name,
         COUNT(wi.id)::int as total_items,
-        COUNT(ip.id)::int as purchased_items
+        COUNT(CASE WHEN ip.purchased_by_id = ${userId} THEN 1 END)::int as my_purchased_items
       FROM ${familyMembers} fm
       LEFT JOIN ${users} u ON fm.user_id = u.id
       LEFT JOIN ${managedProfiles} mp ON fm.managed_profile_id = mp.id
@@ -1420,15 +1421,16 @@ export class DatabaseStorage implements IStorage {
       WHERE fm.family_id = ${familyId}
       AND (fm.user_id != ${userId} OR fm.user_id IS NULL)
       GROUP BY fm.id, fm.user_id, fm.managed_profile_id, fm.display_name, 
-               u.first_name, u.last_name, mp.first_name, mp.last_name
-      HAVING COUNT(wi.id) > 0 AND COUNT(ip.id) = 0
-      LIMIT 2
+               u.first_name, u.last_name, mp.display_name
+      HAVING COUNT(wi.id) > 0 AND COUNT(CASE WHEN ip.purchased_by_id = ${userId} THEN 1 END) = 0
+      ORDER BY COUNT(wi.id) DESC
+      LIMIT 5
     `);
 
     for (const row of membersWithNoGiftsResult.rows as any[]) {
       const memberName = row.display_name || 
         (row.user_first_name ? `${row.user_first_name} ${row.user_last_name || ''}`.trim() : '') ||
-        (row.profile_first_name ? `${row.profile_first_name} ${row.profile_last_name || ''}`.trim() : '');
+        row.profile_display_name || 'Unknown';
       
       insights.push({
         type: "no-gifts",
