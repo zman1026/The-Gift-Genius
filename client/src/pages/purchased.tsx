@@ -1,13 +1,15 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useFamily } from "@/contexts/FamilyContext";
 import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { ShoppingBag, ExternalLink, Calendar, User, Gift, AlertCircle, ArrowUp, Circle } from "lucide-react";
+import { ShoppingBag, ExternalLink, Calendar, User, Gift, AlertCircle, ArrowUp, Circle, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
+import { RecordPurchaseDialog } from "@/components/record-purchase-dialog";
 
 interface PurchasedItem {
   id: string;
@@ -50,6 +52,7 @@ interface PurchasedItem {
 export default function Purchased() {
   const { selectedFamilyId } = useFamily();
   const { user } = useAuth();
+  const [recordDialogOpen, setRecordDialogOpen] = useState(false);
 
   const { data: purchases, isLoading } = useQuery<PurchasedItem[]>({
     queryKey: ["/api/purchases", selectedFamilyId, (user as any)?.id],
@@ -166,14 +169,24 @@ export default function Purchased() {
 
   return (
     <div className="p-4 md:p-8 lg:p-12 space-y-6">
-      <div>
-        <h1 className="font-serif text-3xl md:text-4xl font-semibold text-foreground flex items-center gap-3">
-          <ShoppingBag className="w-8 h-8 md:w-10 md:h-10 text-primary" />
-          Purchased Items
-        </h1>
-        <p className="text-muted-foreground mt-2">
-          Items you've marked as purchased across your group
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="font-serif text-3xl md:text-4xl font-semibold text-foreground flex items-center gap-3">
+            <ShoppingBag className="w-8 h-8 md:w-10 md:h-10 text-primary" />
+            Purchased Items
+          </h1>
+          <p className="text-muted-foreground mt-2">
+            Items you've marked as purchased across your group
+          </p>
+        </div>
+        <Button
+          onClick={() => setRecordDialogOpen(true)}
+          className="shrink-0"
+          data-testid="button-record-purchase"
+        >
+          <Plus className="w-4 h-4 mr-2" />
+          Record a Purchase
+        </Button>
       </div>
 
       {purchaseTotals && purchaseTotals.length > 0 && (
@@ -419,6 +432,11 @@ export default function Purchased() {
           })}
         </div>
       )}
+
+      <RecordPurchaseDialog
+        open={recordDialogOpen}
+        onOpenChange={setRecordDialogOpen}
+      />
     </div>
   );
 }
