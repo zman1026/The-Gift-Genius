@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, List, ShoppingBag, Sparkles } from "lucide-react";
+import { Plus, List, ListTree, Sparkles } from "lucide-react";
 import { useLocation } from "wouter";
 
 interface QuickActionsProps {
@@ -32,17 +32,17 @@ export function QuickActions({ onAddItemClick }: QuickActionsProps) {
           data-testid="quick-action-my-wishlists"
         >
           <List className="w-5 h-5" />
-          <span className="text-xs">My Wishlists</span>
+          <span className="text-xs">My Lists</span>
         </Button>
         
         <Button
           variant="outline"
-          onClick={() => setLocation('/purchased')}
+          onClick={() => setLocation('/members')}
           className="flex-col h-auto py-4 gap-2"
-          data-testid="quick-action-purchases"
+          data-testid="quick-action-group-lists"
         >
-          <ShoppingBag className="w-5 h-5" />
-          <span className="text-xs">My Purchases</span>
+          <ListTree className="w-5 h-5" />
+          <span className="text-xs">Group Lists</span>
         </Button>
         
         <Button
@@ -52,7 +52,7 @@ export function QuickActions({ onAddItemClick }: QuickActionsProps) {
           data-testid="quick-action-coordination"
         >
           <Sparkles className="w-5 h-5" />
-          <span className="text-xs">Gift Coordination</span>
+          <span className="text-xs">Coordinate</span>
         </Button>
       </CardContent>
     </Card>
