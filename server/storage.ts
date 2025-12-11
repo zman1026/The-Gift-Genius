@@ -1503,20 +1503,22 @@ export class DatabaseStorage implements IStorage {
       throw new Error("Group not found");
     }
 
-    const membersQuery = await db
-      .select({
-        userId: familyMembers.userId,
-        managedProfileId: familyMembers.managedProfileId,
-        displayName: familyMembers.displayName,
-        firstName: sql<string>`COALESCE(${users.firstName}, ${managedProfiles.firstName})`,
-        lastName: sql<string>`COALESCE(${users.lastName}, ${managedProfiles.lastName})`,
-        email: users.email,
-        profileImageUrl: sql<string>`COALESCE(${users.profileImageUrl}, ${managedProfiles.profileImageUrl})`,
-      })
-      .from(familyMembers)
-      .leftJoin(users, eq(familyMembers.userId, users.id))
-      .leftJoin(managedProfiles, eq(familyMembers.managedProfileId, managedProfiles.id))
-      .where(eq(familyMembers.familyId, familyId));
+    // Use raw SQL to match the working getFamilyMembersByFamily query format
+    const membersResult = await db.execute(sql`
+      SELECT 
+        fm.user_id as "userId",
+        fm.managed_profile_id as "managedProfileId",
+        fm.display_name as "displayName",
+        COALESCE(u.first_name, mp.first_name) as "firstName",
+        COALESCE(u.last_name, mp.last_name) as "lastName",
+        u.email as "email",
+        COALESCE(u.profile_image_url, mp.profile_image_url) as "profileImageUrl"
+      FROM family_members fm
+      LEFT JOIN users u ON fm.user_id = u.id
+      LEFT JOIN managed_profiles mp ON fm.managed_profile_id = mp.id
+      WHERE fm.family_id = ${familyId}
+    `);
+    const membersQuery = membersResult.rows as any[];
 
     const allocations = await db
       .select()
