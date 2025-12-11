@@ -1510,6 +1510,7 @@ export class DatabaseStorage implements IStorage {
         displayName: familyMembers.displayName,
         firstName: sql<string>`COALESCE(${users.firstName}, ${managedProfiles.firstName})`,
         lastName: sql<string>`COALESCE(${users.lastName}, ${managedProfiles.lastName})`,
+        email: users.email,
         profileImageUrl: sql<string>`COALESCE(${users.profileImageUrl}, ${managedProfiles.profileImageUrl})`,
       })
       .from(familyMembers)
@@ -1564,12 +1565,13 @@ export class DatabaseStorage implements IStorage {
         status = 'warning';
       }
 
-      // Build display name with null safety
+      // Build display name with null safety - try displayName, then firstName/lastName, then email
       let computedDisplayName = member.displayName;
       if (!computedDisplayName) {
         const firstName = member.firstName || '';
         const lastName = member.lastName || '';
-        computedDisplayName = `${firstName} ${lastName}`.trim() || 'Unknown';
+        const fullName = `${firstName} ${lastName}`.trim();
+        computedDisplayName = fullName || member.email || 'Unknown';
       }
 
       return {
@@ -1578,6 +1580,7 @@ export class DatabaseStorage implements IStorage {
         displayName: computedDisplayName,
         firstName: member.firstName,
         lastName: member.lastName,
+        email: member.email,
         profileImageUrl: member.profileImageUrl,
         allocated,
         spent,
