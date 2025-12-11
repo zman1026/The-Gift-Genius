@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useFamily } from "@/contexts/FamilyContext";
 import { useAuth } from "@/hooks/useAuth";
@@ -36,24 +35,14 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Gift, DollarSign, Store, StickyNote, Loader2 } from "lucide-react";
 
 const formSchema = z.object({
-  recipientType: z.enum(["user", "managed"]),
-  recipientUserId: z.string().nullable(),
-  recipientManagedProfileId: z.string().nullable(),
+  recipientId: z.string().min(1, "Please select a recipient"),
   description: z.string().min(1, "Description is required"),
   price: z.string().refine((val) => !isNaN(Number(val)) && Number(val) >= 0, {
     message: "Price must be a valid non-negative number",
   }),
   purchasedFrom: z.string().optional(),
   notes: z.string().optional(),
-}).refine(
-  (data) => {
-    if (data.recipientType === "user") {
-      return data.recipientUserId !== null && data.recipientUserId !== "";
-    }
-    return data.recipientManagedProfileId !== null && data.recipientManagedProfileId !== "";
-  },
-  { message: "Please select a recipient", path: ["recipientUserId"] }
-);
+});
 
 type FormValues = z.infer<typeof formSchema>;
 
@@ -62,20 +51,15 @@ interface RecordPurchaseDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-interface FamilyMember {
+interface GroupMember {
   userId: string;
+  managedProfileId: string | null;
   firstName: string | null;
   lastName: string | null;
-  email: string;
+  displayName: string | null;
+  email: string | null;
   profileImageUrl: string | null;
-  role: string;
-}
-
-interface ManagedProfile {
-  id: string;
-  displayName: string;
-  profileImageUrl: string | null;
-  createdBy: string;
+  isManagedProfile: boolean;
 }
 
 export function RecordPurchaseDialog({ open, onOpenChange }: RecordPurchaseDialogProps) {
@@ -86,9 +70,7 @@ export function RecordPurchaseDialog({ open, onOpenChange }: RecordPurchaseDialo
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      recipientType: "user",
-      recipientUserId: null,
-      recipientManagedProfileId: null,
+      recipientId: "",
       description: "",
       price: "",
       purchasedFrom: "",
@@ -96,9 +78,7 @@ export function RecordPurchaseDialog({ open, onOpenChange }: RecordPurchaseDialo
     },
   });
 
-  const recipientType = form.watch("recipientType");
-
-  const { data: members = [] } = useQuery<FamilyMember[]>({
+  const { data: members = [] } = useQuery<GroupMember[]>({
     queryKey: ["/api/members", selectedFamilyId],
     queryFn: async () => {
       if (!selectedFamilyId) return [];
@@ -111,25 +91,19 @@ export function RecordPurchaseDialog({ open, onOpenChange }: RecordPurchaseDialo
     enabled: open && !!selectedFamilyId,
   });
 
-  const { data: managedProfiles = [] } = useQuery<ManagedProfile[]>({
-    queryKey: ["/api/managed-profiles", selectedFamilyId],
-    queryFn: async () => {
-      if (!selectedFamilyId) return [];
-      const response = await fetch(`/api/managed-profiles?familyId=${selectedFamilyId}`, {
-        credentials: "include",
-      });
-      if (!response.ok) throw new Error("Failed to fetch managed profiles");
-      return response.json();
-    },
-    enabled: open && !!selectedFamilyId,
-  });
+  const otherMembers = members.filter((m) => m.userId !== (user as any)?.id);
 
   const recordPurchaseMutation = useMutation({
     mutationFn: async (values: FormValues) => {
+      const selectedMember = members.find((m) => m.userId === values.recipientId);
+      if (!selectedMember) {
+        throw new Error("Invalid recipient selected");
+      }
+
       const payload = {
         familyId: selectedFamilyId,
-        recipientUserId: values.recipientType === "user" ? values.recipientUserId : null,
-        recipientManagedProfileId: values.recipientType === "managed" ? values.recipientManagedProfileId : null,
+        recipientUserId: selectedMember.isManagedProfile ? null : selectedMember.userId,
+        recipientManagedProfileId: selectedMember.isManagedProfile ? selectedMember.managedProfileId : null,
         description: values.description,
         price: Number(values.price),
         purchasedFrom: values.purchasedFrom || undefined,
@@ -144,6 +118,7 @@ export function RecordPurchaseDialog({ open, onOpenChange }: RecordPurchaseDialo
       });
       queryClient.invalidateQueries({ queryKey: ["/api/purchases"] });
       queryClient.invalidateQueries({ queryKey: ["/api/families", selectedFamilyId, "purchase-totals"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/coordination-insights"] });
       form.reset();
       onOpenChange(false);
     },
@@ -156,30 +131,38 @@ export function RecordPurchaseDialog({ open, onOpenChange }: RecordPurchaseDialo
     },
   });
 
-  const getInitials = (firstName?: string | null, lastName?: string | null) => {
+  const getInitials = (firstName?: string | null, lastName?: string | null, displayName?: string | null) => {
+    if (displayName) {
+      const parts = displayName.split(" ");
+      return parts.map((p) => p[0]).join("").substring(0, 2).toUpperCase();
+    }
     if (!firstName && !lastName) return "U";
     return `${firstName?.[0] || ""}${lastName?.[0] || ""}`.toUpperCase();
   };
 
-  const getMemberDisplayName = (member: FamilyMember) => {
-    if (member.firstName || member.lastName) {
-      return `${member.firstName || ""} ${member.lastName || ""}`.trim();
-    }
-    return member.email;
+  const getMemberDisplayName = (member: GroupMember) => {
+    if (member.displayName) return member.displayName;
+    const name = `${member.firstName || ""} ${member.lastName || ""}`.trim();
+    return name || member.email || "Unknown";
   };
 
-  const otherMembers = members.filter((m) => m.userId !== (user as any)?.id);
-
-  const handleSubmit = (values: FormValues) => {
+  const onSubmit = (values: FormValues) => {
     recordPurchaseMutation.mutate(values);
   };
 
+  const handleOpenChange = (newOpen: boolean) => {
+    if (!newOpen) {
+      form.reset();
+    }
+    onOpenChange(newOpen);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Gift className="w-5 h-5 text-primary" />
+            <Gift className="h-5 w-5 text-red-600" />
             Record a Purchase
           </DialogTitle>
           <DialogDescription>
@@ -188,113 +171,46 @@ export function RecordPurchaseDialog({ open, onOpenChange }: RecordPurchaseDialo
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
               control={form.control}
-              name="recipientType"
+              name="recipientId"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Recipient Type</FormLabel>
+                  <FormLabel>Recipient</FormLabel>
                   <Select
-                    onValueChange={(value) => {
-                      field.onChange(value);
-                      form.setValue("recipientUserId", null);
-                      form.setValue("recipientManagedProfileId", null);
-                    }}
-                    defaultValue={field.value}
+                    onValueChange={field.onChange}
+                    value={field.value}
                   >
                     <FormControl>
-                      <SelectTrigger data-testid="select-recipient-type">
-                        <SelectValue placeholder="Select type" />
+                      <SelectTrigger data-testid="select-recipient">
+                        <SelectValue placeholder="Select who this gift is for" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="user">Group Member</SelectItem>
-                      {managedProfiles.length > 0 && (
-                        <SelectItem value="managed">Child Profile</SelectItem>
-                      )}
+                      {otherMembers.map((member) => (
+                        <SelectItem
+                          key={member.userId}
+                          value={member.userId}
+                          data-testid={`option-recipient-${member.userId}`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <Avatar className="h-6 w-6">
+                              <AvatarImage src={member.profileImageUrl || undefined} />
+                              <AvatarFallback className="text-xs">
+                                {getInitials(member.firstName, member.lastName, member.displayName)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <span>{getMemberDisplayName(member)}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                   <FormMessage />
                 </FormItem>
               )}
             />
-
-            {recipientType === "user" && (
-              <FormField
-                control={form.control}
-                name="recipientUserId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Recipient</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      value={field.value || undefined}
-                    >
-                      <FormControl>
-                        <SelectTrigger data-testid="select-recipient-user">
-                          <SelectValue placeholder="Select a group member" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {otherMembers.map((member) => (
-                          <SelectItem key={member.userId} value={member.userId}>
-                            <div className="flex items-center gap-2">
-                              <Avatar className="h-6 w-6">
-                                <AvatarImage src={member.profileImageUrl || undefined} />
-                                <AvatarFallback className="text-xs">
-                                  {getInitials(member.firstName, member.lastName)}
-                                </AvatarFallback>
-                              </Avatar>
-                              <span>{getMemberDisplayName(member)}</span>
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            )}
-
-            {recipientType === "managed" && (
-              <FormField
-                control={form.control}
-                name="recipientManagedProfileId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Recipient</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      value={field.value || undefined}
-                    >
-                      <FormControl>
-                        <SelectTrigger data-testid="select-recipient-managed">
-                          <SelectValue placeholder="Select a child profile" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {managedProfiles.map((profile) => (
-                          <SelectItem key={profile.id} value={profile.id}>
-                            <div className="flex items-center gap-2">
-                              <Avatar className="h-6 w-6">
-                                <AvatarImage src={profile.profileImageUrl || undefined} />
-                                <AvatarFallback className="text-xs">
-                                  {profile.displayName.charAt(0).toUpperCase()}
-                                </AvatarFallback>
-                              </Avatar>
-                              <span>{profile.displayName}</span>
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            )}
 
             <FormField
               control={form.control}
@@ -304,9 +220,9 @@ export function RecordPurchaseDialog({ open, onOpenChange }: RecordPurchaseDialo
                   <FormLabel>What did you buy?</FormLabel>
                   <FormControl>
                     <Input
-                      placeholder="e.g., Blue bicycle, LEGO Star Wars set"
+                      placeholder="e.g., Blue sweater, Lego set"
+                      data-testid="input-description"
                       {...field}
-                      data-testid="input-purchase-description"
                     />
                   </FormControl>
                   <FormMessage />
@@ -320,7 +236,7 @@ export function RecordPurchaseDialog({ open, onOpenChange }: RecordPurchaseDialo
               render={({ field }) => (
                 <FormItem>
                   <FormLabel className="flex items-center gap-1">
-                    <DollarSign className="w-4 h-4" />
+                    <DollarSign className="h-4 w-4" />
                     Price
                   </FormLabel>
                   <FormControl>
@@ -329,8 +245,8 @@ export function RecordPurchaseDialog({ open, onOpenChange }: RecordPurchaseDialo
                       step="0.01"
                       min="0"
                       placeholder="0.00"
+                      data-testid="input-price"
                       {...field}
-                      data-testid="input-purchase-price"
                     />
                   </FormControl>
                   <FormMessage />
@@ -344,14 +260,14 @@ export function RecordPurchaseDialog({ open, onOpenChange }: RecordPurchaseDialo
               render={({ field }) => (
                 <FormItem>
                   <FormLabel className="flex items-center gap-1">
-                    <Store className="w-4 h-4" />
+                    <Store className="h-4 w-4" />
                     Store (optional)
                   </FormLabel>
                   <FormControl>
                     <Input
-                      placeholder="e.g., Amazon, Target, Walmart"
+                      placeholder="e.g., Amazon, Target"
+                      data-testid="input-store"
                       {...field}
-                      data-testid="input-purchase-store"
                     />
                   </FormControl>
                   <FormMessage />
@@ -365,15 +281,15 @@ export function RecordPurchaseDialog({ open, onOpenChange }: RecordPurchaseDialo
               render={({ field }) => (
                 <FormItem>
                   <FormLabel className="flex items-center gap-1">
-                    <StickyNote className="w-4 h-4" />
+                    <StickyNote className="h-4 w-4" />
                     Notes (optional)
                   </FormLabel>
                   <FormControl>
                     <Textarea
                       placeholder="e.g., Arrives Dec 20th, gift wrapped"
                       className="resize-none"
+                      data-testid="input-notes"
                       {...field}
-                      data-testid="input-purchase-notes"
                     />
                   </FormControl>
                   <FormMessage />
@@ -381,26 +297,25 @@ export function RecordPurchaseDialog({ open, onOpenChange }: RecordPurchaseDialo
               )}
             />
 
-            <div className="flex gap-3 pt-2">
+            <div className="flex justify-end gap-2 pt-4">
               <Button
                 type="button"
                 variant="outline"
-                className="flex-1"
-                onClick={() => onOpenChange(false)}
-                data-testid="button-cancel-purchase"
+                onClick={() => handleOpenChange(false)}
+                data-testid="button-cancel"
               >
                 Cancel
               </Button>
               <Button
                 type="submit"
-                className="flex-1"
                 disabled={recordPurchaseMutation.isPending}
-                data-testid="button-submit-purchase"
+                className="bg-red-600 hover:bg-red-700"
+                data-testid="button-record-purchase"
               >
                 {recordPurchaseMutation.isPending ? (
                   <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Saving...
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Recording...
                   </>
                 ) : (
                   "Record Purchase"
