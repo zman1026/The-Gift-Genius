@@ -1220,10 +1220,11 @@ export class DatabaseStorage implements IStorage {
           firstName: sql<string>`ru.first_name`,
           lastName: sql<string>`ru.last_name`,
           profileImageUrl: sql<string>`ru.profile_image_url`,
+          displayName: sql<string>`fm_user.display_name`,
         },
         recipientManagedProfile: {
           id: sql<string>`rmp.id`,
-          displayName: sql<string>`COALESCE(rmp.first_name || ' ' || rmp.last_name, rmp.first_name)`,
+          displayName: sql<string>`COALESCE(fm_managed.display_name, TRIM(COALESCE(rmp.first_name, '') || ' ' || COALESCE(rmp.last_name, '')), rmp.first_name)`,
           profileImageUrl: sql<string>`rmp.profile_image_url`,
         },
       })
@@ -1231,6 +1232,8 @@ export class DatabaseStorage implements IStorage {
       .leftJoin(wishlistItems, eq(itemPurchases.itemId, wishlistItems.id))
       .leftJoin(sql`users ru`, sql`${itemPurchases.recipientUserId} = ru.id`)
       .leftJoin(sql`managed_profiles rmp`, sql`${itemPurchases.recipientManagedProfileId} = rmp.id`)
+      .leftJoin(sql`family_members fm_user`, sql`fm_user.user_id = ${itemPurchases.recipientUserId} AND fm_user.family_id = ${itemPurchases.familyId}`)
+      .leftJoin(sql`family_members fm_managed`, sql`fm_managed.managed_profile_id = ${itemPurchases.recipientManagedProfileId} AND fm_managed.family_id = ${itemPurchases.familyId}`)
       .where(and(...conditions))
       .orderBy(desc(itemPurchases.purchasedAt));
 

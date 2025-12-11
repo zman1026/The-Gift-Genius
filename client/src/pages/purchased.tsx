@@ -41,6 +41,7 @@ interface PurchasedItem {
     firstName: string | null;
     lastName: string | null;
     profileImageUrl: string | null;
+    displayName: string | null;
   } | null;
   recipientManagedProfile: {
     id: string;
@@ -107,7 +108,14 @@ export default function Purchased() {
     (members || []).map((m: any) => [m.userId, m])
   );
 
-  const getInitials = (firstName?: string | null, lastName?: string | null) => {
+  const getInitials = (firstName?: string | null, lastName?: string | null, displayName?: string | null) => {
+    if (displayName) {
+      const parts = displayName.trim().split(/\s+/);
+      if (parts.length >= 2) {
+        return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+      }
+      return displayName.substring(0, 2).toUpperCase();
+    }
     if (!firstName && !lastName) return "U";
     return `${firstName?.[0] || ""}${lastName?.[0] || ""}`.toUpperCase();
   };
@@ -223,7 +231,7 @@ export default function Purchased() {
                           alt={member.firstName || "Member"}
                         />
                         <AvatarFallback>
-                          {getInitials(member.firstName, member.lastName)}
+                          {getInitials(member.firstName, member.lastName, member.displayName)}
                         </AvatarFallback>
                       </Avatar>
                       <div>
@@ -290,9 +298,10 @@ export default function Purchased() {
             
             const recipient = purchase.recipientUser || purchase.recipientManagedProfile;
             const recipientName = purchase.recipientUser 
-              ? (purchase.recipientUser.firstName || purchase.recipientUser.lastName
+              ? (purchase.recipientUser.displayName ||
+                 (purchase.recipientUser.firstName || purchase.recipientUser.lastName
                   ? `${purchase.recipientUser.firstName || ""} ${purchase.recipientUser.lastName || ""}`.trim()
-                  : purchase.recipientUser.email)
+                  : purchase.recipientUser.email))
               : purchase.recipientManagedProfile?.displayName;
             const recipientImage = purchase.recipientUser?.profileImageUrl || purchase.recipientManagedProfile?.profileImageUrl;
 
@@ -390,7 +399,8 @@ export default function Purchased() {
                           <AvatarFallback className="text-xs">
                             {recipient ? getInitials(
                               (purchase.recipientUser?.firstName || null), 
-                              (purchase.recipientUser?.lastName || null)
+                              (purchase.recipientUser?.lastName || null),
+                              (purchase.recipientUser?.displayName || purchase.recipientManagedProfile?.displayName || null)
                             ) : "?"}
                           </AvatarFallback>
                         </Avatar>
