@@ -45,7 +45,7 @@ import {
   type InsertPersonalListFamilyShare,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, or, sql, desc, asc, inArray, ne } from "drizzle-orm";
+import { eq, and, or, sql, desc, asc, inArray, notInArray, ne } from "drizzle-orm";
 
 export class AuthorizationError extends Error {
   constructor(message: string) {
@@ -1474,6 +1474,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getRecentActivities(familyId: string, limit: number = 10): Promise<any[]> {
+    // Exclude purchase-related activities to prevent spoiling gift surprises
     const activities = await db
       .select({
         id: activityLogs.id,
@@ -1490,7 +1491,12 @@ export class DatabaseStorage implements IStorage {
       })
       .from(activityLogs)
       .leftJoin(users, eq(activityLogs.actorId, users.id))
-      .where(eq(activityLogs.familyId, familyId))
+      .where(
+        and(
+          eq(activityLogs.familyId, familyId),
+          notInArray(activityLogs.action, ['item_purchased', 'item_unpurchased'])
+        )
+      )
       .orderBy(desc(activityLogs.createdAt))
       .limit(limit);
 
