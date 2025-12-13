@@ -475,9 +475,9 @@ export default function GiftCoordinationPage() {
             <div className="flex items-center justify-between">
               <CardTitle className="text-base flex items-center gap-2">
                 <DollarSign className="w-4 h-4" style={{ color: christmasTheme.accent }} />
-                Budget per Person
+                Your Budget per Person
               </CardTitle>
-              {!isEditing && isOrganizer && (
+              {!isEditing && (
                 <Button
                   onClick={handleStartEdit}
                   variant="ghost"
@@ -605,7 +605,7 @@ export default function GiftCoordinationPage() {
                 );
               })
             )}
-            {!hasBudgetSetup && isOrganizer && !isEditing && (
+            {!hasBudgetSetup && !isEditing && (
               <Button
                 onClick={handleStartEdit}
                 variant="outline"
@@ -613,7 +613,7 @@ export default function GiftCoordinationPage() {
                 data-testid="button-setup-budget"
               >
                 <DollarSign className="w-4 h-4 mr-2" />
-                Set Up Budget
+                Set Up My Budget
               </Button>
             )}
           </CardContent>
