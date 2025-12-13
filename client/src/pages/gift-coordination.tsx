@@ -106,6 +106,20 @@ export default function GiftCoordinationPage() {
     enabled: !!selectedFamilyId,
   });
 
+  // Fetch actual group members (not filtered by budget)
+  const { data: groupMembers } = useQuery<any[]>({
+    queryKey: ["/api/members", selectedFamilyId],
+    queryFn: async () => {
+      const params = new URLSearchParams({ familyId: selectedFamilyId! });
+      const response = await fetch(`/api/members?${params.toString()}`, {
+        credentials: "include",
+      });
+      if (!response.ok) throw new Error("Failed to fetch members");
+      return response.json();
+    },
+    enabled: !!selectedFamilyId,
+  });
+
   const updateAllocationsMutation = useMutation({
     mutationFn: async (newAllocations: any[]) => {
       const response = await fetch(`/api/families/${selectedFamilyId}/budget/allocations`, {
@@ -317,7 +331,8 @@ export default function GiftCoordinationPage() {
     }
   };
 
-  const totalMembers = allMemberBudgets.length;
+  // Use actual group membership for member count (not filtered budget data)
+  const totalMembers = groupMembers?.length || 0;
   const membersWithBudget = allMemberBudgets.filter((m: any) => m.allocated > 0).length;
   
   const totalAllocated = allMemberBudgets.reduce((sum: number, m: any) => sum + (m.allocated || 0), 0);
