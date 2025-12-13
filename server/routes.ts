@@ -725,7 +725,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "You are not a member of this group" });
       }
 
-      const budgetData = await storage.getBudgetOverview(familyId);
+      const budgetData = await storage.getBudgetOverview(familyId, userId);
       res.json(budgetData);
     } catch (error) {
       console.error("Error getting budget overview:", error);
@@ -749,9 +749,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Group not found" });
       }
 
-      if (family.createdById !== userId) {
-        return res.status(403).json({ message: "Only group organizers can set budget allocations" });
-      }
+      // Remove organizer-only restriction - each user sets their own budget
 
       // Validate payload with Zod
       const validatedData = setBudgetAllocationsSchema.parse(req.body);
@@ -785,8 +783,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      await storage.setBudgetAllocations(familyId, validatedData.allocations);
-      const updatedBudget = await storage.getBudgetOverview(familyId);
+      await storage.setBudgetAllocations(familyId, userId, validatedData.allocations);
+      const updatedBudget = await storage.getBudgetOverview(familyId, userId);
       res.json(updatedBudget);
     } catch (error) {
       if (error instanceof z.ZodError) {

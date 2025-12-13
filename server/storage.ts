@@ -120,8 +120,8 @@ export interface IStorage {
   createActivityLog(log: InsertActivityLog): Promise<ActivityLog>;
   getRecentActivities(familyId: string, limit?: number): Promise<any[]>;
   
-  getBudgetOverview(familyId: string): Promise<any>;
-  setBudgetAllocations(familyId: string, allocations: any[]): Promise<void>;
+  getBudgetOverview(familyId: string, requestingUserId: string): Promise<any>;
+  setBudgetAllocations(familyId: string, setByUserId: string, allocations: any[]): Promise<void>;
   getMemberGiftStatus(familyId: string, userId: string): Promise<any[]>;
   
   createPersonalList(list: InsertPersonalList): Promise<PersonalList>;
