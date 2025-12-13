@@ -138,16 +138,19 @@ export type InsertFamily = z.infer<typeof insertFamilySchema>;
 export type Family = typeof families.$inferSelect;
 
 // Budget allocations table (per-person budget tracking for groups)
+// Each user sets their own budget for each other group member
 export const budgetAllocations = pgTable("budget_allocations", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   familyId: varchar("family_id").notNull().references(() => families.id, { onDelete: 'cascade' }),
-  userId: varchar("user_id").references(() => users.id, { onDelete: 'cascade' }), // Nullable - either userId OR managedProfileId
+  setByUserId: varchar("set_by_user_id").notNull().references(() => users.id, { onDelete: 'cascade' }), // Who set this budget
+  userId: varchar("user_id").references(() => users.id, { onDelete: 'cascade' }), // Nullable - recipient userId OR managedProfileId
   managedProfileId: varchar("managed_profile_id").references(() => managedProfiles.id, { onDelete: 'cascade' }), // Nullable - for children/dependents
   allocatedAmount: decimal("allocated_amount", { precision: 10, scale: 2 }).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
   index("idx_budget_allocations_family").on(table.familyId),
+  index("idx_budget_allocations_set_by").on(table.setByUserId, table.familyId),
   index("idx_budget_allocations_user").on(table.userId, table.familyId),
   index("idx_budget_allocations_managed").on(table.managedProfileId, table.familyId),
 ]);
