@@ -1503,13 +1503,14 @@ export class DatabaseStorage implements IStorage {
     return activities;
   }
 
-  async getBudgetOverview(familyId: string): Promise<any> {
+  async getBudgetOverview(familyId: string, requestingUserId: string): Promise<any> {
     const family = await this.getFamily(familyId);
     if (!family) {
       throw new Error("Group not found");
     }
 
     // Use raw SQL to match the working getFamilyMembersByFamily query format
+    // Exclude the requesting user - they don't set a budget for themselves
     const membersResult = await db.execute(sql`
       SELECT 
         fm.user_id as "userId",
@@ -1523,14 +1524,22 @@ export class DatabaseStorage implements IStorage {
       LEFT JOIN users u ON fm.user_id = u.id
       LEFT JOIN managed_profiles mp ON fm.managed_profile_id = mp.id
       WHERE fm.family_id = ${familyId}
+        AND (fm.user_id IS NULL OR fm.user_id != ${requestingUserId})
     `);
     const membersQuery = membersResult.rows as any[];
 
+    // Get only allocations set by the requesting user
     const allocations = await db
       .select()
       .from(budgetAllocations)
-      .where(eq(budgetAllocations.familyId, familyId));
+      .where(
+        and(
+          eq(budgetAllocations.familyId, familyId),
+          eq(budgetAllocations.setByUserId, requestingUserId)
+        )
+      );
 
+    // Get spending by the requesting user (purchases they made)
     const spendingQuery = await db
       .select({
         recipientUserId: sql<string>`COALESCE(${wishlistItems.userId}, ${itemPurchases.recipientUserId})`,
@@ -1539,7 +1548,12 @@ export class DatabaseStorage implements IStorage {
       })
       .from(itemPurchases)
       .leftJoin(wishlistItems, eq(wishlistItems.id, itemPurchases.itemId))
-      .where(eq(itemPurchases.familyId, familyId))
+      .where(
+        and(
+          eq(itemPurchases.familyId, familyId),
+          eq(itemPurchases.purchasedById, requestingUserId)
+        )
+      )
       .groupBy(
         sql`COALESCE(${wishlistItems.userId}, ${itemPurchases.recipientUserId})`,
         sql`COALESCE(${wishlistItems.managedProfileId}, ${itemPurchases.recipientManagedProfileId})`
@@ -1611,7 +1625,7 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async setBudgetAllocations(familyId: string, allocations: any[]): Promise<void> {
+  async setBudgetAllocations(familyId: string, setByUserId: string, allocations: any[]): Promise<void> {
     for (const allocation of allocations) {
       const amount = parseFloat(allocation.allocatedAmount);
       if (isNaN(amount) || amount < 0) {
@@ -1620,12 +1634,19 @@ export class DatabaseStorage implements IStorage {
     }
 
     await db.transaction(async (tx) => {
-      await tx.delete(budgetAllocations).where(eq(budgetAllocations.familyId, familyId));
+      // Only delete allocations set by this specific user
+      await tx.delete(budgetAllocations).where(
+        and(
+          eq(budgetAllocations.familyId, familyId),
+          eq(budgetAllocations.setByUserId, setByUserId)
+        )
+      );
 
       if (allocations.length > 0) {
         await tx.insert(budgetAllocations).values(
           allocations.map(allocation => ({
             familyId,
+            setByUserId,
             userId: allocation.userId || null,
             managedProfileId: allocation.managedProfileId || null,
             allocatedAmount: allocation.allocatedAmount.toString(),
