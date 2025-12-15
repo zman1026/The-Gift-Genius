@@ -688,7 +688,8 @@ export default function MemberWishlist() {
             open={isImportAmazonDialogOpen}
             onOpenChange={setIsImportAmazonDialogOpen}
             familyId={selectedFamilyId}
-            targetUserId={userId}
+            targetUserId={isManagedProfile ? undefined : userId}
+            targetManagedProfileId={isManagedProfile ? userId : undefined}
             targetName={primaryDisplayName}
           />
         </>
