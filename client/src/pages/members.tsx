@@ -37,6 +37,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { UserSettingsDialog } from "@/components/user-settings-dialog";
 import { GuardianManagementDialog } from "@/components/guardian-management-dialog";
 import { CrossFamilySharingDialog } from "@/components/cross-family-sharing-dialog";
+import { ChildProfileEditDialog } from "@/components/child-profile-edit-dialog";
 
 const inviteEmailSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
@@ -84,6 +85,8 @@ export default function Members() {
   const [childForGuardianManagement, setChildForGuardianManagement] = useState<any>(null);
   const [isChildSharingDialogOpen, setIsChildSharingDialogOpen] = useState(false);
   const [childForSharing, setChildForSharing] = useState<any>(null);
+  const [isChildEditDialogOpen, setIsChildEditDialogOpen] = useState(false);
+  const [childToEdit, setChildToEdit] = useState<any>(null);
   
   const selectedFamily = families?.find((f: any) => f.id === selectedFamilyId);
   const isOrganizer = selectedFamily?.createdById === (user as any)?.id;
@@ -678,6 +681,19 @@ export default function Members() {
                                 Edit Member
                               </DropdownMenuItem>
                             )}
+                            {isChildProfile && (isPrimaryGuardian || isSecondaryGuardianWithEdit) && (
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setChildToEdit(member);
+                                  setIsChildEditDialogOpen(true);
+                                }}
+                                data-testid={`button-edit-child-${memberId}`}
+                              >
+                                <Edit className="w-4 h-4 mr-2" />
+                                Edit Child
+                              </DropdownMenuItem>
+                            )}
                             {isPrimaryGuardian && (
                               <DropdownMenuItem
                                 onClick={(e) => {
@@ -967,6 +983,23 @@ export default function Members() {
           mode="managed"
           managedProfileId={childForSharing.managedProfileId}
           profileName={childForSharing.firstName || "Child"}
+        />
+      )}
+
+      {childToEdit && selectedFamilyId && (
+        <ChildProfileEditDialog
+          open={isChildEditDialogOpen}
+          onOpenChange={(open) => {
+            setIsChildEditDialogOpen(open);
+            if (!open) setChildToEdit(null);
+          }}
+          familyId={selectedFamilyId}
+          child={{
+            id: childToEdit.managedProfileId,
+            firstName: childToEdit.firstName,
+            lastName: childToEdit.lastName,
+            profileImageUrl: childToEdit.profileImageUrl,
+          }}
         />
       )}
     </div>
