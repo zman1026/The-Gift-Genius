@@ -1025,6 +1025,11 @@ export class DatabaseStorage implements IStorage {
     const conditions = [memberCondition, familyCondition];
     const whereConditions = and(...conditions);
 
+    // Check if the viewer is the wishlist owner (should NOT see purchase info)
+    const isViewerTheOwner = isUserId 
+      ? viewerId === memberId  // Regular user viewing their own list
+      : false; // Managed profile - can't be the viewer
+    
     const items = await db
       .select({
         id: wishlistItems.id,
@@ -1059,13 +1064,15 @@ export class DatabaseStorage implements IStorage {
       .from(wishlistItems)
       .leftJoin(
         itemPurchases,
-        and(
-          eq(wishlistItems.id, itemPurchases.itemId),
-          eq(itemPurchases.purchasedById, viewerId)
-        )
+        eq(wishlistItems.id, itemPurchases.itemId)
       )
       .where(whereConditions)
       .orderBy(sql`${wishlistItems.createdAt} desc`);
+    
+    // If viewer is the owner, strip out purchase info to preserve surprise
+    if (isViewerTheOwner) {
+      return items.map(item => ({ ...item, purchase: null }));
+    }
     
     return items;
   }

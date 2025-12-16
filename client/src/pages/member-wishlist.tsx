@@ -367,7 +367,7 @@ export default function MemberWishlist() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3">
+        <div className="grid grid-cols-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-2">
           {items.map((item: any) => {
             const isPurchased = !!item.purchase;
 
@@ -387,42 +387,43 @@ export default function MemberWishlist() {
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">
-                      <Gift className="w-12 h-12 text-muted-foreground" />
+                      <Gift className="w-8 h-8 text-muted-foreground" />
                     </div>
                   )}
                   {item.priority && !isPurchased && (
                     <Badge 
                       variant={item.priority === "high" ? "destructive" : item.priority === "medium" ? "default" : "secondary"} 
-                      className="absolute top-2 right-2 text-xs h-5"
+                      className="absolute top-1 right-1 text-[10px] h-4 px-1"
                       data-testid={`badge-priority-${item.id}`}
                     >
-                      {item.priority === "high" && <ArrowUp className="w-2.5 h-2.5 mr-0.5" />}
-                      {item.priority === "medium" && <Circle className="w-2.5 h-2.5 mr-0.5" />}
-                      {item.priority === "low" && <AlertCircle className="w-2.5 h-2.5 mr-0.5" />}
-                      {item.priority === "high" ? "Must-Have!" : item.priority === "medium" ? "Would Love" : "Just a Thought"}
+                      {item.priority === "high" && <ArrowUp className="w-2.5 h-2.5" />}
+                      {item.priority === "medium" && <Circle className="w-2.5 h-2.5" />}
+                      {item.priority === "low" && <AlertCircle className="w-2.5 h-2.5" />}
                     </Badge>
                   )}
                   {isPurchased && (
                     <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                      <Badge variant="secondary" className="text-xs">
-                        <CheckCircle2 className="w-3 h-3 mr-1" />
+                      <Badge variant="secondary" className="text-[10px] h-5 px-1.5">
+                        <CheckCircle2 className="w-3 h-3 mr-0.5" />
                         Purchased
                       </Badge>
                     </div>
                   )}
                 </div>
-                <CardContent className="flex flex-col p-3 gap-2">
-                  <h3 className="font-semibold text-sm text-foreground line-clamp-2">{item.name}</h3>
-                  {item.price && (
-                    <p className="text-base font-bold text-primary">${parseFloat(item.price).toFixed(2)}</p>
-                  )}
-                  {item.quantity && item.quantity !== 1 && (
-                    <Badge variant="outline" className="text-xs h-5 w-fit" data-testid={`badge-quantity-${item.id}`}>
-                      Qty: {item.quantity}
-                    </Badge>
-                  )}
+                <CardContent className="flex flex-col p-2 gap-1">
+                  <h3 className="font-semibold text-xs text-foreground line-clamp-2 leading-tight">{item.name}</h3>
+                  <div className="flex items-center gap-1 flex-wrap">
+                    {item.price && (
+                      <p className="text-sm font-bold text-primary">${parseFloat(item.price).toFixed(2)}</p>
+                    )}
+                    {item.quantity && item.quantity !== 1 && (
+                      <Badge variant="outline" className="text-[10px] h-4 px-1" data-testid={`badge-quantity-${item.id}`}>
+                        x{item.quantity}
+                      </Badge>
+                    )}
+                  </div>
                   {item.description && (
-                    <p className="text-xs text-muted-foreground line-clamp-2">{item.description}</p>
+                    <p className="text-[10px] text-muted-foreground line-clamp-1 hidden sm:block">{item.description}</p>
                   )}
                 </CardContent>
               </Card>
